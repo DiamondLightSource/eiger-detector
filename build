@@ -1,0 +1,26 @@
+# PROGRAM=eiger-daq
+# VERSION=
+TAR_FILE=none
+
+build()
+{
+    export PATH=$CMAKE_BIN:$PATH
+    
+    echo "Using cmake: " $CMAKE_PREFIX " version: " $(cmake --version)
+    echo "Using boost: " $BOOST_PREFIX
+    echo "Source code in: " $PWD/..
+    echo "Installing to:  " $TARGET_PREFIX 
+    echo "CWD: " $PWD
+    
+    cmake -DCMAKE_VERBOSE_MAKEFILE=ON \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DBOOST_ROOT=$BOOST_PREFIX \
+          -DZEROMQ_ROOTDIR=$ZEROMQ_PREFIX \
+          -DLOG4CXX_ROOT_DIR=$LOG4CXX_PREFIX \
+          -DCMAKE_INSTALL_PREFIX=$TARGET_PREFIX \
+          ..
+
+    make VERBOSE=1 && make install
+    ls -l bin
+}
+
