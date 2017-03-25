@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+    <!-- Output the log message to system console -->
+    <appender name="ApplicationConsoleAppender" class="org.apache.log4j.ConsoleAppender">
+        <param name="Target" value="System.out" />
+        <layout class="org.apache.log4j.PatternLayout">
+            <!-- <param name="ConversionPattern" value="%d{HH:mm:ss,SSS} %-14c %-5p (%F:%L) - %m%n"/> -->
+            <param name="ConversionPattern" value="%d{HH:mm:ss,SSS}  %-14c %-5p - %m%n" />
+        </layout>
+    </appender>
+
+    <appender name="FileWriterAppender" class="org.apache.log4j.FileAppender">
+        <param name="file" value="/tmp/eiger-daq.log" />
+        <param name="append" value="false" />
+        <layout class="org.apache.log4j.PatternLayout">
+            <!--<param name="ConversionPattern" value="%d{HH:mm:ss,SSS} %-16c %-5p (%F:%L) - %m%n" />-->
+            <param name="ConversionPattern" value="'timestamp\': '%d{HH:mm:ss,SSS}', 'logger': '%c', 'level': '%p', 'file': '%F:%L', 'message': '%m', 'install': '%n'" />
+        </layout>
+    </appender>
+
+    <appender name="graylog" class="org.apache.log4j.net.SyslogAppender">
+      <!--<param name="Facility" value="LOCAL1"/>-->
+      <param name="SyslogHost" value="cs04r-sc-serv-14.diamond.ac.uk:5140"/>
+      <param name="Threshold" value="INFO"/>
+      <layout class="org.apache.log4j.PatternLayout">
+        <!--<param name="ConversionPattern"  value="%d{HH:mm:ss,SSS} %-16c %-5p - %m%n"/>-->
+        <param name="ConversionPattern" value="ulrik 'timestamp\': '%d{HH:mm:ss,SSS}', 'logger': '%c', 'level': '%p', 'file': '%F:%L', 'message': '%m', 'install': '%n'" />
+      </layout>
+    </appender>
+
+    <!-- all of the loggers inherit settings from the root -->
+    <root>
+        <priority value="all" />
+        <appender-ref ref="ApplicationConsoleAppender" />
+        <!--   <appender-ref ref="syslog" /> -->
+    </root>
+
+    <!-- The file writer application logger hierachy -->
+    <logger name="ED">
+        <priority value="all" />
+        <appender-ref ref="FileWriterAppender" />
+        <appender-ref ref="graylog" />
+    </logger>
+    <logger name="ED.UnitTest"></logger>
+    <logger name="ED.APP"></logger>
+    <logger name="ED.EigerFan"></logger>
+
+</log4j:configuration>

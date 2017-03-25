@@ -18,7 +18,7 @@ using namespace log4cxx::helpers;
 
 int main(int argc, char *argv[])
 {
-    BasicConfigurator::configure();
+    //BasicConfigurator::configure();
 
     LoggerPtr log(Logger::getLogger("ED.APP"));;
     LOG4CXX_INFO(log, "Hello world! " << argv[0]);
