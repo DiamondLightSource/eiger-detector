@@ -13,17 +13,17 @@ file(GLOB APP_MAIN_SOURCE ${EIGERFAN_DIR}/src/eigerfan_main.cpp)
 list(REMOVE_ITEM APP_SOURCES ${APP_MAIN_SOURCE})
 
 # Add test and project source files to executable
-add_executable(eigerfan_test ${TEST_SOURCES} ${APP_SOURCES})
+add_executable(eigerfan-test ${TEST_SOURCES} ${APP_SOURCES})
 
 if ( ${CMAKE_SYSTEM_NAME} MATCHES Linux )
 # librt required for timing functions
 find_library(REALTIME_LIBRARY 
 		NAMES rt)
-target_link_libraries( eigerfan_test ${REALTIME_LIBRARY} )
+target_link_libraries( eigerfan-test ${REALTIME_LIBRARY} )
 endif()
 
 # Define libraries to link against
-target_link_libraries(eigerfan_test
+target_link_libraries(eigerfan-test
 		${Boost_LIBRARIES}
 		${LOG4CXX_LIBRARIES}
 		${ZEROMQ_LIBRARIES}) 
