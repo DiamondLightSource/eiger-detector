@@ -5,38 +5,36 @@
     <appender name="ApplicationConsoleAppender" class="org.apache.log4j.ConsoleAppender">
         <param name="Target" value="System.out" />
         <layout class="org.apache.log4j.PatternLayout">
-            <!-- <param name="ConversionPattern" value="%d{HH:mm:ss,SSS} %-14c %-5p (%F:%L) - %m%n"/> -->
-            <param name="ConversionPattern" value="%d{HH:mm:ss,SSS}  %-14c %-5p - %m%n" />
+            <param name="ConversionPattern" value="%F:%L:%n %d{HH:mm:ss,SSS} %-14c %-5p - %m%n"/>
+            <!-- <param name="ConversionPattern" value="%d{HH:mm:ss,SSS} %-14c %-5p - %m%n" /> -->
         </layout>
     </appender>
 
     <appender name="FileWriterAppender" class="org.apache.log4j.FileAppender">
-        <param name="file" value="/tmp/eiger-daq.log" />
+        <param name="file" value="eiger-daq.log" />
         <param name="append" value="false" />
         <layout class="org.apache.log4j.PatternLayout">
-            <!--<param name="ConversionPattern" value="%d{HH:mm:ss,SSS} %-16c %-5p (%F:%L) - %m%n" />-->
-            <param name="ConversionPattern" value="'timestamp\': '%d{HH:mm:ss,SSS}', 'logger': '%c', 'level': '%p', 'file': '%F:%L', 'message': '%m', 'install': '%n'" />
+            <param name="ConversionPattern" value="%F:%L - %d{HH:mm:ss,SSS} %-14c %-5p - %m%n" />
         </layout>
     </appender>
 
     <appender name="graylog" class="org.apache.log4j.net.SyslogAppender">
-      <!--<param name="Facility" value="LOCAL1"/>-->
-      <param name="SyslogHost" value="cs04r-sc-serv-14.diamond.ac.uk:5140"/>
-      <param name="Threshold" value="INFO"/>
-      <layout class="org.apache.log4j.PatternLayout">
-        <!--<param name="ConversionPattern"  value="%d{HH:mm:ss,SSS} %-16c %-5p - %m%n"/>-->
-        <param name="ConversionPattern" value="ulrik 'timestamp\': '%d{HH:mm:ss,SSS}', 'logger': '%c', 'level': '%p', 'file': '%F:%L', 'message': '%m', 'install': '%n'" />
-      </layout>
+        <param name="Facility" value="LOCAL1"/>
+        <param name="SyslogHost" value="cs04r-sc-serv-14.diamond.ac.uk:5566"/>
+        <param name="Threshold" value="INFO"/>
+        <layout class="org.apache.log4j.PatternLayout">
+            <!-- syslog standard RFC 5424 formatting. Unfortunately the log4cxx SyslogAppender does not do this automatically -->
+            <param name="ConversionPattern" value="1 %d{yyyy-MM-ddTHH:mm:ss.SSS} %X{host} %X{app} %X{pid} %c [dlsdaq@32121 log_level=&quot;%p&quot; thread=&quot;%X{thread}&quot; user=&quot;%X{user}&quot; file_line=&quot;%F:%L&quot;] %m%n" />
+        </layout>
     </appender>
 
-    <!-- all of the loggers inherit settings from the root -->
+    <!-- all of the loggers inherit settings from the root and print to stdout -->
     <root>
         <priority value="all" />
         <appender-ref ref="ApplicationConsoleAppender" />
-        <!--   <appender-ref ref="syslog" /> -->
     </root>
 
-    <!-- The file writer application logger hierachy -->
+    <!-- The Eiger Detector (ED) applications logger hierachy -->
     <logger name="ED">
         <priority value="all" />
         <appender-ref ref="FileWriterAppender" />
