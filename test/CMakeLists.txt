@@ -2,7 +2,7 @@
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK)
 
-include_directories(${EIGERFAN_DIR}/include ${Boost_INCLUDE_DIRS} ${LOG4CXX_INCLUDE_DIRS}/.. ${ZEROMQ_INCLUDE_DIRS})
+include_directories(${EIGERFAN_DIR}/include ${EIGERFAN_DIR}/src ${Boost_INCLUDE_DIRS} ${LOG4CXX_INCLUDE_DIRS}/.. ${ZEROMQ_INCLUDE_DIRS})
 
 # Build list of test source files from current dir
 file(GLOB TEST_SOURCES *.cpp)

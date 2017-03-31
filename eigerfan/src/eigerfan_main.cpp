@@ -4,10 +4,18 @@
  */
 
 #include <iostream>
+#include "EigerFan.h"
 
-int main(int argc, char *argv[])
-{
-    std::cout << "Hello world! " << argv[0] << std::endl;
+int main(int argc, char *argv[]) {
+
+    EigerFan eigerFan;
+
+    // TODO configure with arguments
+
+    eigerFan.SetNumberOfConsumers(3);
+
+    eigerFan.Start();
+
     return 0;
 }
 
