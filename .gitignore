@@ -1,4 +1,7 @@
 *~
 prefix/
 build_name*
+builddir/
+.idea/
+cmake-build-debug/
 

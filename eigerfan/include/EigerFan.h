@@ -1,12 +1,9 @@
-/*
- * EigerFan.h
- *
- *  Created on: 27 Mar 2017
- *      Author: vtu42223
- */
+//
+// Created by up45 on 23/03/17.
+//
 
-#ifndef EIGERFAN_SRC_EIGERFAN_H_
-#define EIGERFAN_SRC_EIGERFAN_H_
+#ifndef EIGERDAQ_EIGERFAN_H
+#define EIGERDAQ_EIGERFAN_H
 
 #define RAPIDJSON_HAS_STDSTRING 1
 
@@ -16,9 +13,6 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include <log4cxx/logger.h>
-#include <log4cxx/consoleappender.h>
-#include <log4cxx/basicconfigurator.h>
-#include <log4cxx/simplelayout.h>
 
 enum EigerFanState { WAITING_CONSUMERS,WAITING_STREAM,DSTR_HEADER,DSTR_IMAGE,DSTR_END,KILL_REQUESTED};
 
@@ -58,7 +52,7 @@ public:
 
 	EigerFan();
 	virtual ~EigerFan();
-	void Start();
+	void run();
 	std::string Stop();
 	void SetNumberOfConsumers(int number);
 	void SetFanPortNumber(std::string portNumber);
@@ -75,7 +69,7 @@ protected:
 	void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
 
 private:
-    log4cxx::LoggerPtr logger;
+	log4cxx::LoggerPtr log;
 	rapidjson::Document jsonDocument;
 	zmq::context_t ctx_;
 	zmq::socket_t sendSocket;
@@ -91,4 +85,5 @@ private:
 	EigerFanState state;
 };
 
-#endif /* EIGERFAN_SRC_EIGERFAN_H_ */
+
+#endif //EIGERDAQ_EIGERFAN_H

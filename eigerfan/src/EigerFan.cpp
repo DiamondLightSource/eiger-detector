@@ -1,9 +1,6 @@
-/*
- * EigerFan.cpp
- *
- *  Created on: 27 Mar 2017
- *      Author: vtu42223
- */
+//
+// Created by up45 on 23/03/17.
+//
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -51,11 +48,12 @@ std::string GetStateString(EigerFanState state) {
 }
 
 EigerFan::EigerFan()
-: logger(log4cxx::Logger::getLogger("EigerFan")),
-		ctx_(1),
-		sendSocket(ctx_, ZMQ_PUSH),
-		recvSocket(ctx_, ZMQ_PULL),
-		controlSocket(ctx_, ZMQ_REP) {
+: ctx_(1),
+  sendSocket(ctx_, ZMQ_PUSH),
+  recvSocket(ctx_, ZMQ_PULL),
+  controlSocket(ctx_, ZMQ_REP) {
+	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
+	LOG4CXX_INFO(log, "Creating EigerFan object");
 	fanPortNumber = DEFAULT_FAN_PORT_NUMBER;
 	controlPortNumber = DEFAULT_CONTROL_PORT_NUMBER;
 	streamAddress = DEFAULT_STREAM_ADDRESS;
@@ -68,21 +66,22 @@ EigerFan::EigerFan()
 EigerFan::~EigerFan() {
 }
 
-void EigerFan::Start() {
-	logger->info("Starting EigerFan");
+void EigerFan::run() {
+    LOG4CXX_INFO(log, "EigerFan::run()");
+	LOG4CXX_INFO(log, "Starting EigerFan");
 	int linger = 0;
 
 	// Setup Control socket
 	std::string controlAddress("tcp://*:");
 	controlAddress.append(controlPortNumber);
-	logger->info(std::string("Binding control address to").append(controlAddress));
+	LOG4CXX_INFO(log, std::string("Binding control address to").append(controlAddress));
 	controlSocket.bind (controlAddress.c_str());
 	controlSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
 	// Setup Fan Send Socket
 	std::string fanAddress("tcp://*:");
 	fanAddress.append(fanPortNumber);
-	logger->info(std::string("Binding fan send address to").append(fanAddress));
+	LOG4CXX_INFO(log, std::string("Binding fan send address to").append(fanAddress));
 	sendSocket.bind(fanAddress.c_str());
 	sendSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
@@ -92,7 +91,7 @@ void EigerFan::Start() {
 	if (rc < 0) {
 		std::ostringstream oss;
 		oss << "Error setting up monitor. 0MQ Error number: " << zmq_errno();
-		logger->error(oss.str());
+		LOG4CXX_ERROR(log, oss.str());
 		return;
 	}
 	zmq::socket_t monitorSocket(ctx_, ZMQ_PAIR);
@@ -100,7 +99,7 @@ void EigerFan::Start() {
 	monitorSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
 	// Wait for configured number of consumers to connect
-	logger->info("Waiting for Consumers");
+	LOG4CXX_INFO(log, "Waiting for Consumers");
 
 	//  Initialise pre-run poll set
 	zmq::pollitem_t preRunPollItems [] = {
@@ -124,17 +123,17 @@ void EigerFan::Start() {
 	}
 
 	if (killRequested) {
-		logger->warn("Kill was requested before all consumers had joined");
+		LOG4CXX_WARN(log, "Kill was requested before all consumers had joined");
 		return;
 	}
 
-	logger->info("All expected consumers connected. Connecting to Eiger Stream");
+	LOG4CXX_INFO(log, "All expected consumers connected. Connecting to Eiger Stream");
 
 	std::string streamConnectionAddress("tcp://");
 	streamConnectionAddress.append(streamAddress);
 	streamConnectionAddress.append(":");
 	streamConnectionAddress.append(STREAM_PORT_NUMBER);
-	logger->info(std::string("Connecting to stream address at ").append(streamConnectionAddress));
+	LOG4CXX_INFO(log, std::string("Connecting to stream address at ").append(streamConnectionAddress));
 	recvSocket.connect(streamConnectionAddress.c_str());
 	recvSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
@@ -174,7 +173,7 @@ void EigerFan::Start() {
 			HandleStreamMessage(message, recvSocket);
 		}
 	}
-	logger->info("Shutting down EigerFan sockets");
+	LOG4CXX_INFO(log, "Shutting down EigerFan sockets");
 	monitorSocket.close();
 	sendSocket.close();
 	recvSocket.close();
@@ -195,7 +194,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 	// Interpret the message as a JSON string
 	jsonDocument.Parse(smessage.c_str());
 	if (jsonDocument.HasParseError()) {
-		logger->error("Error parsing stream message into json");
+		LOG4CXX_ERROR(log, "Error parsing stream message into json");
 	} else {
 		rapidjson::Value& headerTypeValue = jsonDocument[HEADER_TYPE_KEY];
 		std::string htype(headerTypeValue.GetString());
@@ -206,7 +205,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 		} else if (htype.compare(END_HEADER_TYPE) == 0) {
 			HandleEndOfSeriesMessage(message, socket);
 		} else {
-			logger->error(std::string("Unknown header type").append(htype));
+			LOG4CXX_ERROR(log, std::string("Unknown header type").append(htype));
 		}
 	}
 
@@ -215,7 +214,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 	while (more == MORE_MESSAGES) {
 		zmq::message_t messagePartExtra;
 		socket.recv(&messagePartExtra);
-		logger->error("Unexpected unhandled message in stream");
+		LOG4CXX_ERROR(log, "Unexpected unhandled message in stream");
 		return;
 	}
 }
@@ -224,11 +223,11 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 	std::vector<zmq::message_t*> messageList;
 
 	std::string part1json(static_cast<char*>(messagePart1.data()), messagePart1.size());
-	logger->info(std::string("Received Global Header message: ").append(part1json));
+	LOG4CXX_INFO(log, std::string("Received Global Header message: ").append(part1json));
 
 	jsonDocument.Parse(part1json.c_str());
 	if (jsonDocument.HasParseError()) {
-		logger->error("Error parsing Global Header message into json");
+		LOG4CXX_ERROR(log, "Error parsing Global Header message into json");
 	} else {
 		rapidjson::Value& headerDetailValue = jsonDocument[HEADER_DETAIL_KEY];
 		std::string headerDetail(headerDetailValue.GetString());
@@ -236,7 +235,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 		if (headerDetail.compare(HEADER_DETAIL_NONE) == 0) {
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more == MORE_MESSAGES) {
-				logger->debug("Header has appendix");
+				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
 				messageList.push_back(&messagePart1);
@@ -249,7 +248,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 		} else if (headerDetail.compare(HEADER_DETAIL_BASIC) == 0) {
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
-				logger->error("Header only contained 1 part but expected 2 for 'basic' detail");
+				LOG4CXX_ERROR(log, "Header only contained 1 part but expected 2 for 'basic' detail");
 				return; // TODO is it right to return in this case?
 			}
 
@@ -258,7 +257,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more == MORE_MESSAGES) {
-				logger->debug("Header has appendix");
+				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
 				messageList.push_back(&messagePart1);
@@ -274,7 +273,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 		} else if (headerDetail.compare(HEADER_DETAIL_ALL) == 0) {
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
-				logger->error("Header only contained 1 part but expected 8 for 'all' detail");
+				LOG4CXX_ERROR(log, "Header only contained 1 part but expected 8 for 'all' detail");
 				return; // TODO is it right to return in this case?
 			}
 
@@ -284,7 +283,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
-				logger->error("Header only contained 2 part but expected 8 for 'all' detail");
+				LOG4CXX_ERROR(log, "Header only contained 2 part but expected 8 for 'all' detail");
 				return; // TODO is it right to return in this case?
 			}
 
@@ -294,7 +293,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
-				logger->error("Header only contained 3 part but expected 8 for 'all' detail");
+				LOG4CXX_ERROR(log, "Header only contained 3 part but expected 8 for 'all' detail");
 				return; // TODO is it right to return in this case?
 			}
 
@@ -304,7 +303,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
-				logger->error("Header only contained 4 part but expected 8 for 'all' detail");
+				LOG4CXX_ERROR(log, "Header only contained 4 part but expected 8 for 'all' detail");
 				return; // TODO is it right to return in this case?
 			}
 
@@ -314,7 +313,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
-				logger->error("Header only contained 5 part but expected 8 for 'all' detail");
+				LOG4CXX_ERROR(log, "Header only contained 5 part but expected 8 for 'all' detail");
 				return; // TODO is it right to return in this case?
 			}
 
@@ -324,7 +323,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
-				logger->error("Header only contained 6 part but expected 8 for 'all' detail");
+				LOG4CXX_ERROR(log, "Header only contained 6 part but expected 8 for 'all' detail");
 				return; // TODO is it right to return in this case?
 			}
 
@@ -334,7 +333,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
-				logger->error("Header only contained 7 part but expected 8 for 'all' detail");
+				LOG4CXX_ERROR(log, "Header only contained 7 part but expected 8 for 'all' detail");
 				return; // TODO is it right to return in this case?
 			}
 
@@ -344,7 +343,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more == MORE_MESSAGES) {
-				logger->debug("Header has appendix");
+				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
 				messageList.push_back(&messagePart1);
@@ -370,23 +369,23 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			}
 		}
 		else {
-			logger->error("Unexpected header detail type");
+			LOG4CXX_ERROR(log, "Unexpected header detail type");
 		}
 	}
 
 	if (state != WAITING_STREAM) {
-		logger->warn(std::string("Received Global Header message in unexpected state: ").append(GetStateString(state)));
+		LOG4CXX_WARN(log, std::string("Received Global Header message in unexpected state: ").append(GetStateString(state)));
 	}
 	state = DSTR_HEADER;
-	logger->debug("Finished Handling Header Message");
+	LOG4CXX_DEBUG(log, "Finished Handling Header Message");
 }
 
 void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_t &socket) {
-	logger->debug("Handling Image Data Message");
+	LOG4CXX_DEBUG(log, "Handling Image Data Message");
 
 	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	if (more != MORE_MESSAGES) {
-		logger->error("Image Data only contained 1 part");
+		LOG4CXX_ERROR(log, "Image Data only contained 1 part");
 		return;
 	}
 
@@ -396,7 +395,7 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 
 	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	if (more != MORE_MESSAGES) {
-		logger->error("Image Data only contained 2 parts");
+		LOG4CXX_ERROR(log, "Image Data only contained 2 parts");
 		return;
 	}
 
@@ -406,7 +405,7 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 
 	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	if (more != MORE_MESSAGES) {
-		logger->error("Image Data only contained 3 parts");
+		LOG4CXX_ERROR(log, "Image Data only contained 3 parts");
 		return;
 	}
 
@@ -417,7 +416,7 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 	// Handle appendix
 	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	if (more == MORE_MESSAGES) {
-		logger->debug("Image has appendix");
+		LOG4CXX_DEBUG(log, "Image has appendix");
 		zmq::message_t messageAppendix;
 		socket.recv(&messageAppendix);
 
@@ -436,24 +435,24 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 	}
 
 	if (state != DSTR_IMAGE && state != DSTR_HEADER) {
-		logger->warn(std::string("Received Image Data message in unexpected state: ").append(GetStateString(state))); // TODO debug instead of warn?
+		LOG4CXX_WARN(log, std::string("Received Image Data message in unexpected state: ").append(GetStateString(state))); // TODO debug instead of warn?
 	}
 	state = DSTR_IMAGE;
-	logger->debug("Finished Handling Image Data Message");
+	LOG4CXX_DEBUG(log, "Finished Handling Image Data Message");
 }
 
 void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, zmq::socket_t &socket) {
-	logger->info("Handling EndOfSeries Message");
+	LOG4CXX_INFO(log, "Handling EndOfSeries Message");
 	SendMessageToAllConsumers(message);
 	if (state != DSTR_IMAGE) {
-		logger->warn(std::string("Received EndOfSeries message in unexpected state: ").append(GetStateString(state)));
+		LOG4CXX_WARN(log, std::string("Received EndOfSeries message in unexpected state: ").append(GetStateString(state)));
 	}
 	state = DSTR_END;
-	logger->debug("Finished Handling EndOfSeries Message");
+	LOG4CXX_DEBUG(log, "Finished Handling EndOfSeries Message");
 }
 
 void EigerFan::HandleMonitorMessage(zmq::message_t &message, zmq::socket_t &socket) {
-	logger->debug("Handling Monitor Message");
+	LOG4CXX_DEBUG(log, "Handling Monitor Message");
 
 	// Get the event code from the message, which is a number contained in the first 16 bits
 	uint16_t event = *(uint16_t *) (message.data());
@@ -461,12 +460,12 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, zmq::socket_t &sock
 	if (event == ZMQ_EVENT_ACCEPTED) {
 		numConnectedConsumers++;
 		if (WAITING_CONSUMERS != state) {
-			logger->error(std::string("Consumer connected whilst in state: ").append(GetStateString(state)));
+			LOG4CXX_ERROR(log, std::string("Consumer connected whilst in state: ").append(GetStateString(state)));
 		}
 	} else if (event == ZMQ_EVENT_DISCONNECTED) {
 		numConnectedConsumers--;
 		if (WAITING_CONSUMERS != state) {
-			logger->error(std::string("Consumer disconnected whilst in state: ").append(GetStateString(state)));
+			LOG4CXX_ERROR(log, std::string("Consumer disconnected whilst in state: ").append(GetStateString(state)));
 		}
 	}
 
@@ -475,15 +474,15 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, zmq::socket_t &sock
 	while (more == MORE_MESSAGES) {
 		zmq::message_t messagePartExtra;
 		socket.recv(&messagePartExtra);
-		logger->error("Monitor contained more parts than expected");
+		LOG4CXX_ERROR(log, "Monitor contained more parts than expected");
 	}
-	logger->debug("Finished Handling Monitor Message");
+	LOG4CXX_DEBUG(log, "Finished Handling Monitor Message");
 }
 
 void EigerFan::HandleControlMessage(zmq::message_t &message) {
 
 	std::string command(static_cast<char*>(message.data()), message.size());
-	logger->info(std::string("Handling Control Message: ").append(command));
+	LOG4CXX_INFO(log, std::string("Handling Control Message: ").append(command));
 
 	if (command.compare(CONTROL_KILL) == 0) {
 		std::string replyString = Stop();
@@ -522,16 +521,16 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 	while (more == MORE_MESSAGES) {
 		zmq::message_t messagePartExtra;
 		controlSocket.recv(&messagePartExtra);
-		logger->error("Control contained more parts than expected");
+		LOG4CXX_ERROR(log, "Control contained more parts than expected");
 	}
 
-	logger->debug("Finished Handling Control Message");
+	LOG4CXX_DEBUG(log, "Finished Handling Control Message");
 }
 
 void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
 	std::ostringstream oss;
 	oss << "Sending message to all consumers. Number of consumers = " << numConnectedConsumers;
-	logger->debug(oss.str());
+	LOG4CXX_DEBUG(log, oss.str());
 	// Make as many copies as necessary (number to send minus 1) and send them
 	for (int i = 0; i < numConnectedConsumers-1; i++) {
 		zmq::message_t messageCopy;
@@ -541,13 +540,13 @@ void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
 	// Send the actual message for the last one
 	sendSocket.send(message, flags);
 
-	logger->debug("Finished Sending message to all consumers");
+	LOG4CXX_DEBUG(log, "Finished Sending message to all consumers");
 }
 
 void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageList) {
 	std::ostringstream oss;
 	oss << "Sending multiple messages to all consumers. Number of consumers = " << numConnectedConsumers;
-	logger->debug(oss.str());
+	LOG4CXX_DEBUG(log, oss.str());
 	int messageListSize = messageList.size();
 	// Make as many copies as necessary (number to send minus 1) and send them
 	for (int consumerCount = 0; consumerCount < numConnectedConsumers-1; consumerCount++) {
@@ -573,35 +572,33 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
 	}
 
 	messageList.clear();
-	logger->debug("Finished Sending multiple messages to all consumers");
+	LOG4CXX_DEBUG(log, "Finished Sending multiple messages to all consumers");
 }
 
 void EigerFan::SetNumberOfConsumers(int number) {
 	numExpectedConsumers = number;
 	std::ostringstream oss;
 	oss << "Set number of expected Consumers to " << numExpectedConsumers;
-	logger->debug(oss.str());
+	LOG4CXX_DEBUG(log, oss.str());
 }
 
 void EigerFan::SetFanPortNumber(std::string portNumber) {
 	fanPortNumber = portNumber;
 	std::ostringstream oss;
 	oss << "Set fan port number to " << fanPortNumber;
-	logger->debug(oss.str());
+	LOG4CXX_DEBUG(log, oss.str());
 }
 
 void EigerFan::SetControlPortNumber(std::string portNumber) {
 	controlPortNumber = portNumber;
 	std::ostringstream oss;
 	oss << "Set control port number to " << controlPortNumber;
-	logger->debug(oss.str());
+	LOG4CXX_DEBUG(log, oss.str());
 }
 
 void EigerFan::SetStreamAddress(std::string address) {
 	streamAddress = address;
 	std::ostringstream oss;
 	oss << "Set stream address to " << streamAddress;
-	logger->debug(oss.str());
+	LOG4CXX_DEBUG(log, oss.str());
 }
-
-

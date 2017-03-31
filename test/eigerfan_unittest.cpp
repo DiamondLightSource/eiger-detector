@@ -2,7 +2,7 @@
  * eigerfan_unittest.cpp
  *
  */
-#define BOOST_TEST_MODULE "EigerFanUnitTests"
+#define BOOST_TEST_MODULE "EigerFanUnitTest"
 #define BOOST_TEST_MAIN
 
 #include <iostream>
@@ -17,14 +17,24 @@
 #include "zmq/zmq.hpp"
 #include "EigerFan.h"
 
+#include <EigerFan.h>
+
+struct GlobalConfig	{
+    GlobalConfig() { 
+        log4cxx::BasicConfigurator::configure(); 
+        BOOST_TEST_MESSAGE("Global config"); 
+    }
+    ~GlobalConfig(){}
+};
+BOOST_GLOBAL_FIXTURE(GlobalConfig);
 
 class EigerFanTestFixture
 {
 public:
     EigerFanTestFixture() :
-        logger(log4cxx::Logger::getLogger("EigerFanUnitTest"))
+        logger(log4cxx::Logger::getLogger("ED.UnitTest"))
     {
-
+        EigerFan eiger_fan;
     }
     log4cxx::LoggerPtr logger;
 
@@ -33,7 +43,7 @@ public:
 BOOST_FIXTURE_TEST_SUITE(EigerFanUnitTest, EigerFanTestFixture);
 
 void startEigerFan(EigerFan &eigerFan) {
-	eigerFan.Start();
+	eigerFan.run();
 }
 
 void shutdownEigerFan() {
@@ -57,8 +67,10 @@ void shutdownEigerFan() {
 BOOST_AUTO_TEST_CASE( EigerFanTest )
 {
     BOOST_TEST_MESSAGE("Hello unittest world");
+    LOG4CXX_INFO(logger, "Unittest with logging.");
 
     BOOST_CHECK_EQUAL(1, 1);
+    BOOST_CHECK_EQUAL(1, 2);
 }
 
 BOOST_AUTO_TEST_CASE( EigerFanTestCheckKill )
