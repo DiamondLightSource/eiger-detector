@@ -21,7 +21,7 @@ Build out of source dir using cmake:
           -DCMAKE_BUILD_TYPE=Debug \
           -DBOOST_ROOT=/dls_sw/prod/tools/RHEL6-x86_64/boost/1-48-0/prefix \
           -DZEROMQ_ROOTDIR=/dls_sw/prod/tools/RHEL6-x86_64/zeromq/3-2-4/prefix \
-          -DLOG4CXX_ROOT_DIR=/dls_sw/prod/tools/RHEL6-x86_64/log4cxx/0-10-0/prefix \
+          -DLOG4CXX_ROOT_DIR=/dls_sw/prod/tools/RHEL6-x86_64/log4cxx/0-10-0dls1/prefix \
           ..
 
     make VERBOSE=1
