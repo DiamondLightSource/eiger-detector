@@ -1,6 +1,6 @@
 TOOLS_SUPPORT=/dls_sw/prod/tools/RHEL6-x86_64
 CMAKE = $(TOOLS_SUPPORT)/cmake/3-3-0
-LOG4CXX = $(TOOLS_SUPPORT)/log4cxx/0-10-0
+LOG4CXX = $(TOOLS_SUPPORT)/log4cxx/0-10-0dls1
 ZEROMQ = $(TOOLS_SUPPORT)/zeromq/3-2-4
 BOOST = $(TOOLS_SUPPORT)/boost/1-48-0
 
