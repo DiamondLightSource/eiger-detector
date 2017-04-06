@@ -16,6 +16,7 @@ const std::string EigerFan::DEFAULT_STREAM_ADDRESS = "localhost";
 
 const char* EigerFan::HEADER_TYPE_KEY = "htype";
 const char* EigerFan::HEADER_DETAIL_KEY = "header_detail";
+const char* EigerFan::SERIES_KEY = "series";
 
 const std::string EigerFan::GLOBAL_HEADER_TYPE = "dheader-1.0";
 const std::string EigerFan::IMAGE_HEADER_TYPE = "dimage-1.0";
@@ -30,6 +31,8 @@ const int EigerFan::MORE_MESSAGES = 1;
 const std::string EigerFan::CONTROL_KILL = "KILL";
 const std::string EigerFan::CONTROL_STATUS = "STATUS";
 const std::string EigerFan::CONTROL_CLOSE = "CLOSE";
+
+const std::string EigerFan::END_STREAM_MESSAGE = "{\"htype\": \"dseries_end-1.0\", \"series\": 1}";
 
 // Utility variables
 int more;
@@ -61,6 +64,7 @@ EigerFan::EigerFan()
 	numConnectedConsumers = 0;
 	killRequested = false;
 	state = WAITING_CONSUMERS;
+	currentSeries = 0;
 }
 
 EigerFan::~EigerFan() {
@@ -82,6 +86,8 @@ void EigerFan::run() {
 	std::string fanAddress("tcp://*:");
 	fanAddress.append(fanPortNumber);
 	LOG4CXX_INFO(log, std::string("Binding fan send address to").append(fanAddress));
+	int sndHwmSet = 0;
+	sendSocket.setsockopt (ZMQ_SNDHWM, &sndHwmSet, sizeof (sndHwmSet));
 	sendSocket.bind(fanAddress.c_str());
 	sendSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
@@ -123,11 +129,17 @@ void EigerFan::run() {
 	}
 
 	if (killRequested) {
-		LOG4CXX_WARN(log, "Kill was requested before all consumers had joined");
+		LOG4CXX_INFO(log, "Kill was requested before all consumers had joined");
+		monitorSocket.close();
+		sendSocket.close();
+		controlSocket.close();
 		return;
 	}
 
-	LOG4CXX_INFO(log, "All expected consumers connected. Connecting to Eiger Stream");
+	std::ostringstream oss;
+	oss << "All " << numConnectedConsumers << " expected consumers connected. Connecting to Eiger Stream";
+
+	LOG4CXX_INFO(log, oss.str());
 
 	std::string streamConnectionAddress("tcp://");
 	streamConnectionAddress.append(streamAddress);
@@ -156,7 +168,7 @@ void EigerFan::run() {
 			controlSocket.recv(&message);
 			HandleControlMessage(message);
 			if (killRequested) {
-			//	break;
+				break;
 			}
 		}
 
@@ -204,8 +216,9 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 			HandleImageDataMessage(message, socket);
 		} else if (htype.compare(END_HEADER_TYPE) == 0) {
 			HandleEndOfSeriesMessage(message, socket);
+			state = WAITING_STREAM;
 		} else {
-			LOG4CXX_ERROR(log, std::string("Unknown header type").append(htype));
+			LOG4CXX_ERROR(log, std::string("Unknown header type ").append(htype));
 		}
 	}
 
@@ -229,6 +242,9 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 	if (jsonDocument.HasParseError()) {
 		LOG4CXX_ERROR(log, "Error parsing Global Header message into json");
 	} else {
+		rapidjson::Value& seriesValue = jsonDocument[SERIES_KEY];
+		currentSeries = seriesValue.GetInt();
+
 		rapidjson::Value& headerDetailValue = jsonDocument[HEADER_DETAIL_KEY];
 		std::string headerDetail(headerDetailValue.GetString());
 
@@ -421,17 +437,35 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 		socket.recv(&messageAppendix);
 
 		// Send the data on to a consumer
-		sendSocket.send(messagePart1, ZMQ_SNDMORE);
-		sendSocket.send(messagePart2, ZMQ_SNDMORE);
-		sendSocket.send(messagePart3, ZMQ_SNDMORE);
-		sendSocket.send(messagePart4, ZMQ_SNDMORE);
-		sendSocket.send(messageAppendix);
+		if (sendSocket.send(messagePart1, ZMQ_SNDMORE) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+		if (sendSocket.send(messagePart2, ZMQ_SNDMORE) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+		if (sendSocket.send(messagePart3, ZMQ_SNDMORE) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+		if (sendSocket.send(messagePart4, ZMQ_SNDMORE) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+		if (sendSocket.send(messageAppendix) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
 	} else {
 		// Send the data on to a consumer
-		sendSocket.send(messagePart1, ZMQ_SNDMORE);
-		sendSocket.send(messagePart2, ZMQ_SNDMORE);
-		sendSocket.send(messagePart3, ZMQ_SNDMORE);
-		sendSocket.send(messagePart4);
+		if (sendSocket.send(messagePart1, ZMQ_SNDMORE) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+		if (sendSocket.send(messagePart2, ZMQ_SNDMORE) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+		if (sendSocket.send(messagePart3, ZMQ_SNDMORE) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+		if (sendSocket.send(messagePart4) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
 	}
 
 	if (state != DSTR_IMAGE && state != DSTR_HEADER) {
@@ -513,7 +547,14 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 		memcpy (reply.data (), status.c_str(), status.size());
 		controlSocket.send (reply);
 	} else if (command.compare(CONTROL_CLOSE) == 0) {
-		// TODO
+		// Close gracefully - if currently acquiring data, send end of stream message and terminate
+		if (state == DSTR_HEADER || state == DSTR_IMAGE) {
+			SendFabricatedEndMessage();
+		}
+		std::string replyString = Stop();
+		zmq::message_t reply (replyString.size());
+		memcpy (reply.data (), replyString.c_str(), replyString.size());
+		controlSocket.send (reply);
 	}
 
 	// Handle any message parts at the end
@@ -535,10 +576,14 @@ void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
 	for (int i = 0; i < numConnectedConsumers-1; i++) {
 		zmq::message_t messageCopy;
 		messageCopy.copy(&message);
-		sendSocket.send(messageCopy, flags);
+		if (sendSocket.send(messageCopy, flags) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
 	}
 	// Send the actual message for the last one
-	sendSocket.send(message, flags);
+	if (sendSocket.send(message, flags) == false) {
+		LOG4CXX_ERROR(log, "Send socket returned false");
+	}
 
 	LOG4CXX_DEBUG(log, "Finished Sending message to all consumers");
 }
@@ -555,9 +600,13 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
 			zmq::message_t messageCopy;
 			messageCopy.copy(messageList[messageCount]);
 			if (messageCount != messageListSize - 1) {
-				sendSocket.send(messageCopy, ZMQ_SNDMORE);
+				if (sendSocket.send(messageCopy, ZMQ_SNDMORE) == false) {
+					LOG4CXX_ERROR(log, "Send socket returned false");
+				}
 			} else {
-				sendSocket.send(messageCopy);
+				if (sendSocket.send(messageCopy) == false) {
+					LOG4CXX_ERROR(log, "Send socket returned false");
+				}
 			}
 		}
 	}
@@ -565,9 +614,13 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
 	for (int messageCount = 0; messageCount < messageListSize; messageCount++)
 	{
 		if (messageCount != messageListSize - 1) {
-			sendSocket.send(*messageList[messageCount], ZMQ_SNDMORE);
+			if (sendSocket.send(*messageList[messageCount], ZMQ_SNDMORE) == false) {
+				LOG4CXX_ERROR(log, "Send socket returned false");
+			}
 		} else {
-			sendSocket.send(*messageList[messageCount]);
+			if (sendSocket.send(*messageList[messageCount]) == false) {
+				LOG4CXX_ERROR(log, "Send socket returned false");
+			}
 		}
 	}
 
@@ -601,4 +654,26 @@ void EigerFan::SetStreamAddress(std::string address) {
 	std::ostringstream oss;
 	oss << "Set stream address to " << streamAddress;
 	LOG4CXX_DEBUG(log, oss.str());
+}
+
+void EigerFan::SendFabricatedEndMessage() {
+	LOG4CXX_INFO(log, "Sending Fabricated EndOfSeries Message");
+
+	rapidjson::Document documentEoS;
+	documentEoS.Parse(END_STREAM_MESSAGE.c_str());
+
+	rapidjson::Value& series = documentEoS[SERIES_KEY];
+	series.SetInt(currentSeries);
+
+	rapidjson::StringBuffer buffer1;
+	rapidjson::Writer<rapidjson::StringBuffer> writer1(buffer1);
+	documentEoS.Accept(writer1);
+
+	std::string eosMessage = buffer1.GetString();
+
+	zmq::message_t message(eosMessage.size());
+	memcpy (message.data (), eosMessage.c_str(), eosMessage.size());
+	SendMessageToAllConsumers(message);
+	state = DSTR_END;
+	LOG4CXX_DEBUG(log, "Finished Sending Fabricated EndOfSeries Message");
 }

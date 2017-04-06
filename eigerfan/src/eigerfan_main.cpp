@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     //BasicConfigurator::configure();
 
     LoggerPtr log(Logger::getLogger("ED.APP"));
-    LOG4CXX_INFO(log, "Hello world! " << argv[0]);
+    LOG4CXX_INFO(log, "Starting EigerFan application...");
 
     EigerFan eiger_fan;
 

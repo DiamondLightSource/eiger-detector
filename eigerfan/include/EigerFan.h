@@ -34,6 +34,7 @@ public:
 
 	static const char* HEADER_TYPE_KEY;
 	static const char* HEADER_DETAIL_KEY;
+	static const char* SERIES_KEY;
 
 	static const std::string GLOBAL_HEADER_TYPE;
 	static const std::string IMAGE_HEADER_TYPE;
@@ -49,6 +50,7 @@ public:
 	static const std::string CONTROL_STATUS;
 	static const std::string CONTROL_CLOSE;
 
+	static const std::string END_STREAM_MESSAGE;
 
 	EigerFan();
 	virtual ~EigerFan();
@@ -67,6 +69,7 @@ protected:
 	void HandleControlMessage(zmq::message_t &message);
 	void SendMessageToAllConsumers(zmq::message_t &message, int flags = 0);
 	void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
+	void SendFabricatedEndMessage();
 
 private:
 	log4cxx::LoggerPtr log;
@@ -83,6 +86,7 @@ private:
 	int numConnectedConsumers;
 	bool killRequested;
 	EigerFanState state;
+	int currentSeries;
 };
 
 
