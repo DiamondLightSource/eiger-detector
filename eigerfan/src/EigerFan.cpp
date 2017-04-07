@@ -6,37 +6,11 @@
 #include <sstream>
 #include "EigerFan.h"
 
-// Constants
-const std::string EigerFan::STREAM_PORT_NUMBER = "9999";
-
-const int EigerFan::DEFAULT_NUM_CONSUMERS = 1;
-const std::string EigerFan::DEFAULT_FAN_PORT_NUMBER = "5557";
-const std::string EigerFan::DEFAULT_CONTROL_PORT_NUMBER = "5559";
-const std::string EigerFan::DEFAULT_STREAM_ADDRESS = "localhost";
-
-const char* EigerFan::HEADER_TYPE_KEY = "htype";
-const char* EigerFan::HEADER_DETAIL_KEY = "header_detail";
-const char* EigerFan::SERIES_KEY = "series";
-
-const std::string EigerFan::GLOBAL_HEADER_TYPE = "dheader-1.0";
-const std::string EigerFan::IMAGE_HEADER_TYPE = "dimage-1.0";
-const std::string EigerFan::END_HEADER_TYPE = "dseries_end-1.0";
-
-const std::string EigerFan::HEADER_DETAIL_ALL = "all";
-const std::string EigerFan::HEADER_DETAIL_BASIC = "basic";
-const std::string EigerFan::HEADER_DETAIL_NONE = "none";
-
-const int EigerFan::MORE_MESSAGES = 1;
-
-const std::string EigerFan::CONTROL_KILL = "KILL";
-const std::string EigerFan::CONTROL_STATUS = "STATUS";
-const std::string EigerFan::CONTROL_CLOSE = "CLOSE";
-
-const std::string EigerFan::END_STREAM_MESSAGE = "{\"htype\": \"dseries_end-1.0\", \"series\": 1}";
-
 // Utility variables
 int more;
 size_t more_size = sizeof (more);
+
+using namespace Eiger;
 
 std::string GetStateString(EigerFanState state) {
 	switch(state) {
@@ -51,16 +25,26 @@ std::string GetStateString(EigerFanState state) {
 }
 
 EigerFan::EigerFan()
-: ctx_(1),
+: ctx_(EigerFanDefaults::DEFAULT_NUM_THREADS),
   sendSocket(ctx_, ZMQ_PUSH),
   recvSocket(ctx_, ZMQ_PULL),
   controlSocket(ctx_, ZMQ_REP) {
 	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
-	LOG4CXX_INFO(log, "Creating EigerFan object");
-	fanPortNumber = DEFAULT_FAN_PORT_NUMBER;
-	controlPortNumber = DEFAULT_CONTROL_PORT_NUMBER;
-	streamAddress = DEFAULT_STREAM_ADDRESS;
-	numExpectedConsumers = DEFAULT_NUM_CONSUMERS;
+	LOG4CXX_INFO(log, "Creating EigerFan object from default options");
+	numConnectedConsumers = 0;
+	killRequested = false;
+	state = WAITING_CONSUMERS;
+	currentSeries = 0;
+}
+
+EigerFan::EigerFan(EigerFanConfig config_)
+: ctx_(config_.num_zmq_threads),
+  sendSocket(ctx_, ZMQ_PUSH),
+  recvSocket(ctx_, ZMQ_PULL),
+  controlSocket(ctx_, ZMQ_REP) {
+	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
+	config = config_;
+	LOG4CXX_INFO(log, "Creating EigerFan object from config options");
 	numConnectedConsumers = 0;
 	killRequested = false;
 	state = WAITING_CONSUMERS;
@@ -77,15 +61,15 @@ void EigerFan::run() {
 
 	// Setup Control socket
 	std::string controlAddress("tcp://*:");
-	controlAddress.append(controlPortNumber);
-	LOG4CXX_INFO(log, std::string("Binding control address to").append(controlAddress));
+	controlAddress.append(config.ctrl_channel_port);
+	LOG4CXX_INFO(log, std::string("Binding control address to ").append(controlAddress));
 	controlSocket.bind (controlAddress.c_str());
 	controlSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
 	// Setup Fan Send Socket
 	std::string fanAddress("tcp://*:");
-	fanAddress.append(fanPortNumber);
-	LOG4CXX_INFO(log, std::string("Binding fan send address to").append(fanAddress));
+	fanAddress.append(config.fan_channel_port);
+	LOG4CXX_INFO(log, std::string("Binding fan send address to ").append(fanAddress));
 	int sndHwmSet = 0;
 	sendSocket.setsockopt (ZMQ_SNDHWM, &sndHwmSet, sizeof (sndHwmSet));
 	sendSocket.bind(fanAddress.c_str());
@@ -95,9 +79,7 @@ void EigerFan::run() {
 	void *sendSocketPtr = sendSocket;
 	int rc = zmq_socket_monitor(sendSocketPtr, "inproc://monitor-sender", ZMQ_EVENT_ACCEPTED | ZMQ_EVENT_DISCONNECTED);
 	if (rc < 0) {
-		std::ostringstream oss;
-		oss << "Error setting up monitor. 0MQ Error number: " << zmq_errno();
-		LOG4CXX_ERROR(log, oss.str());
+		LOG4CXX_ERROR(log, "Error setting up monitor. 0MQ Error number: " << zmq_errno());
 		return;
 	}
 	zmq::socket_t monitorSocket(ctx_, ZMQ_PAIR);
@@ -113,7 +95,7 @@ void EigerFan::run() {
 		{ monitorSocket, 0, ZMQ_POLLIN, 0 }
 	};
 
-	while (numConnectedConsumers < numExpectedConsumers && killRequested != true) {
+	while (numConnectedConsumers < config.num_consumers && killRequested != true) {
 		zmq::message_t pollMessage;
 		zmq::poll (&preRunPollItems [0], 2, -1);
 
@@ -142,7 +124,7 @@ void EigerFan::run() {
 	LOG4CXX_INFO(log, oss.str());
 
 	std::string streamConnectionAddress("tcp://");
-	streamConnectionAddress.append(streamAddress);
+	streamConnectionAddress.append(config.eiger_channel_address);
 	streamConnectionAddress.append(":");
 	streamConnectionAddress.append(STREAM_PORT_NUMBER);
 	LOG4CXX_INFO(log, std::string("Connecting to stream address at ").append(streamConnectionAddress));
@@ -208,7 +190,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 	if (jsonDocument.HasParseError()) {
 		LOG4CXX_ERROR(log, "Error parsing stream message into json");
 	} else {
-		rapidjson::Value& headerTypeValue = jsonDocument[HEADER_TYPE_KEY];
+		rapidjson::Value& headerTypeValue = jsonDocument[HEADER_TYPE_KEY.c_str()];
 		std::string htype(headerTypeValue.GetString());
 		if (htype.compare(GLOBAL_HEADER_TYPE) == 0) {
 			HandleGlobalHeaderMessage(message, socket);
@@ -242,10 +224,10 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 	if (jsonDocument.HasParseError()) {
 		LOG4CXX_ERROR(log, "Error parsing Global Header message into json");
 	} else {
-		rapidjson::Value& seriesValue = jsonDocument[SERIES_KEY];
+		rapidjson::Value& seriesValue = jsonDocument[SERIES_KEY.c_str()];
 		currentSeries = seriesValue.GetInt();
 
-		rapidjson::Value& headerDetailValue = jsonDocument[HEADER_DETAIL_KEY];
+		rapidjson::Value& headerDetailValue = jsonDocument[HEADER_DETAIL_KEY.c_str()];
 		std::string headerDetail(headerDetailValue.GetString());
 
 		if (headerDetail.compare(HEADER_DETAIL_NONE) == 0) {
@@ -495,11 +477,15 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, zmq::socket_t &sock
 		numConnectedConsumers++;
 		if (WAITING_CONSUMERS != state) {
 			LOG4CXX_ERROR(log, std::string("Consumer connected whilst in state: ").append(GetStateString(state)));
+		} else {
+			LOG4CXX_INFO(log, "Consumer connected");
 		}
 	} else if (event == ZMQ_EVENT_DISCONNECTED) {
 		numConnectedConsumers--;
 		if (WAITING_CONSUMERS != state) {
 			LOG4CXX_ERROR(log, std::string("Consumer disconnected whilst in state: ").append(GetStateString(state)));
+		} else {
+			LOG4CXX_WARN(log, "Consumer disconnected");
 		}
 	}
 
@@ -569,9 +555,7 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 }
 
 void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
-	std::ostringstream oss;
-	oss << "Sending message to all consumers. Number of consumers = " << numConnectedConsumers;
-	LOG4CXX_DEBUG(log, oss.str());
+	LOG4CXX_DEBUG(log, "Sending message to all consumers. Number of consumers = " << numConnectedConsumers);
 	// Make as many copies as necessary (number to send minus 1) and send them
 	for (int i = 0; i < numConnectedConsumers-1; i++) {
 		zmq::message_t messageCopy;
@@ -589,9 +573,7 @@ void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
 }
 
 void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageList) {
-	std::ostringstream oss;
-	oss << "Sending multiple messages to all consumers. Number of consumers = " << numConnectedConsumers;
-	LOG4CXX_DEBUG(log, oss.str());
+	LOG4CXX_DEBUG(log, "Sending multiple messages to all consumers. Number of consumers = " << numConnectedConsumers);
 	int messageListSize = messageList.size();
 	// Make as many copies as necessary (number to send minus 1) and send them
 	for (int consumerCount = 0; consumerCount < numConnectedConsumers-1; consumerCount++) {
@@ -628,41 +610,13 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
 	LOG4CXX_DEBUG(log, "Finished Sending multiple messages to all consumers");
 }
 
-void EigerFan::SetNumberOfConsumers(int number) {
-	numExpectedConsumers = number;
-	std::ostringstream oss;
-	oss << "Set number of expected Consumers to " << numExpectedConsumers;
-	LOG4CXX_DEBUG(log, oss.str());
-}
-
-void EigerFan::SetFanPortNumber(std::string portNumber) {
-	fanPortNumber = portNumber;
-	std::ostringstream oss;
-	oss << "Set fan port number to " << fanPortNumber;
-	LOG4CXX_DEBUG(log, oss.str());
-}
-
-void EigerFan::SetControlPortNumber(std::string portNumber) {
-	controlPortNumber = portNumber;
-	std::ostringstream oss;
-	oss << "Set control port number to " << controlPortNumber;
-	LOG4CXX_DEBUG(log, oss.str());
-}
-
-void EigerFan::SetStreamAddress(std::string address) {
-	streamAddress = address;
-	std::ostringstream oss;
-	oss << "Set stream address to " << streamAddress;
-	LOG4CXX_DEBUG(log, oss.str());
-}
-
 void EigerFan::SendFabricatedEndMessage() {
 	LOG4CXX_INFO(log, "Sending Fabricated EndOfSeries Message");
 
 	rapidjson::Document documentEoS;
 	documentEoS.Parse(END_STREAM_MESSAGE.c_str());
 
-	rapidjson::Value& series = documentEoS[SERIES_KEY];
+	rapidjson::Value& series = documentEoS[SERIES_KEY.c_str()];
 	series.SetInt(currentSeries);
 
 	rapidjson::StringBuffer buffer1;
@@ -676,4 +630,8 @@ void EigerFan::SendFabricatedEndMessage() {
 	SendMessageToAllConsumers(message);
 	state = DSTR_END;
 	LOG4CXX_DEBUG(log, "Finished Sending Fabricated EndOfSeries Message");
+}
+
+void EigerFan::SetNumberOfConsumers(int number) {
+	config.num_consumers = number;
 }
