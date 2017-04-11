@@ -8,8 +8,10 @@ cmake_minimum_required(VERSION 2.8)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# Set the frameReceiver directory
+# Set the Eiger Fan directory
 set(EIGERFAN_DIR ${eigerdaq_SOURCE_DIR}/eigerfan)
+# Set the frameReceiver directory
+set(FRAMERECEIVER_DIR ${eigerdaq_SOURCE_DIR}/frameReceiver)
 
 # Appends the cmake/modules path inside the MAKE_MODULE_PATH variable which stores the
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):
@@ -21,12 +23,15 @@ find_package( Boost 1.41.0
 	      COMPONENTS program_options system unit_test_framework thread)
 find_package(Log4CXX 0.10.0 REQUIRED)
 find_package(ZeroMQ 3.2.4 REQUIRED)
+find_package(OdinData REQUIRED)
 
 # Add include directory to include path
 include_directories(${eigerdaq_SOURCE_DIR}/include)
 
 # Add the eigerfan subdirectory
 add_subdirectory(${EIGERFAN_DIR})
+# Add the frameReceiver subdirectory
+add_subdirectory(${FRAMERECEIVER_DIR})
 
 # Add the test subdirectory
 add_subdirectory(test)
