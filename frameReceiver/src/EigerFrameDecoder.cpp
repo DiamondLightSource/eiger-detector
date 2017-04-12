@@ -25,6 +25,7 @@ EigerFrameDecoder::EigerFrameDecoder() :
 void EigerFrameDecoder::init(LoggerPtr& logger, bool enable_packet_logging, unsigned int frame_timeout_ms)
 {
 	FrameDecoder::init(logger, enable_packet_logging, frame_timeout_ms);
+	LOG4CXX_INFO(logger_, "Eiger frame decoder init called");
 
     if (enable_packet_logging_) {
         LOG4CXX_INFO(packet_logger_, "Logging incoming data");
@@ -62,7 +63,7 @@ void EigerFrameDecoder::process_packet_header(size_t bytes_received, int port, s
 
 void* EigerFrameDecoder::get_next_payload_buffer(void) const
 {
-    return reinterpret_cast<void*>(current_frame_buffer_);
+    return reinterpret_cast<void*>(current_raw_buffer_.get());
 }
 
 size_t EigerFrameDecoder::get_next_payload_size(void) const
@@ -89,26 +90,30 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_packet(size_t bytes_r
 
     FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
 
+    char temp_buffer[bytes_received+1];
+    memcpy(temp_buffer, current_raw_buffer_.get(), bytes_received);
+    temp_buffer[bytes_received] = '\0';
+	LOG4CXX_ERROR(logger_, "Process packet called.  Buffer contains [" << temp_buffer << "]");
+
+
     // Copy the contents from the current_raw_buffer to the current_frame_buffer
-    memcpy(current_frame_buffer_, current_raw_buffer_.get(), bytes_received);
+    //memcpy(current_frame_buffer_, current_raw_buffer_.get(), bytes_received);
 
     return frame_state;
 }
 
-FrameDecoder::FrameReceiveState EigerFrameDecoder::process_eof(bool eof)
+void EigerFrameDecoder::frame_meta_data(int meta)
 {
-	FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
+	// EndOfFrame is the first bit of meta
+	int eof = meta & 0x1;
+	LOG4CXX_DEBUG_LEVEL(1, logger_, "frame_meta_data called with eof " << eof);
 
 	if (eof){
-		// TODO: Matthew do your stuff here.  Frame ptr is buffer_manager_->get_buffer_address(current_frame_buffer_id_);
-		char *fPtr = reinterpret_cast<char*>(buffer_manager_->get_buffer_address(current_frame_buffer_id_));
-		LOG4CXX_ERROR(logger_, "FULL FRAME: " << fPtr);
-
-
-	    // Set frame state accordingly
-		frame_state = FrameDecoder::FrameReceiveStateComplete;
-
 		if (!dropping_frame_data_){
+			// TODO: Matthew do your stuff here.  Frame ptr is buffer_manager_->get_buffer_address(current_frame_buffer_id_);
+			char *fPtr = reinterpret_cast<char*>(buffer_manager_->get_buffer_address(current_frame_buffer_id_));
+			//LOG4CXX_ERROR(logger_, "FULL FRAME: " << fPtr);
+
 			// Erase frame from buffer map
 			//frame_buffer_map_.erase(current_frame_seen_);
 
@@ -122,13 +127,10 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_eof(bool eof)
 			current_frame_buffer_id_ = -1;
 		}
 	}
-
-	return frame_state;
 }
 
 void EigerFrameDecoder::monitor_buffers(void)
 {
-
     int frames_timedout = 0;
     struct timespec current_time;
 
@@ -166,9 +168,9 @@ void EigerFrameDecoder::monitor_buffers(void)
     }
     frames_timedout_ += frames_timedout;
 
-//    LOG4CXX_DEBUG_LEVEL(2, logger_, get_num_mapped_buffers() << " frame buffers in use, "
-//            << get_num_empty_buffers() << " empty buffers available, "
-//            << frames_timedout_ << " incomplete frames timed out");
+    LOG4CXX_DEBUG_LEVEL(2, logger_, get_num_mapped_buffers() << " frame buffers in use, "
+            << get_num_empty_buffers() << " empty buffers available, "
+            << frames_timedout_ << " incomplete frames timed out");
 
 }
 

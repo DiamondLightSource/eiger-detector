@@ -6,3 +6,4 @@ include_directories(${FRAMERECEIVER_DIR}/include ${ODINDATA_INCLUDE_DIRS} ${Boos
 add_library(EigerFrameDecoder SHARED EigerFrameDecoder.cpp EigerFrameDecoderLib.cpp)
 target_link_libraries(EigerFrameDecoder ${ODINDATA_LIBRARIES} ${Boost_LIBRARIES} ${LOG4CXX_LIBRARIES} ${ZEROMQ_LIBRARIES})
 
+set(CMAKE_BUILD_TYPE Debug)

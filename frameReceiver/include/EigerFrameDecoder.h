@@ -39,7 +39,7 @@ public:
     void* get_next_payload_buffer(void) const;
     size_t get_next_payload_size(void) const;
     FrameDecoder::FrameReceiveState process_packet(size_t bytes_received);
-    FrameDecoder::FrameReceiveState process_eof(bool eof);
+    void frame_meta_data(int meta);
 
     void monitor_buffers(void);
 
