@@ -12,12 +12,14 @@ namespace FrameReceiver
 
 EigerFrameDecoder::EigerFrameDecoder() :
                 FrameDecoder(),
-        		current_frame_seen_(-1),
+				current_frame_number_(-1),
         		current_frame_buffer_id_(-1),
         		current_frame_buffer_(0),
         		dropping_frame_data_(false),
         		frame_timeout_ms_(1000),
-        		frames_timedout_(0)
+        		frames_timedout_(0),
+				currentMessagePart(1),
+				currentMessageType(Eiger::GLOBAL_HEADER)
 {
     current_raw_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
 }
@@ -95,9 +97,48 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_packet(size_t bytes_r
     temp_buffer[bytes_received] = '\0';
 	LOG4CXX_ERROR(logger_, "Process packet called.  Buffer contains [" << temp_buffer << "]");
 
+	// If on first message part, parse the message to find out what type of message it is
+	if (currentMessagePart == 1) {
+		jsonDocument.Parse(temp_buffer);
+			if (jsonDocument.HasParseError()) {
+				LOG4CXX_ERROR(logger_, "Error parsing stream message into json");
+			} else {
+				rapidjson::Value& headerTypeValue = jsonDocument[Eiger::HEADER_TYPE_KEY.c_str()];
+				std::string htype(headerTypeValue.GetString());
+				if (htype.compare(Eiger::GLOBAL_HEADER_TYPE) == 0) {
+					currentMessageType = Eiger::GLOBAL_HEADER;
+				} else if (htype.compare(Eiger::IMAGE_HEADER_TYPE) == 0) {
+					currentMessageType = Eiger::IMAGE_DATA;
+					// Get the frame number from the message
+					rapidjson::Value& seriesValue = jsonDocument[Eiger::FRAME_KEY.c_str()];
+					current_frame_number_ = seriesValue.GetInt();
+					currentHeader.frame_number = current_frame_number_;
+				} else if (htype.compare(Eiger::END_HEADER_TYPE) == 0) {
+					currentMessageType = Eiger::END_OF_STREAM;
+				} else {
+					LOG4CXX_ERROR(logger_, std::string("Unknown header type ").append(htype));
+				}
+			}
+	} else {
+		if (currentMessageType == Eiger::IMAGE_DATA && currentMessagePart == Eiger::image_data_imaged_part) {
+			// This is the message containing the image dimensions and encoding details
+			// TODO parse out dimensions and encoding info
+			currentHeader.shapeSizeX = 2070;
+			currentHeader.shapeSizeY = 2167;
+			currentHeader.shapeSizeZ = 0;
+			LOG4CXX_ERROR(logger_, "Copied message part that was image dimensions");
+		} else if (currentMessageType == Eiger::IMAGE_DATA && currentMessagePart == Eiger::image_data_blob_part) {
+			// This is the message containing the image bloc
+			// Copy the contents from the current_raw_buffer to the current_frame_buffer
+			currentHeader.blob_size = bytes_received;
 
-    // Copy the contents from the current_raw_buffer to the current_frame_buffer
-    //memcpy(current_frame_buffer_, current_raw_buffer_.get(), bytes_received);
+			memcpy(current_frame_buffer_, &currentHeader, sizeof(Eiger::FrameHeader));
+			memcpy(current_frame_buffer_+sizeof(Eiger::FrameHeader), current_raw_buffer_.get(), bytes_received);
+			LOG4CXX_ERROR(logger_, "Copied message part that was image blob and header data");
+		}
+	}
+
+	currentMessagePart++;
 
     return frame_state;
 }
@@ -117,15 +158,19 @@ void EigerFrameDecoder::frame_meta_data(int meta)
 			// Erase frame from buffer map
 			//frame_buffer_map_.erase(current_frame_seen_);
 
-			// Notify main thread that frame is ready
-			ready_callback_(current_frame_buffer_id_, current_frame_seen_);
+			if (currentMessageType == Eiger::IMAGE_DATA) {
+				// Notify main thread that frame is ready
+				LOG4CXX_ERROR(logger_, "Notified of frame num " << current_frame_number_);
+				ready_callback_(current_frame_buffer_id_, current_frame_number_);
+			}
 
-			// Reset current frame seen ID so that if next frame has same number (e.g. repeated
+			// Reset current frame number ID so that if next frame has same number (e.g. repeated
 			// sends of single frame 0), it is detected properly
-			//current_frame_seen_ = -1;
+			current_frame_number_ = -1;
 
 			current_frame_buffer_id_ = -1;
 		}
+		currentMessagePart = 1; // Reset message part back to expect the first message part
 	}
 }
 
@@ -172,12 +217,6 @@ void EigerFrameDecoder::monitor_buffers(void)
             << get_num_empty_buffers() << " empty buffers available, "
             << frames_timedout_ << " incomplete frames timed out");
 
-}
-
-uint32_t EigerFrameDecoder::get_frame_number(void) const
-{
-    uint32_t frame_number_raw = 0; //*(reinterpret_cast<uint32_t*>(raw_packet_header()+LATRD::frame_number_offset));
-    return ntohl(frame_number_raw);
 }
 
 unsigned int EigerFrameDecoder::elapsed_ms(struct timespec& start, struct timespec& end)

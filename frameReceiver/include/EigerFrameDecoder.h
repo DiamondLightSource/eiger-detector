@@ -19,6 +19,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 #include <boost/format.hpp>
+#include "rapidjson/document.h"
 
 namespace FrameReceiver
 {
@@ -45,8 +46,6 @@ public:
 
     void* get_packet_header_buffer(void);
 
-    uint32_t get_frame_number(void) const;
-
 private:
 
     unsigned int elapsed_ms(struct timespec& start, struct timespec& end);
@@ -56,13 +55,19 @@ private:
 
     void *current_frame_buffer_;
 
-    uint32_t current_frame_seen_;
+    uint32_t current_frame_number_;
     int current_frame_buffer_id_;
 
     bool dropping_frame_data_;
 
     unsigned int frame_timeout_ms_;
     unsigned int frames_timedout_;
+
+    Eiger::EigerMessageType currentMessageType;
+    int currentMessagePart;
+    rapidjson::Document jsonDocument;
+
+    Eiger::FrameHeader currentHeader;
 };
 
 } /* namespace FrameReceiver */
