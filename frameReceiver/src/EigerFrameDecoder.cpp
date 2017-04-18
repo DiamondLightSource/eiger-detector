@@ -75,23 +75,7 @@ size_t EigerFrameDecoder::get_next_payload_size(void) const
 
 FrameDecoder::FrameReceiveState EigerFrameDecoder::process_packet(size_t bytes_received)
 {
-	if (current_frame_buffer_id_ == -1){
-		if (empty_buffer_queue_.empty()){
-			current_frame_buffer_ = dropped_frame_buffer_.get();
-			if (!dropping_frame_data_){
-				LOG4CXX_ERROR(logger_, "Frame data detected but no free buffers available. Dropping packet data for this frame");
-				dropping_frame_data_ = true;
-			}
-		} else {
-			current_frame_buffer_id_ = empty_buffer_queue_.front();
-			empty_buffer_queue_.pop();
-			//frame_buffer_map_[current_frame_seen_] = current_frame_buffer_id_;
-			current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
-		}
-	}
-
-    FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
-
+	FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
 
     //temp_buffer[bytes_received] = '\0';
 	//LOG4CXX_ERROR(logger_, "Process packet called.  Buffer contains [" << temp_buffer << "]");
@@ -128,15 +112,34 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_packet(size_t bytes_r
 			currentHeader.shapeSizeX = 2070;
 			currentHeader.shapeSizeY = 2167;
 			currentHeader.shapeSizeZ = 0;
-			LOG4CXX_ERROR(logger_, "Copied message part that was image dimensions");
+			LOG4CXX_DEBUG(logger_, "Copied message part that was image dimensions");
 		} else if (currentMessageType == Eiger::IMAGE_DATA && currentMessagePart == Eiger::image_data_blob_part) {
 			// This is the message containing the image bloc
 			// Copy the contents from the current_raw_buffer to the current_frame_buffer
 			currentHeader.blob_size = bytes_received;
 
+			if (current_frame_buffer_id_ == -1){
+				if (empty_buffer_queue_.empty()){
+					current_frame_buffer_ = dropped_frame_buffer_.get();
+					if (!dropping_frame_data_){
+						LOG4CXX_ERROR(logger_, "Frame data detected but no free buffers available. Dropping packet data for this frame");
+						dropping_frame_data_ = true;
+					}
+				} else {
+					current_frame_buffer_id_ = empty_buffer_queue_.front();
+					empty_buffer_queue_.pop();
+					//frame_buffer_map_[current_frame_seen_] = current_frame_buffer_id_;
+					current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
+				}
+			}
+
+
 			memcpy(current_frame_buffer_, &currentHeader, sizeof(Eiger::FrameHeader));
-			memcpy(current_frame_buffer_+sizeof(Eiger::FrameHeader), current_raw_buffer_.get(), bytes_received);
-			LOG4CXX_ERROR(logger_, "Copied message part that was image blob and header data");
+			void* dataPtr = static_cast<char*>(current_frame_buffer_)+sizeof(Eiger::FrameHeader);
+			memcpy(dataPtr, current_raw_buffer_.get(), bytes_received);
+
+			LOG4CXX_DEBUG(logger_, "Copied message part that was image blob and header data");
+			frame_state = FrameDecoder::FrameReceiveStateComplete;
 		}
 	}
 
@@ -154,7 +157,7 @@ void EigerFrameDecoder::frame_meta_data(int meta)
 	if (eof){
 		if (!dropping_frame_data_){
 			// TODO: Matthew do your stuff here.  Frame ptr is buffer_manager_->get_buffer_address(current_frame_buffer_id_);
-			char *fPtr = reinterpret_cast<char*>(buffer_manager_->get_buffer_address(current_frame_buffer_id_));
+			//char *fPtr = reinterpret_cast<char*>(buffer_manager_->get_buffer_address(current_frame_buffer_id_));
 			//LOG4CXX_ERROR(logger_, "FULL FRAME: " << fPtr);
 
 			// Erase frame from buffer map
@@ -162,7 +165,7 @@ void EigerFrameDecoder::frame_meta_data(int meta)
 
 			if (currentMessageType == Eiger::IMAGE_DATA) {
 				// Notify main thread that frame is ready
-				LOG4CXX_ERROR(logger_, "Notified of frame num " << current_frame_number_);
+				LOG4CXX_DEBUG(logger_, "Notified of frame num " << current_frame_number_);
 				ready_callback_(current_frame_buffer_id_, current_frame_number_);
 			}
 
