@@ -92,13 +92,15 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_packet(size_t bytes_r
 
     FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
 
-    char temp_buffer[bytes_received+1];
-    memcpy(temp_buffer, current_raw_buffer_.get(), bytes_received);
-    temp_buffer[bytes_received] = '\0';
-	LOG4CXX_ERROR(logger_, "Process packet called.  Buffer contains [" << temp_buffer << "]");
+
+    //temp_buffer[bytes_received] = '\0';
+	//LOG4CXX_ERROR(logger_, "Process packet called.  Buffer contains [" << temp_buffer << "]");
 
 	// If on first message part, parse the message to find out what type of message it is
 	if (currentMessagePart == 1) {
+		char temp_buffer[bytes_received+1];
+		memcpy(temp_buffer, current_raw_buffer_.get(), bytes_received);
+		temp_buffer[bytes_received] = '\0';
 		jsonDocument.Parse(temp_buffer);
 			if (jsonDocument.HasParseError()) {
 				LOG4CXX_ERROR(logger_, "Error parsing stream message into json");
