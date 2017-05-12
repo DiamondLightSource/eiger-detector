@@ -419,35 +419,17 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 		socket.recv(&messageAppendix);
 
 		// Send the data on to a consumer
-		if (sendSocket.send(messagePart1, ZMQ_SNDMORE) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
-		if (sendSocket.send(messagePart2, ZMQ_SNDMORE) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
-		if (sendSocket.send(messagePart3, ZMQ_SNDMORE) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
-		if (sendSocket.send(messagePart4, ZMQ_SNDMORE) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
-		if (sendSocket.send(messageAppendix) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
+		SendMessageToSingleConsumer(messagePart1, ZMQ_SNDMORE);
+		SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
+		SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE, false); // Do not send image data to status
+		SendMessageToSingleConsumer(messagePart4, ZMQ_SNDMORE);
+		SendMessageToSingleConsumer(messageAppendix, 0);
 	} else {
 		// Send the data on to a consumer
-		if (sendSocket.send(messagePart1, ZMQ_SNDMORE) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
-		if (sendSocket.send(messagePart2, ZMQ_SNDMORE) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
-		if (sendSocket.send(messagePart3, ZMQ_SNDMORE) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
-		if (sendSocket.send(messagePart4) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
-		}
+		SendMessageToSingleConsumer(messagePart1, ZMQ_SNDMORE);
+		SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
+		SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE, false); // Do not send image data to status
+		SendMessageToSingleConsumer(messagePart4, 0);
 	}
 
 	if (state != DSTR_IMAGE && state != DSTR_HEADER) {
@@ -608,6 +590,17 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
 
 	messageList.clear();
 	LOG4CXX_DEBUG(log, "Finished Sending multiple messages to all consumers");
+}
+
+void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags, bool sendToStatus) {
+	LOG4CXX_DEBUG(log, "Sending message to single consumers");
+
+	// Send the message to a consumer
+	if (sendSocket.send(message, flags) == false) {
+		LOG4CXX_ERROR(log, "Send socket returned false");
+	}
+
+	LOG4CXX_DEBUG(log, "Finished Sending message to single consumer");
 }
 
 void EigerFan::SendFabricatedEndMessage() {

@@ -1,14 +1,14 @@
 /*
- * LATRDFrameDecoder.h
+ * EigerFrameDecoder.h
  *
  *  Created on: 23 Feb 2017
  *      Author: gnx91527
  */
 
-#ifndef SRC_LATRDFRAMEDECODER_H_
-#define SRC_LATRDFRAMEDECODER_H_
+#ifndef SRC_EIGERFRAMEDECODER_H_
+#define SRC_EIGERFRAMEDECODER_H_
 
-#include "FrameDecoder.h"
+#include "FrameDecoderZMQ.h"
 #include "EigerDefinitions.h"
 #include "gettime.h"
 #include <stdint.h>
@@ -24,7 +24,7 @@
 namespace FrameReceiver
 {
 
-class EigerFrameDecoder : public FrameDecoder
+class EigerFrameDecoder : public FrameDecoderZMQ
 {
 public:
 	EigerFrameDecoder();
@@ -33,13 +33,9 @@ public:
     const size_t get_frame_buffer_size(void) const;
     const size_t get_frame_header_size(void) const;
 
-    inline const bool requires_header_peek(void) const { return true; };
-    const size_t get_packet_header_size(void) const;
-    void process_packet_header(size_t bytes_received, int port, struct sockaddr_in* from_addr);
-
-    void* get_next_payload_buffer(void) const;
+    void* get_next_message_buffer(void);
     size_t get_next_payload_size(void) const;
-    FrameDecoder::FrameReceiveState process_packet(size_t bytes_received);
+    FrameDecoder::FrameReceiveState process_message(size_t bytes_received);
     void frame_meta_data(int meta);
 
     void monitor_buffers(void);
@@ -49,6 +45,14 @@ public:
 private:
 
     unsigned int elapsed_ms(struct timespec& start, struct timespec& end);
+    void allocate_next_frame_buffer(void);
+    void send_buffer(void);
+
+    FrameDecoder::FrameReceiveState process_global_header_message(size_t bytes_received);
+
+    FrameDecoder::FrameReceiveState process_image_message(size_t bytes_received);
+
+    FrameDecoder::FrameReceiveState process_end_message(size_t bytes_received);
 
     boost::shared_ptr<void> current_raw_buffer_;
     boost::shared_ptr<void> dropped_frame_buffer_;
@@ -64,6 +68,7 @@ private:
     unsigned int frames_timedout_;
 
     Eiger::EigerMessageType currentMessageType;
+    Eiger::EigerMessageParentType currentParentMessageType;
     int currentMessagePart;
     rapidjson::Document jsonDocument;
 
@@ -72,4 +77,4 @@ private:
 
 } /* namespace FrameReceiver */
 
-#endif /* SRC_LATRDFRAMEDECODER_H_ */
+#endif /* SRC_EIGERFRAMEDECODER_H_ */
