@@ -36,8 +36,8 @@ namespace Eiger
 		char dataType[8];	// "uint16" or "uint32" or "float32"
 	} FrameHeader;
 
-	static const size_t raw_buffer_size    = 72558600 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
-	static const size_t frame_size         = 72558600 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
+	static const size_t raw_buffer_size    = 18000000 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
+	static const size_t frame_size         = 18000000 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
 
 	static const int image_data_imaged_part = 2; // Image dimensions are on the 2nd image part
 	static const int image_data_blob_part = 3; // Image data is on the 3rd image part
