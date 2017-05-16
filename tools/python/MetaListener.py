@@ -71,6 +71,7 @@ class MetaListener:
         return
 
     def handleMessage(self, receiver):
+        print 'handling message'
         #message = receiver.recv_json()
         messageRaw = receiver.recv()
 
@@ -109,11 +110,19 @@ class MetaListener:
         elif message['parameter'] == "eiger-end":
 	        receiver.recv()
 	        self.handleEnd(message)
+        elif message['parameter'] == "createfile":
+	        fileName = receiver.recv()
+	        self.handleFrameWriterCreateFile(fileName)
+        elif message['parameter'] == "closefile":
+	        fileName = receiver.recv()
+	        self.handleFrameWriterCloseFile()
         elif message['parameter'] == "framewriter-offset":
-	        userheader = message['header']
-	        value = receiver.recv_json()
-	        self.handleFrameWriterOffset(userheader)
-
+	        value = receiver.recv()
+	        self.handleFrameWriterOffset(value)
+        else:
+            print 'unknown parameter: ' + str(message)
+            value = receiver.recv()
+            print 'value: ' + str(value)
         return
 
     def startNewAcquisition(self):
@@ -147,6 +156,8 @@ class MetaListener:
             self.frameSeriesDset = self.f.create_dataset("frame_series", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
             self.frameAppendixDset = self.f.create_dataset("frameAppendix", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
 
+            self.seriesCreated = False
+            self.configCreated = False
             self.flatfieldCreated = False
             self.pixelMaskCreated = False
             self.countrateCreated = False
@@ -159,14 +170,14 @@ class MetaListener:
     def handleGlobalHeaderNone(self, message):
         self.logger.debug('Handling global header none')
         self.logger.debug(message)
-        if self.acqusitionStarted == False:
-	        self.startNewAcquisition()
+        if self.seriesCreated == True:
+	        self.logger.debug( 'series already created' )
+	        return
 
-	        npa = np.array(message['series'])
-	        self.seriesDset = self.f.create_dataset("series", data=npa)
-	        self.seriesDset.flush()
-
-        self.numberProcessorsRunning = self.numberProcessorsRunning + 1
+        npa = np.array(message['series'])
+        self.seriesDset = self.f.create_dataset("series", data=npa)
+        self.seriesDset.flush()
+        self.seriesCreated = True
 
         return
 
@@ -174,17 +185,22 @@ class MetaListener:
         self.logger.debug('Handling global header cfg')
         self.logger.debug(header)
         self.logger.debug(config)
-        if self.acqusitionStarted == False:
-	        self.startNewAcquisition()
-        
-	        nps = np.str(config)
-	        cfgDset = self.f.create_dataset("config", data=nps)
-	        npa = np.array(header['series'])
-	        seriesDset = self.f.create_dataset("series", data=npa)
-	        cfgDset.flush()
-	        seriesDset.flush()
 
-        self.numberProcessorsRunning = self.numberProcessorsRunning + 1
+        if self.configCreated == True:
+            self.logger.debug( 'config already created' )
+        else:
+            nps = np.str(config)
+            cfgDset = self.f.create_dataset("config", data=nps)
+            cfgDset.flush()
+            self.configCreated = True
+
+        if self.seriesCreated == True:
+            self.logger.debug( 'series already created' )
+        else:
+            npa = np.array(header['series'])
+            seriesDset = self.f.create_dataset("series", data=npa)
+            seriesDset.flush()
+            self.seriesCreated = True
 
         return
 
@@ -287,6 +303,54 @@ class MetaListener:
     def handleEnd(self, message ):
         self.logger.debug('Handling end')
 
+        #self.numberProcessorsRunning = self.numberProcessorsRunning - 1
+
+        #if self.numberProcessorsRunning == 0:
+	    #    self.logger.info('Last processor ended. Closing file')
+
+	    #    self.acqusitionStarted = False
+
+	    #    self.startDset.flush()
+	    #    self.stopDset.flush()
+	    # #   self.realDset.flush()
+	    #    self.frameDset.flush()
+	    #    self.hashDset.flush()
+	    #    self.encodingDset.flush()
+	    #    self.dtypeDset.flush()
+	    #    self.frameSeriesDset.flush()
+	    #    self.frameAppendixDset.flush()
+        #    
+	    #    self.f.close()
+        #else:
+	    #    self.logger.info('Processor ended, but not the last')
+
+        
+        return
+
+    def handleFrameWriterOffset(self, value ):
+        self.logger.debug('Handling frame writer offset')
+        self.logger.debug(value)
+
+        self.frameOffset = value
+
+        return
+
+    def handleFrameWriterCreateFile(self, fileName ):
+        self.logger.debug('Handling frame writer create file')
+        self.logger.debug(fileName)
+
+        self.dataFileName = fileName
+
+        if self.acqusitionStarted == False:
+	        self.startNewAcquisition()
+
+        self.numberProcessorsRunning = self.numberProcessorsRunning + 1
+
+        return
+
+    def handleFrameWriterCloseFile(self):
+        self.logger.debug('Handling frame writer close file')
+
         self.numberProcessorsRunning = self.numberProcessorsRunning - 1
 
         if self.numberProcessorsRunning == 0:
@@ -307,15 +371,6 @@ class MetaListener:
 	        self.f.close()
         else:
 	        self.logger.info('Processor ended, but not the last')
-
-        
-        return
-
-    def handleFrameWriterOffset(self, header ):
-        self.logger.debug('Handling frame writer offset')
-        self.logger.debug(header)
-
-        self.frameOffset = header['value']
 
         return
 
