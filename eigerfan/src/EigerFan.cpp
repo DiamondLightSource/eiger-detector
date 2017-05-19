@@ -183,26 +183,36 @@ std::string EigerFan::Stop() {
 
 void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socket) {
 
-	std::string smessage(static_cast<char*>(message.data()), message.size());
+	try {
+		std::string smessage(static_cast<char*>(message.data()), message.size());
 
-	// Interpret the message as a JSON string
-	jsonDocument.Parse(smessage.c_str());
-	if (jsonDocument.HasParseError()) {
-		LOG4CXX_ERROR(log, "Error parsing stream message into json");
-	} else {
-		rapidjson::Value& headerTypeValue = jsonDocument[HEADER_TYPE_KEY.c_str()];
-		std::string htype(headerTypeValue.GetString());
-		if (htype.compare(GLOBAL_HEADER_TYPE) == 0) {
-			HandleGlobalHeaderMessage(message, socket);
-		} else if (htype.compare(IMAGE_HEADER_TYPE) == 0) {
-			HandleImageDataMessage(message, socket);
-		} else if (htype.compare(END_HEADER_TYPE) == 0) {
-			HandleEndOfSeriesMessage(message, socket);
-			state = WAITING_STREAM;
+		// Interpret the message as a JSON string
+		jsonDocument.Parse(smessage.c_str());
+		if (jsonDocument.HasParseError()) {
+			LOG4CXX_ERROR(log, "Error parsing stream message into json");
 		} else {
-			LOG4CXX_ERROR(log, std::string("Unknown header type ").append(htype));
+			rapidjson::Value& headerTypeValue = jsonDocument[HEADER_TYPE_KEY.c_str()];
+			std::string htype(headerTypeValue.GetString());
+			if (htype.compare(GLOBAL_HEADER_TYPE) == 0) {
+				HandleGlobalHeaderMessage(message, socket);
+			} else if (htype.compare(IMAGE_HEADER_TYPE) == 0) {
+				HandleImageDataMessage(message, socket);
+			} else if (htype.compare(END_HEADER_TYPE) == 0) {
+				HandleEndOfSeriesMessage(message, socket);
+				state = WAITING_STREAM;
+			} else {
+				LOG4CXX_ERROR(log, std::string("Unknown header type ").append(htype));
+			}
 		}
 	}
+    catch (std::exception& e)
+    {
+      LOG4CXX_ERROR(log, "Generic exception handling stream message:\n" << e.what());
+    }
+	catch (...)
+    {
+        LOG4CXX_ERROR(log, "Unexpected exception handling stream message");
+    }
 
 	// Ensure there aren't any leftover messages on the socket
 	recvSocket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
