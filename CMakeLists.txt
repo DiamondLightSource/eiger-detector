@@ -14,6 +14,8 @@ set(EIGERFAN_DIR ${eigerdaq_SOURCE_DIR}/eigerfan)
 set(FRAMERECEIVER_DIR ${eigerdaq_SOURCE_DIR}/frameReceiver)
 # Set the frameProcessor directory
 set(FRAMEPROCESSOR_DIR ${eigerdaq_SOURCE_DIR}/frameProcessor)
+# Set the tools directory
+set(TOOLS_DIR ${eigerdaq_SOURCE_DIR}/tools)
 
 # Appends the cmake/modules path inside the MAKE_MODULE_PATH variable which stores the
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):
@@ -40,6 +42,8 @@ add_subdirectory(${EIGERFAN_DIR})
 add_subdirectory(${FRAMERECEIVER_DIR})
 # Add the frameProcessor subdirectory
 add_subdirectory(${FRAMEPROCESSOR_DIR})
+# Add the tools subdirectory
+add_subdirectory(${TOOLS_DIR})
 
 # Add the test subdirectory
 add_subdirectory(test)
