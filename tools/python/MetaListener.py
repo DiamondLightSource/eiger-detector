@@ -13,6 +13,12 @@ class MetaListener:
         self.numberProcessorsRunning = 0;
         self.frameOffset = 0;
         self.acqusitionStarted = False
+        self.seriesCreated = False
+        self.configCreated = False
+        self.flatfieldCreated = False
+        self.pixelMaskCreated = False
+        self.countrateCreated = False
+        self.globalAppendixCreated = False
         self.dataFileName = 'unknown.hdf5'
         self.directory = directory
         self.inputs = inputs
@@ -170,6 +176,11 @@ class MetaListener:
     def handleGlobalHeaderNone(self, message):
         self.logger.debug('Handling global header none')
         self.logger.debug(message)
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring Global Header' )
+	        return
+
         if self.seriesCreated == True:
 	        self.logger.debug( 'series already created' )
 	        return
@@ -185,6 +196,10 @@ class MetaListener:
         self.logger.debug('Handling global header cfg')
         self.logger.debug(header)
         self.logger.debug(config)
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring Global Header' )
+	        return
 
         if self.configCreated == True:
             self.logger.debug( 'config already created' )
@@ -207,6 +222,11 @@ class MetaListener:
     def handleFlatfieldHeader(self, header, flatfield ):
         self.logger.debug('Handling flatfield header')
         self.logger.debug(header)
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring Flatfield' )
+	        return
+
         if self.flatfieldCreated == True:
 	        self.logger.debug( 'flatfield already created' )
 	        return
@@ -221,6 +241,11 @@ class MetaListener:
     def handleMaskHeader(self, header, mask ):
         self.logger.debug('Handling mask header')
         self.logger.debug(header)
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring Pixel Mask' )
+	        return
+
         if self.pixelMaskCreated == True:
 	        self.logger.debug('pixel mask already created')
 	        return
@@ -236,6 +261,11 @@ class MetaListener:
     def handleCountrateHeader(self, header, countrate ):
         self.logger.debug('Handling countrate header')
         self.logger.debug(header)
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring Countrate' )
+	        return
+
         if self.countrateCreated == True:
 	        self.logger.debug('countrate already created')
 	        return
@@ -250,6 +280,11 @@ class MetaListener:
 
     def handleGlobalHeaderAppendix(self, appendix ):
         self.logger.debug('Handling global header appendix')
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring Global Header Appendix' )
+	        return
+
         if self.globalAppendixCreated == True:
 	        self.logger.debug('global appendix already created')
 	        return
@@ -264,6 +299,10 @@ class MetaListener:
     def handleData(self, header ):
         self.logger.debug('Handling image data')
         self.logger.debug(header)
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring Image Data' )
+	        return
 
         frameId = header['frame']
 
@@ -292,6 +331,12 @@ class MetaListener:
 
     def handleImageAppendix(self, header, appendix ):
         self.logger.debug('Handling image appendix')
+        self.logger.debug(header)
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring Image Data Appendix' )
+	        return
+
         nps = np.str(appendix)
 
         frameId = header['frame']
@@ -302,6 +347,10 @@ class MetaListener:
 
     def handleEnd(self, message ):
         self.logger.debug('Handling end')
+
+        if self.acqusitionStarted == False:
+	        self.logger.warn( 'Acquisition not started. Ignoring End Message' )
+	        return
 
         #self.numberProcessorsRunning = self.numberProcessorsRunning - 1
 
