@@ -15,12 +15,12 @@
 using namespace log4cxx;
 using namespace log4cxx::helpers;
 
-#include "FileWriterPlugin.h"
+#include "FrameProcessorPlugin.h"
 #include "ClassLoader.h"
 #include "EigerDefinitions.h"
 #include <stdint.h>
 
-namespace filewriter
+namespace FrameProcessor
 {
     enum CompressionType { LZ4_COMPRESSION, LZ4_BITSHUFFLE_COMPRESSION };
 
@@ -30,7 +30,7 @@ namespace filewriter
    * Frame object and parsing the header information. Depending on the frame type, it
    * sends raw image data on down the chain, or sends meta data out to subscribers.
    */
-  class EigerProcessPlugin : public FileWriterPlugin
+  class EigerProcessPlugin : public FrameProcessorPlugin
   {
   public:
     EigerProcessPlugin();
@@ -51,7 +51,7 @@ namespace filewriter
    * Registration of this plugin through the ClassLoader.  This macro
    * registers the class without needing to worry about name mangling
    */
-  REGISTER(FileWriterPlugin, EigerProcessPlugin, "EigerProcessPlugin");
+  REGISTER(FrameProcessorPlugin, EigerProcessPlugin, "EigerProcessPlugin");
 
 } /* namespace filewriter */
 

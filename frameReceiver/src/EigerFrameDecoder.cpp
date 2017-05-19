@@ -23,6 +23,7 @@ EigerFrameDecoder::EigerFrameDecoder() :
 				currentParentMessageType(Eiger::PARENT_MESSAGE_TYPE_GLOBAL)
 {
     current_raw_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
+    dropped_frame_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
 }
 
 void EigerFrameDecoder::init(LoggerPtr& logger, bool enable_packet_logging, unsigned int frame_timeout_ms)
@@ -380,12 +381,15 @@ void EigerFrameDecoder::allocate_next_frame_buffer(void) {
 			if (!dropping_frame_data_){
 				LOG4CXX_ERROR(logger_, "Frame data detected but no free buffers available. Dropping packet data for this frame");
 				dropping_frame_data_ = true;
+			} else {
+				LOG4CXX_WARN(logger_, "Frame data detected but still no free buffers available. Dropping packet data for this frame");
 			}
 		} else {
 			current_frame_buffer_id_ = empty_buffer_queue_.front();
 			empty_buffer_queue_.pop();
 			//frame_buffer_map_[current_frame_seen_] = current_frame_buffer_id_;
 			current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
+			dropping_frame_data_ = false;
 		}
 	}
 }

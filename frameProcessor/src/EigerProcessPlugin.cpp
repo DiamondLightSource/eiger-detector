@@ -7,7 +7,7 @@
 
 #include <EigerProcessPlugin.h>
 
-namespace filewriter
+namespace FrameProcessor
 {
   EigerProcessPlugin::EigerProcessPlugin()
   {
