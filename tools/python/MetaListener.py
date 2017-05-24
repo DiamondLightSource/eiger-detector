@@ -10,8 +10,10 @@ import sys
 class MetaListener:
 	
     def __init__(self, directory, inputs):
-        self.numberProcessorsRunning = 0;
-        self.frameOffset = 0;
+        self.numberProcessorsRunning = 0
+        self.frameOffsetDict = {}
+        self.frameDataDict = {}
+        self.frameAppendixDict = {}
         self.acqusitionStarted = False
         self.seriesCreated = False
         self.configCreated = False
@@ -78,11 +80,7 @@ class MetaListener:
 
     def handleMessage(self, receiver):
         print 'handling message'
-        #message = receiver.recv_json()
-        messageRaw = receiver.recv()
-
-        messageCut = "".join([messageRaw.rsplit("}" , 1)[0] , "}"])
-        message = json.loads(messageCut)
+        message = receiver.recv_json()
 
         if message['parameter'] == "eiger-globalnone":
 	        receiver.recv_json()
@@ -122,8 +120,8 @@ class MetaListener:
         elif message['parameter'] == "closefile":
 	        fileName = receiver.recv()
 	        self.handleFrameWriterCloseFile()
-        elif message['parameter'] == "framewriter-offset":
-	        value = receiver.recv()
+        elif message['parameter'] == "writeframe":
+	        value = receiver.recv_json()
 	        self.handleFrameWriterOffset(value)
         else:
             print 'unknown parameter: ' + str(message)
@@ -138,7 +136,9 @@ class MetaListener:
         if self.acqusitionStarted == False:
 
             self.currentFrameCount = 0
-
+            self.frameOffsetDict.clear()
+            self.frameDataDict.clear()
+            self.frameAppendixDict.clear()
             self.logger.debug("Data filename: %s" % self.dataFileName)
 
             base=os.path.basename(self.dataFileName)
@@ -161,6 +161,8 @@ class MetaListener:
             self.dtypeDset = self.f.create_dataset("datatype", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
             self.frameSeriesDset = self.f.create_dataset("frame_series", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
             self.frameAppendixDset = self.f.create_dataset("frameAppendix", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
+            self.frameWrittenDset = self.f.create_dataset("frame_written", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+            self.offsetWrittenDset = self.f.create_dataset("offset_written", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
 
             self.seriesCreated = False
             self.configCreated = False
@@ -306,26 +308,11 @@ class MetaListener:
 
         frameId = header['frame']
 
-        if frameId + self.frameOffset + 1 > self.currentFrameCount:
-	        self.currentFrameCount = frameId + self.frameOffset + 1
-	        self.startDset.resize(self.currentFrameCount, axis=0)
-	        self.stopDset.resize(self.currentFrameCount, axis=0)
-	        self.realDset.resize(self.currentFrameCount, axis=0)
-	        self.frameDset.resize(self.currentFrameCount, axis=0)
-	        self.hashDset.resize(self.currentFrameCount, axis=0)
-	        self.encodingDset.resize(self.currentFrameCount, axis=0)
-	        self.dtypeDset.resize(self.currentFrameCount, axis=0)
-	        self.frameSeriesDset.resize(self.currentFrameCount, axis=0)
-	        self.frameAppendixDset.resize(self.currentFrameCount, axis=0)
-
-        self.startDset[frameId + self.frameOffset] = header['start_time']
-        self.stopDset[frameId + self.frameOffset] = header['stop_time']
-        self.realDset[frameId + self.frameOffset] = header['real_time']
-        self.frameDset[frameId + self.frameOffset] = header['frame']
-        self.hashDset[frameId + self.frameOffset] = header['hash']
-        self.encodingDset[frameId + self.frameOffset] = header['encoding']
-        self.dtypeDset[frameId + self.frameOffset] = header['type']
-        self.frameSeriesDset[frameId + self.frameOffset] = header['series']
+        # Check if we know the offset to write to yet, if so write the frame, if not store the data until we do know.
+        if (self.frameOffsetDict.has_key(frameId) == True):
+            self.writeFrameData(self.frameOffsetDict[frameId], header)
+        else:
+            self.frameDataDict[frameId] = header
 
         return
 
@@ -337,11 +324,13 @@ class MetaListener:
 	        self.logger.warn( 'Acquisition not started. Ignoring Image Data Appendix' )
 	        return
 
-        nps = np.str(appendix)
-
         frameId = header['frame']
 
-        self.frameAppendixDset[frameId + self.frameOffset] = nps
+        # Check if we know the offset to write to yet, if so write the appendix, if not store the data until we do know.
+        if (self.frameOffsetDict.has_key(frameId) == True):
+            self.writeFrameAppendix(self.frameOffsetDict[frameId], appendix)
+        else:
+            self.frameAppendixDict[frameId] = appendix
 
         return
 
@@ -351,36 +340,37 @@ class MetaListener:
         if self.acqusitionStarted == False:
 	        self.logger.warn( 'Acquisition not started. Ignoring End Message' )
 	        return
-
-        #self.numberProcessorsRunning = self.numberProcessorsRunning - 1
-
-        #if self.numberProcessorsRunning == 0:
-	    #    self.logger.info('Last processor ended. Closing file')
-
-	    #    self.acqusitionStarted = False
-
-	    #    self.startDset.flush()
-	    #    self.stopDset.flush()
-	    # #   self.realDset.flush()
-	    #    self.frameDset.flush()
-	    #    self.hashDset.flush()
-	    #    self.encodingDset.flush()
-	    #    self.dtypeDset.flush()
-	    #    self.frameSeriesDset.flush()
-	    #    self.frameAppendixDset.flush()
-        #    
-	    #    self.f.close()
-        #else:
-	    #    self.logger.info('Processor ended, but not the last')
-
         
         return
 
     def handleFrameWriterOffset(self, value ):
         self.logger.debug('Handling frame writer offset')
         self.logger.debug(value)
+        frame_number = value['frame']
+        offset_value = value['offset']
 
-        self.frameOffset = value
+        self.frameOffsetDict[frame_number] = offset_value
+
+        numFrameOffsetsWritten = self.frameWrittenDset.size
+
+        self.frameWrittenDset.resize(numFrameOffsetsWritten+1, axis=0)
+        self.frameWrittenDset[numFrameOffsetsWritten] = frame_number
+
+        self.offsetWrittenDset.resize(numFrameOffsetsWritten+1, axis=0)
+        self.offsetWrittenDset[numFrameOffsetsWritten] = offset_value
+
+        # Check if we have the data and/or appendix for this frame yet. If so, write it in the offset given
+        if (self.frameDataDict.has_key(frame_number) == True):
+            self.writeFrameData(offset_value, self.frameDataDict[frame_number])
+            del self.frameDataDict[frame_number]
+
+        if (self.frameAppendixDict.has_key(frame_number) == True):
+            self.writeFrameAppendix(offset_value, self.frameAppendixDict[frame_number])
+            del self.frameAppendixDict[frame_number]
+
+        # So that the dictionary doesn't grow too large, only keep the last 100 frame/offset values
+        if (self.frameOffsetDict.has_key(frame_number-100)):
+            del self.frameOffsetDict[frame_number-100]
 
         return
 
@@ -392,6 +382,8 @@ class MetaListener:
 
         if self.acqusitionStarted == False:
 	        self.startNewAcquisition()
+        else:
+            self.logger.info('Processor created file, but not the first')
 
         self.numberProcessorsRunning = self.numberProcessorsRunning + 1
 
@@ -416,6 +408,8 @@ class MetaListener:
 	        self.dtypeDset.flush()
 	        self.frameSeriesDset.flush()
 	        self.frameAppendixDset.flush()
+	        self.frameWrittenDset.flush()
+	        self.offsetWrittenDset.flush()
             
 	        self.f.close()
         else:
@@ -423,6 +417,35 @@ class MetaListener:
 
         return
 
+    def writeFrameData(self, offset, header):
+
+        if offset + 1 > self.currentFrameCount:
+	        self.currentFrameCount = offset + 1
+	        self.startDset.resize(self.currentFrameCount, axis=0)
+	        self.stopDset.resize(self.currentFrameCount, axis=0)
+	        self.realDset.resize(self.currentFrameCount, axis=0)
+	        self.frameDset.resize(self.currentFrameCount, axis=0)
+	        self.hashDset.resize(self.currentFrameCount, axis=0)
+	        self.encodingDset.resize(self.currentFrameCount, axis=0)
+	        self.dtypeDset.resize(self.currentFrameCount, axis=0)
+	        self.frameSeriesDset.resize(self.currentFrameCount, axis=0)
+	        self.frameAppendixDset.resize(self.currentFrameCount, axis=0)
+
+        self.startDset[offset] = header['start_time']
+        self.stopDset[offset] = header['stop_time']
+        self.realDset[offset] = header['real_time']
+        self.frameDset[offset] = header['frame']
+        self.hashDset[offset] = header['hash']
+        self.encodingDset[offset] = header['encoding']
+        self.dtypeDset[offset] = header['type']
+        self.frameSeriesDset[offset] = header['series']
+
+        return
+
+    def writeFrameAppendix(self, offset, appendix):
+        nps = np.str(appendix)
+        self.frameAppendixDset[offset] = nps
+        return
 
 def options():
     parser = argparse.ArgumentParser()
