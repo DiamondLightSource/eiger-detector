@@ -18,6 +18,7 @@ EigerFrameDecoder::EigerFrameDecoder() :
         		dropping_frame_data_(false),
         		frame_timeout_ms_(1000),
         		frames_timedout_(0),
+				frames_dropped_(0),
 				currentMessagePart(1),
 				currentMessageType(Eiger::GLOBAL_HEADER_NONE),
 				currentParentMessageType(Eiger::PARENT_MESSAGE_TYPE_GLOBAL)
@@ -89,6 +90,8 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_message(size_t bytes_
 			std::string htype(headerTypeValue.GetString());
 			if (htype.compare(Eiger::GLOBAL_HEADER_TYPE) == 0) {
 				currentParentMessageType = Eiger::PARENT_MESSAGE_TYPE_GLOBAL;
+				// Reset the dropped frame count to start fresh for this acquisition
+				frames_dropped_ = 0;
 				// Get the series number from the message
 				rapidjson::Value& seriesValue = jsonDocument[Eiger::SERIES_KEY.c_str()];
 				currentHeader.series = seriesValue.GetInt();
@@ -361,7 +364,8 @@ void EigerFrameDecoder::monitor_buffers(void)
 
     LOG4CXX_DEBUG_LEVEL(2, logger_, get_num_mapped_buffers() << " frame buffers in use, "
             << get_num_empty_buffers() << " empty buffers available, "
-            << frames_timedout_ << " incomplete frames timed out");
+            << frames_timedout_ << " frames timed out, "
+			<< frames_dropped_ << " frames dropped");
 
 }
 
@@ -381,8 +385,10 @@ void EigerFrameDecoder::allocate_next_frame_buffer(void) {
 			if (!dropping_frame_data_){
 				LOG4CXX_ERROR(logger_, "Frame data detected but no free buffers available. Dropping packet data for this frame");
 				dropping_frame_data_ = true;
+				frames_dropped_++;
 			} else {
 				LOG4CXX_WARN(logger_, "Frame data detected but still no free buffers available. Dropping packet data for this frame");
+				frames_dropped_++;
 			}
 		} else {
 			current_frame_buffer_id_ = empty_buffer_queue_.front();
