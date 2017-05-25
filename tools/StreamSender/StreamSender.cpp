@@ -62,13 +62,14 @@ int main (int argc, char *argv[]) {
 
 	std::cout << "Sending messages..." << std::endl;
 
+	// Example use. Replace with the path to actual files.
 	SendFileMessage(socket, "streamfile_1", true);  // Global Header
-	SendFileMessage(socket, "streamfile_2", false); // Config. 'more' set to false as is the last message in a multipart message
+	SendFileMessage(socket, "streamfile_2", false); // Global Header Config. 'more' set to false as is the last message in a multipart message
 	SendFileMessage(socket, "streamfile_3", true);  // Image data header
 	SendFileMessage(socket, "streamfile_4", true);  // Image data dimensions
 	SendFileMessage(socket, "streamfile_5", true);  // Image data blob
 	SendFileMessage(socket, "streamfile_6", false); // Image data times. 'more' set to false as is the last message in a multipart message
-	SendFileMessage(socket, "streamfile_7", false); // End messagez
+	SendFileMessage(socket, "streamfile_7", false); // End message
 
 	std::cout << "Finished Sending messages" << std::endl;
 
