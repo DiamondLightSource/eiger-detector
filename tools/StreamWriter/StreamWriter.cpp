@@ -32,7 +32,6 @@ int main (int argc, char *argv[]) {
 	receiver.connect(connectAddress.c_str());
 
 	bool firstMsg = true;
-	timeval tv1;
 
 	long messageReceived = 1;
 
