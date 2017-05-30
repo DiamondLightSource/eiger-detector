@@ -19,6 +19,7 @@ EigerFrameDecoder::EigerFrameDecoder() :
         		frame_timeout_ms_(1000),
         		frames_timedout_(0),
 				frames_dropped_(0),
+				frames_allocated_(0),
 				currentMessagePart(1),
 				currentMessageType(Eiger::GLOBAL_HEADER_NONE),
 				currentParentMessageType(Eiger::PARENT_MESSAGE_TYPE_GLOBAL)
@@ -92,6 +93,7 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_message(size_t bytes_
 				currentParentMessageType = Eiger::PARENT_MESSAGE_TYPE_GLOBAL;
 				// Reset the dropped frame count to start fresh for this acquisition
 				frames_dropped_ = 0;
+				frames_allocated_ = 0;
 				// Get the series number from the message
 				rapidjson::Value& seriesValue = jsonDocument[Eiger::SERIES_KEY.c_str()];
 				currentHeader.series = seriesValue.GetInt();
@@ -362,10 +364,10 @@ void EigerFrameDecoder::monitor_buffers(void)
     }
     frames_timedout_ += frames_timedout;
 
-    LOG4CXX_DEBUG_LEVEL(2, logger_, get_num_mapped_buffers() << " frame buffers in use, "
-            << get_num_empty_buffers() << " empty buffers available, "
-            << frames_timedout_ << " frames timed out, "
-			<< frames_dropped_ << " frames dropped");
+    LOG4CXX_DEBUG_LEVEL(2, logger_, get_num_empty_buffers() << " empty buffers available. "
+    		<< "Frames in the last acquisition: "
+			<< frames_allocated_ << " allocated, "
+			<< frames_dropped_ << " dropped");
 
 }
 
@@ -396,6 +398,7 @@ void EigerFrameDecoder::allocate_next_frame_buffer(void) {
 			//frame_buffer_map_[current_frame_seen_] = current_frame_buffer_id_;
 			current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
 			dropping_frame_data_ = false;
+			frames_allocated_++;
 		}
 	}
 }

@@ -15,6 +15,7 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include <log4cxx/logger.h>
+#include <boost/shared_ptr.hpp>
 
 class EigerFan {
 public:
@@ -30,7 +31,7 @@ protected:
 	void HandleGlobalHeaderMessage(zmq::message_t &message, zmq::socket_t &socket);
 	void HandleImageDataMessage(zmq::message_t &message, zmq::socket_t &socket);
 	void HandleEndOfSeriesMessage(zmq::message_t &message, zmq::socket_t &socket);
-	void HandleMonitorMessage(zmq::message_t &message, zmq::socket_t &socket);
+	void HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
 	void HandleControlMessage(zmq::message_t &message);
 	void SendMessageToAllConsumers(zmq::message_t &message, int flags = 0);
 	void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
@@ -42,15 +43,15 @@ private:
 	rapidjson::Document jsonDocument;
 	EigerFanConfig config;
 	zmq::context_t ctx_;
-	zmq::socket_t sendSocket;
 	zmq::socket_t recvSocket;
 	zmq::socket_t controlSocket;
-
+	std::vector<boost::shared_ptr<zmq::socket_t> > sendSockets;
 
 	int numConnectedConsumers;
 	bool killRequested;
 	Eiger::EigerFanState state;
 	int currentSeries;
+	int currentConsumerIndexToSendTo;
 };
 
 

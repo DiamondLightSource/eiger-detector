@@ -67,6 +67,7 @@ private:
     unsigned int frame_timeout_ms_;
     unsigned int frames_timedout_;
     unsigned int frames_dropped_;
+    unsigned int frames_allocated_;
 
     Eiger::EigerMessageType currentMessageType;
     Eiger::EigerMessageParentType currentParentMessageType;
