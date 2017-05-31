@@ -156,6 +156,7 @@ class MetaListener:
             self.stopDset = self.f.create_dataset("stop_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
             self.realDset = self.f.create_dataset("real_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
             self.frameDset = self.f.create_dataset("frame", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+            self.sizeDset = self.f.create_dataset("size", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
             self.hashDset = self.f.create_dataset("hash", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
             self.encodingDset = self.f.create_dataset("encoding", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
             self.dtypeDset = self.f.create_dataset("datatype", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
@@ -403,6 +404,7 @@ class MetaListener:
 	        self.stopDset.flush()
 	        self.realDset.flush()
 	        self.frameDset.flush()
+	        self.sizeDset.flush()
 	        self.hashDset.flush()
 	        self.encodingDset.flush()
 	        self.dtypeDset.flush()
@@ -425,6 +427,7 @@ class MetaListener:
 	        self.stopDset.resize(self.currentFrameCount, axis=0)
 	        self.realDset.resize(self.currentFrameCount, axis=0)
 	        self.frameDset.resize(self.currentFrameCount, axis=0)
+	        self.sizeDset.resize(self.currentFrameCount, axis=0)
 	        self.hashDset.resize(self.currentFrameCount, axis=0)
 	        self.encodingDset.resize(self.currentFrameCount, axis=0)
 	        self.dtypeDset.resize(self.currentFrameCount, axis=0)
@@ -435,6 +438,7 @@ class MetaListener:
         self.stopDset[offset] = header['stop_time']
         self.realDset[offset] = header['real_time']
         self.frameDset[offset] = header['frame']
+        self.sizeDset[offset] = header['size']
         self.hashDset[offset] = header['hash']
         self.encodingDset[offset] = header['encoding']
         self.dtypeDset[offset] = header['type']
