@@ -129,8 +129,8 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 					"Set the number of 0MQ threads for the 0MQ context")
 				("consumers,n", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_CONSUMERS),
 					"Set the number of expected consumers")
-				("fanport,f", po::value<std::string>()->default_value(EigerFanDefaults::DEFAULT_FAN_PORT_NUMBER),
-					"Set the port to accept consumer connections on")
+				("fanport,f", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_FAN_PORT_NUMBER_START),
+					"Set the lowest port to accept consumer connections on. Further connections are made on subsequent sequential ports")
 				("ctrlport,p", po::value<std::string>()->default_value(EigerFanDefaults::DEFAULT_CONTROL_PORT_NUMBER),
 					"Set the port to accept control messages on")
 				("addr,s", po::value<std::string>()->default_value(EigerFanDefaults::DEFAULT_STREAM_ADDRESS),
@@ -197,8 +197,8 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 
 		if (vm.count("fanport"))
 		{
-			cfg.setFanChannelPort(vm["fanport"].as<std::string>());
-			LOG4CXX_DEBUG(logger, "Setting fan channel port to " << cfg.getFanChannelPort());
+			cfg.setFanChannelPortStart(vm["fanport"].as<unsigned int>());
+			LOG4CXX_DEBUG(logger, "Setting fan channel port to " << cfg.getFanChannelPortStart());
 		}
 
 		if (vm.count("ctrlport"))
