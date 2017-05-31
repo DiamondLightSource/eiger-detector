@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckConsumerConnect )
 
 	// Now connect a consumer
 	zmq::socket_t receiver(context, ZMQ_PULL);
-	receiver.connect("tcp://localhost:5557");
+	receiver.connect("tcp://localhost:31600");
 
 	// Sleep to give time for 0MQ message to get through and be processed
 	sleep(1);
@@ -187,7 +187,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheck2ConsumersConnect )
 
 	// Now connect a consumer
 	zmq::socket_t receiver(context, ZMQ_PULL);
-	receiver.connect("tcp://localhost:5557");
+	receiver.connect("tcp://localhost:31600");
 
 	// Sleep to give time for 0MQ message to get through and be processed
 	sleep(1);
@@ -204,7 +204,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheck2ConsumersConnect )
 
 	// Now connect a second consumer
 	zmq::socket_t receiver2(context, ZMQ_PULL);
-	receiver2.connect("tcp://localhost:5557");
+	receiver2.connect("tcp://localhost:31601");
 
 	// Sleep to give time for 0MQ message to get through and be processed
 	sleep(1);
@@ -240,7 +240,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSends )
 
 	// Now connect a consumer
 	zmq::socket_t receiver(context, ZMQ_PULL);
-	receiver.connect("tcp://localhost:5557");
+	receiver.connect("tcp://localhost:31600");
 
 	// Sleep to give time for 0MQ message to get through and be processed
 	sleep(1);
@@ -383,7 +383,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImages )
 
 	// Now connect a consumer
 	zmq::socket_t receiver(context, ZMQ_PULL);
-	receiver.connect("tcp://localhost:5557");
+	receiver.connect("tcp://localhost:31600");
 
 	// Sleep to give time for 0MQ message to get through and be processed
 	sleep(1);
@@ -580,9 +580,9 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImagesMultiConsumers )
 
 	// Now connect the consumers
 	zmq::socket_t receiver1(context, ZMQ_PULL);
-	receiver1.connect("tcp://localhost:5557");
+	receiver1.connect("tcp://localhost:31600");
 	zmq::socket_t receiver2(context, ZMQ_PULL);
-	receiver2.connect("tcp://localhost:5557");
+	receiver2.connect("tcp://localhost:31601");
 
 	// Sleep to give time for 0MQ message to get through and be processed
 	sleep(1);
@@ -777,7 +777,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckClose )
 
 	// Now connect a consumer
 	zmq::socket_t receiver(context, ZMQ_PULL);
-	receiver.connect("tcp://localhost:5557");
+	receiver.connect("tcp://localhost:31600");
 
 	// Sleep to give time for 0MQ message to get through and be processed
 	sleep(1);
