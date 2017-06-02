@@ -122,7 +122,7 @@ class MetaListener:
 	        self.handleFrameWriterCloseFile()
         elif message['parameter'] == "writeframe":
 	        value = receiver.recv_json()
-	        self.handleFrameWriterOffset(value)
+	        self.handleFrameWriterWriteFrame(value)
         else:
             print 'unknown parameter: ' + str(message)
             value = receiver.recv()
@@ -344,13 +344,17 @@ class MetaListener:
         
         return
 
-    def handleFrameWriterOffset(self, value ):
-        self.logger.debug('Handling frame writer offset')
+    def handleFrameWriterWriteFrame(self, value ):
+        self.logger.debug('Handling frame writer write frame')
         self.logger.debug(value)
         frame_number = value['frame']
         offset_value = value['offset']
+        rank = value['rank']
+        num_processes = value['proc']
+        
+        offsetToWriteTo = (offset_value * num_processes) + rank
 
-        self.frameOffsetDict[frame_number] = offset_value
+        self.frameOffsetDict[frame_number] = offsetToWriteTo
 
         numFrameOffsetsWritten = self.frameWrittenDset.size
 
@@ -358,15 +362,15 @@ class MetaListener:
         self.frameWrittenDset[numFrameOffsetsWritten] = frame_number
 
         self.offsetWrittenDset.resize(numFrameOffsetsWritten+1, axis=0)
-        self.offsetWrittenDset[numFrameOffsetsWritten] = offset_value
+        self.offsetWrittenDset[numFrameOffsetsWritten] = offsetToWriteTo
 
         # Check if we have the data and/or appendix for this frame yet. If so, write it in the offset given
         if (self.frameDataDict.has_key(frame_number) == True):
-            self.writeFrameData(offset_value, self.frameDataDict[frame_number])
+            self.writeFrameData(offsetToWriteTo, self.frameDataDict[frame_number])
             del self.frameDataDict[frame_number]
 
         if (self.frameAppendixDict.has_key(frame_number) == True):
-            self.writeFrameAppendix(offset_value, self.frameAppendixDict[frame_number])
+            self.writeFrameAppendix(offsetToWriteTo, self.frameAppendixDict[frame_number])
             del self.frameAppendixDict[frame_number]
 
         # So that the dictionary doesn't grow too large, only keep the last 100 frame/offset values
