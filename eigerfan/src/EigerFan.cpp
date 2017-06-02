@@ -281,7 +281,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 		zmq::message_t messagePartExtra;
 		socket.recv(&messagePartExtra);
 		LOG4CXX_ERROR(log, "Unexpected unhandled message in stream");
-		return;
+		recvSocket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	}
 }
 
