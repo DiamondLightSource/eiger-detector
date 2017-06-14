@@ -52,6 +52,7 @@ private:
 	Eiger::EigerFanState state;
 	int currentSeries;
 	int currentConsumerIndexToSendTo;
+	uint64_t lastFrameSent;
 };
 
 

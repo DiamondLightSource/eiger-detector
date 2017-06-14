@@ -35,6 +35,7 @@ EigerFan::EigerFan()
 	state = WAITING_CONSUMERS;
 	currentSeries = 0;
 	currentConsumerIndexToSendTo = 0;
+	lastFrameSent = 0;
 }
 
 EigerFan::EigerFan(EigerFanConfig config_)
@@ -49,6 +50,7 @@ EigerFan::EigerFan(EigerFanConfig config_)
 	state = WAITING_CONSUMERS;
 	currentSeries = 0;
 	currentConsumerIndexToSendTo = 0;
+	lastFrameSent = 0;
 }
 
 EigerFan::~EigerFan() {
@@ -258,6 +260,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 				int64_t frame(frameValue.GetInt64());
 				currentConsumerIndexToSendTo = frame % config.num_consumers;
 				HandleImageDataMessage(message, socket);
+				lastFrameSent = frame;
 			} else if (htype.compare(END_HEADER_TYPE) == 0) {
 				HandleEndOfSeriesMessage(message, socket);
 				state = WAITING_STREAM;
@@ -576,6 +579,16 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 		rapidjson::Value keyNumConn("num_conn", document.GetAllocator());
 		rapidjson::Value valueNumConn(numConnectedConsumers);
 		document.AddMember(keyNumConn, valueNumConn, document.GetAllocator());
+
+		// Add Current series
+		rapidjson::Value keySeries("series", document.GetAllocator());
+		rapidjson::Value valueSeries(currentSeries);
+		document.AddMember(keySeries, valueSeries, document.GetAllocator());
+
+		// Add Last Frame sent
+		rapidjson::Value keyFrame("frame", document.GetAllocator());
+		rapidjson::Value valueFrame(lastFrameSent);
+		document.AddMember(keyFrame, valueFrame, document.GetAllocator());
 
 		rapidjson::StringBuffer buffer;
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
