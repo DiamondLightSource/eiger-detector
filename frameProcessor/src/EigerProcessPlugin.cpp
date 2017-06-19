@@ -25,6 +25,7 @@ namespace FrameProcessor
   {
 	  const Eiger::FrameHeader* hdrPtr = static_cast<const Eiger::FrameHeader*>(frame->get_data());
 	  LOG4CXX_TRACE(logger_, "aFrameHeader frame currentMessageType: " << hdrPtr->messageType);
+	  LOG4CXX_TRACE(logger_, "FrameHeader frame series: " << hdrPtr->series);
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame number: " << hdrPtr->frame_number);
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame shapeSizeX: " << hdrPtr->shapeSizeX);
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame shapeSizeY: " << hdrPtr->shapeSizeY);
@@ -35,10 +36,18 @@ namespace FrameProcessor
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame blob_size: " << hdrPtr->data_size);
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame data type: " << hdrPtr->dataType);
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame encoding: " << hdrPtr->encoding);
+	  LOG4CXX_TRACE(logger_, "FrameHeader frame acquisition ID: " << hdrPtr->acquisitionID);
 
 	  // Create status message header
 	  rapidjson::Document document;
 	  document.SetObject();
+
+      // Add Acquisition ID
+      std::string acqIDString(hdrPtr->acquisitionID);
+      rapidjson::Value keyAcqID("acqID", document.GetAllocator());
+      rapidjson::Value valueAcqID;
+      valueAcqID.SetString(acqIDString.c_str(), acqIDString.length(), document.GetAllocator());
+      document.AddMember(keyAcqID, valueAcqID, document.GetAllocator());
 
 	  if (hdrPtr->messageType == Eiger::IMAGE_DATA) {
 
@@ -51,6 +60,7 @@ namespace FrameProcessor
           setFrameEncoding(data_frame, hdrPtr);
           setFrameDataType(data_frame, hdrPtr);
           setFrameDimensions(data_frame, hdrPtr);
+          data_frame->set_acquisition_id(hdrPtr->acquisitionID);
 
           this->push(data_frame);
 
@@ -113,11 +123,11 @@ namespace FrameProcessor
           valueHash.SetString(hashString.c_str(), hashString.length(), document.GetAllocator());
           document.AddMember(keyHash, valueHash, document.GetAllocator());
 
-          rapidjson::StringBuffer buffer;
-          rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-          document.Accept(writer);
+		  rapidjson::StringBuffer buffer;
+		  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+		  document.Accept(writer);
 
-          publishMeta("eiger-imagedata", buffer.GetString());
+          publishMeta("eiger-imagedata", buffer.GetString(), buffer.GetString());
 	  } else if (hdrPtr->messageType == Eiger::IMAGE_APPENDIX) {
 		  std::string dataString((static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
@@ -141,7 +151,7 @@ namespace FrameProcessor
 		  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		  document.Accept(writer);
 
-		  publishMeta("eiger-globalnone", buffer.GetString());
+		  publishMeta("eiger-globalnone", buffer.GetString(), buffer.GetString());
 	  } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_CONFIG) {
 		  std::string dataString((static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
@@ -215,24 +225,13 @@ namespace FrameProcessor
 	  } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_APPENDIX) {
 		  std::string dataString((static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
-		  publishMeta("eiger-headerappendix", dataString);
-	  } else if (hdrPtr->messageType == Eiger::END_OF_STREAM) {
-		  boost::shared_ptr<Frame> meta_frame;
-		  meta_frame = boost::shared_ptr<Frame>(new Frame("meta"));
-		  meta_frame->set_parameter("stop", 1);
-
-		  this->push(meta_frame);
-
-		  // Add Series number
-		  rapidjson::Value keySeries("series", document.GetAllocator());
-		  rapidjson::Value valueSeries(hdrPtr->series);
-		  document.AddMember(keySeries, valueSeries, document.GetAllocator());
-
 		  rapidjson::StringBuffer buffer;
 		  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		  document.Accept(writer);
 
-		  publishMeta("eiger-end", buffer.GetString());
+		  publishMeta("eiger-headerappendix", dataString, buffer.GetString());
+	  } else if (hdrPtr->messageType == Eiger::END_OF_STREAM) {
+		  // Do nothing with End of Stream message
 	  }
   }
 

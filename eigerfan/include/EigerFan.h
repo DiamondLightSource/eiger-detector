@@ -37,6 +37,8 @@ protected:
 	void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
 	void SendMessageToSingleConsumer(zmq::message_t &message, int flags = 0, bool sendToStatus = true);
 	void SendFabricatedEndMessage();
+	std::string AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messageAppendix);
+	std::string AddAcquisitionIDToPart1(std::string acquisitionID);
 
 private:
 	log4cxx::LoggerPtr log;
@@ -52,6 +54,7 @@ private:
 	Eiger::EigerFanState state;
 	int currentSeries;
 	int currentConsumerIndexToSendTo;
+	std::string currentAcquisitionID;
 	uint64_t lastFrameSent;
 };
 

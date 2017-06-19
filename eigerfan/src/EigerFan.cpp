@@ -310,7 +310,11 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
-				messageList.push_back(&messagePart1);
+				// Add the filename from the appendix to part 1 for easier downstream processing
+				std::string part1WithFilename = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
+				zmq::message_t newPart1message(part1WithFilename.size());
+				memcpy (newPart1message.data (), part1WithFilename.c_str(), part1WithFilename.size());
+				messageList.push_back(&newPart1message);
 				messageList.push_back(&messageAppendix);
 				SendMessagesToAllConsumers(messageList);
 			} else {
@@ -332,7 +336,11 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
-				messageList.push_back(&messagePart1);
+				// Add the filename from the appendix to part 1 for easier downstream processing
+				std::string part1WithFilename = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
+				zmq::message_t newPart1message(part1WithFilename.size());
+				memcpy (newPart1message.data (), part1WithFilename.c_str(), part1WithFilename.size());
+				messageList.push_back(&newPart1message);
 				messageList.push_back(&messagePart2);
 				messageList.push_back(&messageAppendix);
 				SendMessagesToAllConsumers(messageList);
@@ -418,7 +426,11 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
-				messageList.push_back(&messagePart1);
+				// Add the filename from the appendix to part 1 for easier downstream processing
+				std::string part1WithFilename = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
+				zmq::message_t newPart1message(part1WithFilename.size());
+				memcpy (newPart1message.data (), part1WithFilename.c_str(), part1WithFilename.size());
+				messageList.push_back(&newPart1message);
 				messageList.push_back(&messagePart2);
 				messageList.push_back(&messagePart3);
 				messageList.push_back(&messagePart4);
@@ -515,7 +527,10 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 
 void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, zmq::socket_t &socket) {
 	LOG4CXX_INFO(log, "Handling EndOfSeries Message");
-	SendMessageToAllConsumers(message);
+	std::string part1WithFilename = AddAcquisitionIDToPart1(currentAcquisitionID);
+	zmq::message_t newPart1message(part1WithFilename.size());
+	memcpy (newPart1message.data (), part1WithFilename.c_str(), part1WithFilename.size());
+	SendMessageToAllConsumers(newPart1message);
 	if (state != DSTR_IMAGE) {
 		LOG4CXX_WARN(log, std::string("Received EndOfSeries message in unexpected state: ").append(GetStateString(state)));
 	}
@@ -696,6 +711,10 @@ void EigerFan::SendFabricatedEndMessage() {
 	rapidjson::Value& series = documentEoS[SERIES_KEY.c_str()];
 	series.SetInt(currentSeries);
 
+	rapidjson::Value keyAcquisitionID(Eiger::ACQUISITION_ID_KEY.c_str(), documentEoS.GetAllocator());
+	rapidjson::Value valueAcquisitionID(currentAcquisitionID, documentEoS.GetAllocator());
+	documentEoS.AddMember(keyAcquisitionID, valueAcquisitionID, documentEoS.GetAllocator());
+
 	rapidjson::StringBuffer buffer1;
 	rapidjson::Writer<rapidjson::StringBuffer> writer1(buffer1);
 	documentEoS.Accept(writer1);
@@ -711,4 +730,37 @@ void EigerFan::SendFabricatedEndMessage() {
 
 void EigerFan::SetNumberOfConsumers(int number) {
 	config.num_consumers = number;
+}
+
+std::string EigerFan::AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messageAppendix) {
+	std::string appendixjson(static_cast<char*>(messageAppendix.data()), messageAppendix.size());
+	rapidjson::Document appendixDocument;
+	appendixDocument.Parse(appendixjson.c_str());
+	std::string acquisitionID;
+
+	// Parse acquisitionID from appendix
+	if (appendixDocument.HasParseError()) {
+		LOG4CXX_ERROR(log, "Error parsing Global Header Appendix message into json");
+	} else {
+		if (appendixDocument.HasMember(Eiger::ACQUISITION_ID_KEY.c_str()) == true) {
+			rapidjson::Value& acquisitionIDValue = appendixDocument[ACQUISITION_ID_KEY.c_str()];
+			acquisitionID = acquisitionIDValue.GetString();
+			currentAcquisitionID = acquisitionID;
+		} else {
+			LOG4CXX_WARN(log, "No acquisition ID in global header appendix");
+		}
+	}
+	return AddAcquisitionIDToPart1(acquisitionID);
+}
+
+std::string EigerFan::AddAcquisitionIDToPart1(std::string acquisitionID) {
+
+	rapidjson::Value keyAcquisitionID(Eiger::ACQUISITION_ID_KEY.c_str(), jsonDocument.GetAllocator());
+	rapidjson::Value valueAcquisitionID(acquisitionID, jsonDocument.GetAllocator());
+	jsonDocument.AddMember(keyAcquisitionID, valueAcquisitionID, jsonDocument.GetAllocator());
+
+	rapidjson::StringBuffer buffer;
+	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+	jsonDocument.Accept(writer);
+	return buffer.GetString();
 }

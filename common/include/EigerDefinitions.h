@@ -36,6 +36,8 @@ namespace Eiger {
 	const std::string STOP_TIME_KEY = "stop_time";
 	const std::string REAL_TIME_KEY = "real_time";
 
+	const std::string ACQUISITION_ID_KEY = "acqID";
+
 	const std::string END_STREAM_MESSAGE = "{\"htype\": \"dseries_end-1.0\", \"series\": 1}";
 
 	// EigerFan related constants
@@ -76,6 +78,7 @@ namespace Eiger {
 		char hash[33];      // MD5 hash of the message part, written in a 32 byte string
 		char encoding[11];  // String of the form "[bs<BIT>][[-]lz4][<|>]"
 		char dataType[8];	// "uint16" or "uint32" or "float32"
+		char acquisitionID[256];	// acquisitionID
 	} FrameHeader;
 
 	static const size_t raw_buffer_size    = 18000000 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
@@ -89,13 +92,13 @@ namespace Eiger {
 	static const int image_data_appendix_part = 5; // Appendix is on the 5th image part
 
 	static const int global_detector_none_part = 1; // Global header first message part
-	static const int global_detector_config_part = 2; // Global header 2nd  part contains config data
-	static const int global_flatfield_header_part = 3; // Global header 3rd  part contains flatfield header
-	static const int global_flatfield_data_part = 4; // Global header 4th  part contains flatfield data
-	static const int global_mask_header_part = 5; // Global header 5th  part contains pixel mask header
-	static const int global_mask_data_part = 6; // Global header 6th  part contains pixel mask data
-	static const int global_countrate_header_part = 7; // Global header 7th  part contains countrate header
-	static const int global_countrate_data_part = 8; // Global header 8th  part contains countrate data
+	static const int global_detector_config_part = 2; // Global header 2nd part contains config data
+	static const int global_flatfield_header_part = 3; // Global header 3rd part contains flatfield header
+	static const int global_flatfield_data_part = 4; // Global header 4th part contains flatfield data
+	static const int global_mask_header_part = 5; // Global header 5th part contains pixel mask header
+	static const int global_mask_data_part = 6; // Global header 6th part contains pixel mask data
+	static const int global_countrate_header_part = 7; // Global header 7th part contains countrate header
+	static const int global_countrate_data_part = 8; // Global header 8th part contains countrate data
 	static const int global_appendix_part = 9; // Appendix is on the 9th global header part
 
 }
