@@ -35,7 +35,7 @@ protected:
 	void HandleControlMessage(zmq::message_t &message);
 	void SendMessageToAllConsumers(zmq::message_t &message, int flags = 0);
 	void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
-	void SendMessageToSingleConsumer(zmq::message_t &message, int flags = 0, bool sendToStatus = true);
+	void SendMessageToSingleConsumer(zmq::message_t &message, int flags = 0);
 	void SendFabricatedEndMessage();
 	std::string AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messageAppendix);
 	std::string AddAcquisitionIDToPart1(std::string acquisitionID);

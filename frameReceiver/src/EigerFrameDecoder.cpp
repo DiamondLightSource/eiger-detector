@@ -15,16 +15,12 @@ EigerFrameDecoder::EigerFrameDecoder() :
 				current_frame_number_(-1),
         		current_frame_buffer_id_(-1),
         		current_frame_buffer_(0),
-				current_appendix_buffer_id_(-1),
-        		current_appendix_buffer_(0),
         		dropping_frame_data_(false),
-				dropping_appendix_data_(false),
         		frame_timeout_ms_(1000),
         		frames_timedout_(0),
 				frames_dropped_(0),
 				frames_allocated_(0),
 				currentMessagePart(1),
-				send_appendix(false),
 				currentMessageType(Eiger::GLOBAL_HEADER_NONE),
 				currentParentMessageType(Eiger::PARENT_MESSAGE_TYPE_GLOBAL),
 				numHeaderMessagesToExpect(1)
@@ -60,6 +56,7 @@ const size_t EigerFrameDecoder::get_frame_header_size(void) const
 void* EigerFrameDecoder::get_next_message_buffer(void)
 {
 	if ((currentParentMessageType == Eiger::PARENT_MESSAGE_TYPE_IMAGE_DATA && currentMessagePart == Eiger::image_data_blob_part) ||
+		(currentParentMessageType == Eiger::PARENT_MESSAGE_TYPE_IMAGE_DATA && currentMessagePart == Eiger::image_data_appendix_part) ||
 		(currentParentMessageType == Eiger::PARENT_MESSAGE_TYPE_GLOBAL && currentMessagePart == Eiger::global_detector_config_part) ||
 		(currentParentMessageType == Eiger::PARENT_MESSAGE_TYPE_GLOBAL && currentMessagePart == Eiger::global_flatfield_data_part) ||
 		(currentParentMessageType == Eiger::PARENT_MESSAGE_TYPE_GLOBAL && currentMessagePart == Eiger::global_mask_data_part) ||
@@ -67,9 +64,6 @@ void* EigerFrameDecoder::get_next_message_buffer(void)
 		(currentParentMessageType == Eiger::PARENT_MESSAGE_TYPE_GLOBAL && currentMessagePart == Eiger::global_appendix_part)) {
 	  allocate_next_frame_buffer();
 	  return reinterpret_cast<void*>(static_cast<char*>(current_frame_buffer_)+sizeof(Eiger::FrameHeader));
-	} else if (currentParentMessageType == Eiger::PARENT_MESSAGE_TYPE_IMAGE_DATA && currentMessagePart == Eiger::image_data_appendix_part) {
-	  allocate_next_appendix_buffer();
-	  return reinterpret_cast<void*>(static_cast<char*>(current_appendix_buffer_)+sizeof(Eiger::FrameHeader));
 	} else {
 	  return reinterpret_cast<void*>(current_raw_buffer_.get());
 	}
@@ -148,6 +142,13 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_message(size_t bytes_
 				std::string hash(hashValue.GetString());
 				strncpy(currentHeader.hash, hash.c_str(), sizeof(currentHeader.hash));
 				currentHeader.hash[sizeof(currentHeader.hash)-1] = '\0';
+
+				// Get the acquisition ID from the global header if it exists
+				if (jsonDocument.HasMember(Eiger::ACQUISITION_ID_KEY.c_str()) == true) {
+					rapidjson::Value& acqIDValue = jsonDocument[Eiger::ACQUISITION_ID_KEY.c_str()];
+					std::string acqID(acqIDValue.GetString());
+					strncpy(currentHeader.acquisitionID, acqID.c_str(), sizeof(currentHeader.acquisitionID));
+				}
 			} else if (htype.compare(Eiger::END_HEADER_TYPE) == 0) {
 				currentParentMessageType = Eiger::PARENT_MESSAGE_TYPE_END;
 				currentMessageType = Eiger::END_OF_STREAM;
@@ -332,34 +333,12 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_image_message(size_t 
 		currentHeader.stopTime = stopValue.GetInt64();
 		rapidjson::Value& realValue = jsonDocument[Eiger::REAL_TIME_KEY.c_str()];
 		currentHeader.realTime = realValue.GetInt64();
+		send_buffer();
 		frame_state = FrameDecoder::FrameReceiveStateComplete;
 	} else if (currentMessagePart == Eiger::image_data_appendix_part) {
-		// Parse out the acquisition ID from the appendix
-		char temp_buffer[bytes_received+1];
-		memcpy(temp_buffer, (static_cast<char*>(current_appendix_buffer_)+sizeof(Eiger::FrameHeader)), bytes_received);
-		temp_buffer[bytes_received] = '\0';
-		jsonDocument.Parse(temp_buffer);
-
-		if (jsonDocument.IsObject()) {
-			if (jsonDocument.HasMember(Eiger::ACQUISITION_ID_KEY.c_str())) {
-				rapidjson::Value& acqIDValue = jsonDocument[Eiger::ACQUISITION_ID_KEY.c_str()];
-				std::string acqID(acqIDValue.GetString());
-				if (acqID.length() < sizeof(currentHeader.acquisitionID)) {
-					strncpy(currentHeader.acquisitionID, acqID.c_str(), sizeof(currentHeader.acquisitionID));
-					strncpy(appendixHeader.acquisitionID, acqID.c_str(), sizeof(appendixHeader.acquisitionID));
-				} else {
-					LOG4CXX_ERROR(logger_, "Acquisition ID was too long: " << acqID);
-				}
-			} else {
-				LOG4CXX_WARN(logger_, "Image appendix did not contain an Acquisition ID");
-			}
-		} else {
-			LOG4CXX_WARN(logger_, "Failed to parse Image appendix");
-		}
-		appendixHeader.frame_number = currentHeader.frame_number;
-		appendixHeader.series = currentHeader.series;
-		appendixHeader.data_size = bytes_received;
-		send_appendix = true;
+		currentMessageType = Eiger::IMAGE_APPENDIX;
+		currentHeader.data_size = bytes_received;
+		send_buffer();
 	}
     return frame_state;
 }
@@ -378,17 +357,10 @@ void EigerFrameDecoder::frame_meta_data(int meta)
 	int eof = meta & 0x1;
 
 	if (eof){
-		if (currentMessageType == Eiger::IMAGE_DATA) {
-			send_buffer();
-		}
-		if (send_appendix) {
-			send_appendix_buffer();
-			send_appendix = false; // Clear so next time it doesn't send appendix if there isn't one
-		}
 		currentMessagePart = 1; // Reset message part back to expect the first message part
-		currentHeader.frame_number = -1; // Reset frame back to -1
-		currentHeader.series = 0;	     // Reset series back to 0
+		currentHeader.frame_number = -1; // Reset frame back to 0
 		currentHeader.acquisitionID[0] = '\0'; // Reset the acquisition ID to empty
+		currentHeader.series = 0; // Reset the series back to 0
 	}
 }
 
@@ -452,11 +424,11 @@ void EigerFrameDecoder::allocate_next_frame_buffer(void) {
 		if (empty_buffer_queue_.empty()){
 			current_frame_buffer_ = dropped_frame_buffer_.get();
 			if (!dropping_frame_data_){
-				LOG4CXX_ERROR(logger_, "Frame data detected but no free buffers available. Dropping packet data for this frame");
+				LOG4CXX_ERROR(logger_, "Frame data detected but no free buffers available. Dropping data for frame " << current_frame_number_);
 				dropping_frame_data_ = true;
 				frames_dropped_++;
 			} else {
-				LOG4CXX_WARN(logger_, "Frame data detected but still no free buffers available. Dropping packet data for this frame");
+				LOG4CXX_ERROR(logger_, "Frame data detected but still no free buffers available. Dropping data for frame " << current_frame_number_);
 				frames_dropped_++;
 			}
 		} else {
@@ -465,28 +437,6 @@ void EigerFrameDecoder::allocate_next_frame_buffer(void) {
 			//frame_buffer_map_[current_frame_seen_] = current_frame_buffer_id_;
 			current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
 			dropping_frame_data_ = false;
-			frames_allocated_++;
-		}
-	}
-}
-
-void EigerFrameDecoder::allocate_next_appendix_buffer(void) {
-	if (current_appendix_buffer_id_ == -1){
-		if (empty_buffer_queue_.empty()){
-			current_appendix_buffer_ = dropped_frame_buffer_.get();
-			if (!dropping_appendix_data_){
-				LOG4CXX_ERROR(logger_, "Frame appendix data detected but no free buffers available. Dropping packet data for this frame");
-				dropping_appendix_data_ = true;
-				frames_dropped_++;
-			} else {
-				LOG4CXX_WARN(logger_, "Frame appendix data detected but still no free buffers available. Dropping packet data for this frame");
-				frames_dropped_++;
-			}
-		} else {
-			current_appendix_buffer_id_ = empty_buffer_queue_.front();
-			empty_buffer_queue_.pop();
-			current_appendix_buffer_ = buffer_manager_->get_buffer_address(current_appendix_buffer_id_);
-			dropping_appendix_data_ = false;
 			frames_allocated_++;
 		}
 	}
@@ -520,25 +470,6 @@ void EigerFrameDecoder::send_buffer(void) {
 		currentHeader.hash[0] = '\0';
 		currentHeader.dataType[0] = '\0';
 		currentHeader.encoding[0] = '\0';
-	}
-}
-
-void EigerFrameDecoder::send_appendix_buffer(void) {
-
-	if (!dropping_appendix_data_ && !dropping_frame_data_) {
-		appendixHeader.messageType = Eiger::IMAGE_APPENDIX;
-		memcpy(current_appendix_buffer_, &appendixHeader, sizeof(Eiger::FrameHeader));
-
-		// Notify main thread that frame is ready
-		ready_callback_(current_appendix_buffer_id_, -1);
-
-		current_appendix_buffer_id_ = -1;
-
-		// Reset current appendix header
-		appendixHeader.frame_number = -1;
-		appendixHeader.series = 0;
-		appendixHeader.data_size = 0;
-		appendixHeader.acquisitionID[0] = '\0';
 	}
 }
 

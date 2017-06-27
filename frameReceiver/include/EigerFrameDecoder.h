@@ -46,9 +46,7 @@ private:
 
     unsigned int elapsed_ms(struct timespec& start, struct timespec& end);
     void allocate_next_frame_buffer(void);
-    void allocate_next_appendix_buffer(void);
     void send_buffer(void);
-    void send_appendix_buffer(void);
 
     FrameDecoder::FrameReceiveState process_global_header_message(size_t bytes_received);
 
@@ -60,16 +58,11 @@ private:
     boost::shared_ptr<void> dropped_frame_buffer_;
 
     void *current_frame_buffer_;
-    void *current_appendix_buffer_;
 
     uint32_t current_frame_number_;
     int current_frame_buffer_id_;
-    int current_appendix_buffer_id_;
 
     bool dropping_frame_data_;
-    bool dropping_appendix_data_;
-
-    bool send_appendix;
 
     unsigned int frame_timeout_ms_;
     unsigned int frames_timedout_;
@@ -83,7 +76,6 @@ private:
     rapidjson::Document jsonDocument;
 
     Eiger::FrameHeader currentHeader;
-    Eiger::FrameHeader appendixHeader;
 };
 
 } /* namespace FrameReceiver */

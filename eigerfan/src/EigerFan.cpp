@@ -310,10 +310,10 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
-				// Add the filename from the appendix to part 1 for easier downstream processing
-				std::string part1WithFilename = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
-				zmq::message_t newPart1message(part1WithFilename.size());
-				memcpy (newPart1message.data (), part1WithFilename.c_str(), part1WithFilename.size());
+				// Add the Acquisition ID from the appendix to part 1 for easier downstream processing
+				std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
+				zmq::message_t newPart1message(part1WithAcquisitionID.size());
+				memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
 				messageList.push_back(&newPart1message);
 				messageList.push_back(&messageAppendix);
 				SendMessagesToAllConsumers(messageList);
@@ -336,10 +336,10 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
-				// Add the filename from the appendix to part 1 for easier downstream processing
-				std::string part1WithFilename = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
-				zmq::message_t newPart1message(part1WithFilename.size());
-				memcpy (newPart1message.data (), part1WithFilename.c_str(), part1WithFilename.size());
+				// Add the Acquisition ID from the appendix to part 1 for easier downstream processing
+				std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
+				zmq::message_t newPart1message(part1WithAcquisitionID.size());
+				memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
 				messageList.push_back(&newPart1message);
 				messageList.push_back(&messagePart2);
 				messageList.push_back(&messageAppendix);
@@ -426,10 +426,10 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
 				socket.recv(&messageAppendix);
-				// Add the filename from the appendix to part 1 for easier downstream processing
-				std::string part1WithFilename = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
-				zmq::message_t newPart1message(part1WithFilename.size());
-				memcpy (newPart1message.data (), part1WithFilename.c_str(), part1WithFilename.size());
+				// Add the Acquisition ID from the appendix to part 1 for easier downstream processing
+				std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
+				zmq::message_t newPart1message(part1WithAcquisitionID.size());
+				memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
 				messageList.push_back(&newPart1message);
 				messageList.push_back(&messagePart2);
 				messageList.push_back(&messagePart3);
@@ -473,6 +473,11 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 		return;
 	}
 
+	// Add the current Acquisition ID to part 1 for easier downstream processing
+	std::string part1WithAcquisitionID = AddAcquisitionIDToPart1(currentAcquisitionID);
+	zmq::message_t newPart1message(part1WithAcquisitionID.size());
+	memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
+
 	// Part 2 - shape and size
 	zmq::message_t messagePart2;
 	socket.recv(&messagePart2);
@@ -505,16 +510,16 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 		socket.recv(&messageAppendix);
 
 		// Send the data on to a consumer
-		SendMessageToSingleConsumer(messagePart1, ZMQ_SNDMORE);
+	    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
 		SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE, false); // Do not send image data to status
+		SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE);
 		SendMessageToSingleConsumer(messagePart4, ZMQ_SNDMORE);
 		SendMessageToSingleConsumer(messageAppendix, 0);
 	} else {
 		// Send the data on to a consumer
-		SendMessageToSingleConsumer(messagePart1, ZMQ_SNDMORE);
+	    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
 		SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE, false); // Do not send image data to status
+		SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE);
 		SendMessageToSingleConsumer(messagePart4, 0);
 	}
 
@@ -527,9 +532,9 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 
 void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, zmq::socket_t &socket) {
 	LOG4CXX_INFO(log, "Handling EndOfSeries Message");
-	std::string part1WithFilename = AddAcquisitionIDToPart1(currentAcquisitionID);
-	zmq::message_t newPart1message(part1WithFilename.size());
-	memcpy (newPart1message.data (), part1WithFilename.c_str(), part1WithFilename.size());
+	std::string part1WithAcquisitionID = AddAcquisitionIDToPart1(currentAcquisitionID);
+	zmq::message_t newPart1message(part1WithAcquisitionID.size());
+	memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
 	SendMessageToAllConsumers(newPart1message);
 	if (state != DSTR_IMAGE) {
 		LOG4CXX_WARN(log, std::string("Received EndOfSeries message in unexpected state: ").append(GetStateString(state)));
@@ -691,7 +696,7 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
 	LOG4CXX_DEBUG(log, "Finished Sending multiple messages to all consumers");
 }
 
-void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags, bool sendToStatus) {
+void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags) {
 	LOG4CXX_DEBUG(log, "Sending message to single consumers at index:" << currentConsumerIndexToSendTo);
 
 	// Send the message to a consumer
