@@ -22,7 +22,12 @@ using namespace log4cxx::helpers;
 
 namespace FrameProcessor
 {
-    enum CompressionType { LZ4_COMPRESSION, LZ4_BITSHUFFLE_COMPRESSION };
+  const int NO_COMPRESSION = 0;
+  const int LZ4_COMPRESSION = 1;
+  const int BSLZ4_COMPRESSION = 2;
+  const int UINT8_DATATYPE = 0;
+  const int UINT16_DATATYPE = 1;
+  const int UINT32_DATATYPE = 2;
 
   /** Processing of Eiger Frame objects.
    *

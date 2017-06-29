@@ -24,7 +24,7 @@ namespace FrameProcessor
   void EigerProcessPlugin::processFrame(boost::shared_ptr<Frame> frame)
   {
 	  const Eiger::FrameHeader* hdrPtr = static_cast<const Eiger::FrameHeader*>(frame->get_data());
-	  LOG4CXX_TRACE(logger_, "aFrameHeader frame currentMessageType: " << hdrPtr->messageType);
+	  LOG4CXX_TRACE(logger_, "FrameHeader frame currentMessageType: " << hdrPtr->messageType);
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame series: " << hdrPtr->series);
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame number: " << hdrPtr->frame_number);
 	  LOG4CXX_TRACE(logger_, "FrameHeader frame shapeSizeX: " << hdrPtr->shapeSizeX);
@@ -243,10 +243,12 @@ namespace FrameProcessor
 	  if (found != std::string::npos) {
 		  found = encoding.find("bs");
 		  if (found != std::string::npos) {
-			  frame->set_parameter("compression", LZ4_BITSHUFFLE_COMPRESSION);
+			  frame->set_compression(BSLZ4_COMPRESSION);
 		  } else {
-			  frame->set_parameter("compression", LZ4_COMPRESSION);
+			  frame->set_compression(LZ4_COMPRESSION);
 		  }
+	  } else {
+		  frame->set_compression(NO_COMPRESSION);
 	  }
   }
 
@@ -254,24 +256,24 @@ namespace FrameProcessor
 	  std::string dataType(hdrPtr->dataType);
 
 	  if (dataType.compare("uint8") == 0) {
-		  frame->set_parameter("dataType", 8);
+		  frame->set_data_type(UINT8_DATATYPE);
 	  } else if (dataType.compare("uint16") == 0) {
-		  frame->set_parameter("dataType", 16);
+		  frame->set_data_type(UINT16_DATATYPE);
 	  } else if (dataType.compare("uint32") == 0) {
-		  frame->set_parameter("dataType", 32);
+		  frame->set_data_type(UINT32_DATATYPE);
 	  } else {
 		  LOG4CXX_ERROR(logger_, "Unknown frame data type :" << dataType);
 	  }
   }
 
   void EigerProcessPlugin::setFrameDimensions(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr) {
-    dimensions_t dims(2);
-    dims[0] = hdrPtr->shapeSizeX;
-    dims[1] = hdrPtr->shapeSizeY;
-
+    dimensions_t dims;
     if (hdrPtr->shapeSizeZ > 0) {
       dims.push_back(hdrPtr->shapeSizeZ);
     }
+    dims.push_back(hdrPtr->shapeSizeY);
+    dims.push_back(hdrPtr->shapeSizeX);
+
     frame->set_dimensions("frame", dims);
   }
 
