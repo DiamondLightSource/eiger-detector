@@ -15,7 +15,6 @@ class MetaWriter:
         self.numberProcessorsRunning = 0
         self.frameOffsetDict = {}
         self.frameDataDict = {}
-        self.frameAppendixDict = {}
         self.seriesCreated = False
         self.configCreated = False
         self.flatfieldCreated = False
@@ -24,6 +23,12 @@ class MetaWriter:
         self.globalAppendixCreated = False
         self.directory = directory
         self.finished = False
+        self.numFramesToWrite = -1
+        self.writeCount = 0
+        self.numFrameOffsetsWritten = 0
+        self.flushFrequency = 100
+        self.needToWriteData = False
+        self.arraysCreated = False
         
         self.startNewAcquisition()
         
@@ -33,7 +38,6 @@ class MetaWriter:
         self.currentFrameCount = 0
         self.frameOffsetDict.clear()
         self.frameDataDict.clear()
-        self.frameAppendixDict.clear()
 
         metaFileName = self.acquisitionID + '_meta.hdf5'
 
@@ -41,18 +45,17 @@ class MetaWriter:
 
         self.logger.info("Writing meta data to: %s" % fullFileName)
 
-        self.f = h5py.File(fullFileName, "w")
+        self.f = h5py.File(fullFileName, "w", libver='latest')
 
         self.startDset = self.f.create_dataset("start_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
         self.stopDset = self.f.create_dataset("stop_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
         self.realDset = self.f.create_dataset("real_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
         self.frameDset = self.f.create_dataset("frame", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
         self.sizeDset = self.f.create_dataset("size", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.hashDset = self.f.create_dataset("hash", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
-        self.encodingDset = self.f.create_dataset("encoding", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
-        self.dtypeDset = self.f.create_dataset("datatype", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
+        self.hashDset = self.f.create_dataset("hash", (0,), maxshape=(None,), dtype='S32')
+        self.encodingDset = self.f.create_dataset("encoding", (0,), maxshape=(None,), dtype='S10')
+        self.dtypeDset = self.f.create_dataset("datatype", (0,), maxshape=(None,), dtype='S6')
         self.frameSeriesDset = self.f.create_dataset("frame_series", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.frameAppendixDset = self.f.create_dataset("frameAppendix", (0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
         self.frameWrittenDset = self.f.create_dataset("frame_written", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
         self.offsetWrittenDset = self.f.create_dataset("offset_written", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
 
@@ -70,8 +73,8 @@ class MetaWriter:
         self.logger.debug(message)
 
         if self.seriesCreated == True:
-	        self.logger.debug( 'series already created' )
-	        return
+            self.logger.debug( 'series already created' )
+            return
 
         npa = np.array(message['series'])
         self.seriesDset = self.f.create_dataset("series", data=npa)
@@ -108,8 +111,8 @@ class MetaWriter:
         self.logger.debug(header)
 
         if self.flatfieldCreated == True:
-	        self.logger.debug( 'flatfield already created' )
-	        return
+            self.logger.debug( 'flatfield already created' )
+            return
 
         self.flatfieldCreated = True
         npa = np.frombuffer(flatfield, dtype=np.float32)
@@ -123,8 +126,8 @@ class MetaWriter:
         self.logger.debug(header)
 
         if self.pixelMaskCreated == True:
-	        self.logger.debug('pixel mask already created')
-	        return
+            self.logger.debug('pixel mask already created')
+            return
 
         self.pixelMaskCreated = True
 
@@ -139,8 +142,8 @@ class MetaWriter:
         self.logger.debug(header)
 
         if self.countrateCreated == True:
-	        self.logger.debug('countrate already created')
-	        return
+            self.logger.debug('countrate already created')
+            return
 
         self.countrateCreated = True
 
@@ -154,8 +157,8 @@ class MetaWriter:
         self.logger.debug('Handling global header appendix for acqID ' + self.acquisitionID)
 
         if self.globalAppendixCreated == True:
-	        self.logger.debug('global appendix already created')
-	        return
+            self.logger.debug('global appendix already created')
+            return
 
         self.globalAppendixCreated = True
 
@@ -173,6 +176,7 @@ class MetaWriter:
         # Check if we know the offset to write to yet, if so write the frame, if not store the data until we do know.
         if (self.frameOffsetDict.has_key(frameId) == True):
             self.writeFrameData(self.frameOffsetDict[frameId], header)
+            del self.frameOffsetDict[frameId]
         else:
             self.frameDataDict[frameId] = header
 
@@ -182,18 +186,14 @@ class MetaWriter:
         self.logger.debug('Handling image appendix for acqID ' + self.acquisitionID)
         self.logger.debug(header)
 
-        frameId = header['frame']
-
-        # Check if we know the offset to write to yet, if so write the appendix, if not store the data until we do know.
-        if (self.frameOffsetDict.has_key(frameId) == True):
-            self.writeFrameAppendix(self.frameOffsetDict[frameId], appendix)
-        else:
-            self.frameAppendixDict[frameId] = appendix
+        # Do nothing as can't write variable length dataset in swmr
 
         return
 
     def handleEnd(self, message ):
         self.logger.debug('Handling end for acqID ' + self.acquisitionID)
+        
+        # Do nothing with end message
         
         return
 
@@ -205,30 +205,27 @@ class MetaWriter:
         rank = value['rank']
         num_processes = value['proc']
         
+        if self.arraysCreated == False:
+            self.logger.error('Arrays not created, cannot handle frame writer data')
+            return
+        
         offsetToWriteTo = (offset_value * num_processes) + rank
 
-        self.frameOffsetDict[frame_number] = offsetToWriteTo
+        if (self.numFrameOffsetsWritten+1 > self.numFramesToWrite):
+            self.frameWrittenDataArray = np.resize(self.frameWrittenDataArray, (self.numFrameOffsetsWritten+1,))
+            self.offsetWrittenDataArray = np.resize(self.offsetWrittenDataArray, (self.numFrameOffsetsWritten+1,))
 
-        numFrameOffsetsWritten = self.frameWrittenDset.size
+        self.frameWrittenDataArray[self.numFrameOffsetsWritten] = frame_number
+        self.offsetWrittenDataArray[self.numFrameOffsetsWritten] = offsetToWriteTo
 
-        self.frameWrittenDset.resize(numFrameOffsetsWritten+1, axis=0)
-        self.frameWrittenDset[numFrameOffsetsWritten] = frame_number
-
-        self.offsetWrittenDset.resize(numFrameOffsetsWritten+1, axis=0)
-        self.offsetWrittenDset[numFrameOffsetsWritten] = offsetToWriteTo
+        self.numFrameOffsetsWritten = self.numFrameOffsetsWritten + 1
 
         # Check if we have the data and/or appendix for this frame yet. If so, write it in the offset given
         if (self.frameDataDict.has_key(frame_number) == True):
             self.writeFrameData(offsetToWriteTo, self.frameDataDict[frame_number])
             del self.frameDataDict[frame_number]
-
-            if (self.frameAppendixDict.has_key(frame_number) == True):
-                self.writeFrameAppendix(offsetToWriteTo, self.frameAppendixDict[frame_number])
-                del self.frameAppendixDict[frame_number]
-
-        # So that the dictionary doesn't grow too large, only keep the last 1000 frame/offset values
-        if (self.frameOffsetDict.has_key(frame_number-1000)):
-            del self.frameOffsetDict[frame_number-1000]
+        else:
+            self.frameOffsetDict[frame_number] = offsetToWriteTo
 
         return
 
@@ -238,77 +235,135 @@ class MetaWriter:
         self.logger.debug(fileName)
 
         self.numberProcessorsRunning = self.numberProcessorsRunning + 1
+        
+        if self.numFramesToWrite == -1:
+            self.numFramesToWrite = userHeader['totalFrames']
+            self.createArrays()
 
         return
+      
+    def createArrays(self):
+      self.startDataArray = np.negative(np.ones((self.numFramesToWrite,), dtype=np.int64))
+      self.stopDataArray = np.negative(np.ones((self.numFramesToWrite,), dtype=np.int64))
+      self.realDataArray = np.negative(np.ones((self.numFramesToWrite,), dtype=np.int64))
+      self.frameDataArray = np.negative(np.ones((self.numFramesToWrite,), dtype=np.int64))
+      self.sizeDataArray = np.negative(np.ones((self.numFramesToWrite,), dtype=np.int64))
+      self.hashDataArray = np.empty(self.numFramesToWrite, dtype='S32')
+      self.encodingDataArray = np.empty(self.numFramesToWrite, dtype='S10')
+      self.dtypeDataArray = np.empty(self.numFramesToWrite, dtype='S6')
+      self.frameSeriesDataArray = np.negative(np.ones((self.numFramesToWrite,), dtype=np.int64))
+
+      self.frameWrittenDataArray = np.negative(np.ones((self.numFramesToWrite,), dtype=np.int64))
+      self.offsetWrittenDataArray = np.negative(np.ones((self.numFramesToWrite,), dtype=np.int64))
+      
+      self.startDset.resize(self.numFramesToWrite, axis=0)
+      self.stopDset.resize(self.numFramesToWrite, axis=0)
+      self.realDset.resize(self.numFramesToWrite, axis=0)
+      self.frameDset.resize(self.numFramesToWrite, axis=0)
+      self.sizeDset.resize(self.numFramesToWrite, axis=0)
+      self.hashDset.resize(self.numFramesToWrite, axis=0)
+      self.encodingDset.resize(self.numFramesToWrite, axis=0)
+      self.dtypeDset.resize(self.numFramesToWrite, axis=0)
+      self.frameSeriesDset.resize(self.numFramesToWrite, axis=0)
+
+      # Work out the flush frequency - how often to flush to file. Dividing by 200 gives every 1/2 percent
+      self.flushFrequency = self.numFramesToWrite / 200
+      if self.flushFrequency == 0:
+          self.flushFrequency = 1
+
+      self.f.swmr_mode = True
+
+      self.arraysCreated = True
 
     def handleFrameWriterCloseFile(self):
         self.logger.debug('Handling frame writer close file for acqID ' + self.acquisitionID)
 
-        self.numberProcessorsRunning = self.numberProcessorsRunning - 1
+        if (self.numberProcessorsRunning > 0):
+            self.numberProcessorsRunning = self.numberProcessorsRunning - 1
 
         if self.numberProcessorsRunning == 0:
-	        self.logger.info('Last processor ended. Closing file')
-
-	        self.startDset.flush()
-	        self.stopDset.flush()
-	        self.realDset.flush()
-	        self.frameDset.flush()
-	        self.sizeDset.flush()
-	        self.hashDset.flush()
-	        self.encodingDset.flush()
-	        self.dtypeDset.flush()
-	        self.frameSeriesDset.flush()
-	        self.frameAppendixDset.flush()
-	        self.frameWrittenDset.flush()
-	        self.offsetWrittenDset.flush()
+            self.logger.info('Last processor ended. Closing file ' + self.acquisitionID + '_meta.hdf5')       
+            self.writeToDatasetsFromArrays()
             
-	        self.f.close()
-	        
-	        self.finished = True
+            self.f.close()
+          
+            self.finished = True
         else:
-	        self.logger.info('Processor ended, but not the last')
+            self.logger.info('Processor ended, but not the last')
 
         return
 
     def writeFrameData(self, offset, header):
 
+        if self.arraysCreated == False:
+            self.logger.error('Arrays not created, cannot write frame data')
+            return
+   
         if offset + 1 > self.currentFrameCount:
-	        self.currentFrameCount = offset + 1
-	        self.startDset.resize(self.currentFrameCount, axis=0)
-	        self.stopDset.resize(self.currentFrameCount, axis=0)
-	        self.realDset.resize(self.currentFrameCount, axis=0)
-	        self.frameDset.resize(self.currentFrameCount, axis=0)
-	        self.sizeDset.resize(self.currentFrameCount, axis=0)
-	        self.hashDset.resize(self.currentFrameCount, axis=0)
-	        self.encodingDset.resize(self.currentFrameCount, axis=0)
-	        self.dtypeDset.resize(self.currentFrameCount, axis=0)
-	        self.frameSeriesDset.resize(self.currentFrameCount, axis=0)
-	        self.frameAppendixDset.resize(self.currentFrameCount, axis=0)
+            self.currentFrameCount = offset + 1
 
-        self.startDset[offset] = header['start_time']
-        self.stopDset[offset] = header['stop_time']
-        self.realDset[offset] = header['real_time']
-        self.frameDset[offset] = header['frame']
-        self.sizeDset[offset] = header['size']
-        self.hashDset[offset] = header['hash']
-        self.encodingDset[offset] = header['encoding']
-        self.dtypeDset[offset] = header['type']
-        self.frameSeriesDset[offset] = header['series']
-
+        self.startDataArray[offset] = header['start_time']
+        self.stopDataArray[offset] = header['stop_time']
+        self.realDataArray[offset] = header['real_time']
+        self.frameDataArray[offset] = header['frame']
+        self.sizeDataArray[offset] = header['size']
+        self.hashDataArray[offset] = header['hash']
+        self.encodingDataArray[offset] = header['encoding']
+        self.dtypeDataArray[offset] = header['type']
+        self.frameSeriesDataArray[offset] = header['series']
+        
+        self.writeCount = self.writeCount + 1
+        self.needToWriteData = True
+        
+        if (self.writeCount % self.flushFrequency == 0):
+          self.writeToDatasetsFromArrays()
+          
         return
+      
+    def writeToDatasetsFromArrays(self):
 
-    def writeFrameAppendix(self, offset, appendix):
-        nps = np.str(appendix)
-        self.frameAppendixDset[offset] = nps
-        return
-    	
+        if self.arraysCreated == False:
+            self.logger.error('Arrays not created, cannot write datasets from frame data')
+            return
+
+        if self.needToWriteData == True:
+            self.startDset[0:self.numFramesToWrite] = self.startDataArray
+            self.stopDset[0:self.numFramesToWrite] = self.stopDataArray
+            self.realDset[0:self.numFramesToWrite] = self.realDataArray
+            self.frameDset[0:self.numFramesToWrite] = self.frameDataArray
+            self.sizeDset[0:self.numFramesToWrite] = self.sizeDataArray
+            self.hashDset[0:self.numFramesToWrite] = self.hashDataArray
+            self.encodingDset[0:self.numFramesToWrite] = self.encodingDataArray
+            self.dtypeDset[0:self.numFramesToWrite] = self.dtypeDataArray
+            self.frameSeriesDset[0:self.numFramesToWrite] = self.frameSeriesDataArray
+
+            self.frameWrittenDset.resize(self.numFrameOffsetsWritten, axis=0)
+            self.frameWrittenDset[0:self.numFrameOffsetsWritten] = self.frameWrittenDataArray[0:self.numFrameOffsetsWritten]
+
+            self.offsetWrittenDset.resize(self.numFrameOffsetsWritten, axis=0)
+            self.offsetWrittenDset[0:self.numFrameOffsetsWritten] = self.offsetWrittenDataArray[0:self.numFrameOffsetsWritten]
+  
+            self.startDset.flush()
+            self.stopDset.flush()
+            self.realDset.flush()
+            self.frameDset.flush()
+            self.sizeDset.flush()
+            self.hashDset.flush()
+            self.encodingDset.flush()
+            self.dtypeDset.flush()
+            self.frameSeriesDset.flush()
+            self.frameWrittenDset.flush()
+            self.offsetWrittenDset.flush()
+                                         
+            self.needToWriteData = False
+      
 class MetaListener:
-	
+  
     def __init__(self, directory, inputs):
         self.inputs = inputs
         self.directory = directory
         self.writers = {}
-				
+        
         # create logger
         self.logger = logging.getLogger('meta_listener')
         self.logger.setLevel(logging.DEBUG)
@@ -327,6 +382,8 @@ class MetaListener:
         self.logger.addHandler(ch)
 
     def run(self):
+        self.logger.info('Starting Meta listener...')
+        
         inputsList = self.inputs.split(',')
 
         context = zmq.Context()
@@ -363,69 +420,69 @@ class MetaListener:
         return    
 
     def handleMessage(self, receiver):
-        print 'handling message'
+        self.logger.info('handling message')
         message = receiver.recv_json()
-        print message
+        self.logger.debug(message)
         userheader = message['header']
-        print userheader
+        self.logger.debug(userheader)
         
         if 'acqID' in userheader:
-          self.logger.info('Had header')
-          acquisitionID = userheader['acqID']
+            self.logger.info('Had header')
+            acquisitionID = userheader['acqID']
         else:
-        	self.logger.warn('Didnt have header')
-        	acquisitionID = ''
-        	
+            self.logger.warn('Didnt have header')
+            acquisitionID = ''
+          
         if acquisitionID in self.writers:
-        	self.logger.info('Writer is in writers')
+            self.logger.info('Writer is in writers')
         else:
-        	self.logger.info('Writer not in writers, creating new writer for acquisition [' + acquisitionID + ']')
-        	self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
-        	
+            self.logger.info('Writer not in writers, creating new writer for acquisition [' + acquisitionID + ']')
+            self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
+          
         writer = self.writers[acquisitionID]
 
         if message['parameter'] == "eiger-globalnone":
-	        receiver.recv_json()
-	        writer.handleGlobalHeaderNone(message)
+            receiver.recv_json()
+            writer.handleGlobalHeaderNone(message)
         elif message['parameter'] == "eiger-globalconfig":
-	        config = receiver.recv_json()
-	        writer.handleGlobalHeaderConfig(userheader, config)
+            config = receiver.recv_json()
+            writer.handleGlobalHeaderConfig(userheader, config)
         elif message['parameter'] == "eiger-globalflatfield":
-	        flatfield = receiver.recv()
-	        writer.handleFlatfieldHeader(userheader, flatfield)
+            flatfield = receiver.recv()
+            writer.handleFlatfieldHeader(userheader, flatfield)
         elif message['parameter'] == "eiger-globalmask":
-	        mask = receiver.recv()
-	        writer.handleMaskHeader(userheader, mask)
+            mask = receiver.recv()
+            writer.handleMaskHeader(userheader, mask)
         elif message['parameter'] == "eiger-globalcountrate":
-	        countrate = receiver.recv()
-	        writer.handleCountrateHeader(userheader, countrate)
+            countrate = receiver.recv()
+            writer.handleCountrateHeader(userheader, countrate)
         elif message['parameter'] == "eiger-headerappendix":
-	        appendix = receiver.recv()
-	        writer.handleGlobalHeaderAppendix(appendix)
+            appendix = receiver.recv()
+            writer.handleGlobalHeaderAppendix(appendix)
         elif message['parameter'] == "eiger-imagedata":
-	        imageMetaData = receiver.recv_json()
-	        writer.handleData(imageMetaData)
+            imageMetaData = receiver.recv_json()
+            writer.handleData(imageMetaData)
         elif message['parameter'] == "eiger-imageappendix":
-	        appendix = receiver.recv()
-	        writer.handleImageAppendix(userheader, appendix)
+            appendix = receiver.recv()
+            writer.handleImageAppendix(userheader, appendix)
         elif message['parameter'] == "eiger-end":
-	        receiver.recv()
-	        writer.handleEnd(message)
+            receiver.recv()
+            writer.handleEnd(message)
         elif message['parameter'] == "createfile":
-	        fileName = receiver.recv()
-	        writer.handleFrameWriterCreateFile(userheader, fileName)
+            fileName = receiver.recv()
+            writer.handleFrameWriterCreateFile(userheader, fileName)
         elif message['parameter'] == "closefile":
-	        fileName = receiver.recv()
-	        writer.handleFrameWriterCloseFile()
-	        if (writer.finished == True):
-	        	del self.writers[acquisitionID]
+            fileName = receiver.recv()
+            writer.handleFrameWriterCloseFile()
+            if (writer.finished == True):
+                del self.writers[acquisitionID]
         elif message['parameter'] == "writeframe":
-	        value = receiver.recv_json()
-	        writer.handleFrameWriterWriteFrame(value)
+            value = receiver.recv_json()
+            writer.handleFrameWriterWriteFrame(value)
         else:
-            print 'unknown parameter: ' + str(message)
+            self.logger.error('unknown parameter: ' + str(message))
             value = receiver.recv()
-            print 'value: ' + str(value)
+            self.logger.error('value: ' + str(value))
         return
 
 def options():
@@ -436,7 +493,6 @@ def options():
     return args
 
 def main():
-    print ('Starting status listener...')
 
     args = options()
 
