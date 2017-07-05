@@ -274,7 +274,7 @@ namespace FrameProcessor
     dims.push_back(hdrPtr->shapeSizeY);
     dims.push_back(hdrPtr->shapeSizeX);
 
-    frame->set_dimensions("frame", dims);
+    frame->set_dimensions("data", dims);
   }
 
 } /* namespace filewriter */
