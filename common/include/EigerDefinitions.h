@@ -42,10 +42,22 @@ namespace Eiger {
 
 	// EigerFan related constants
 	const int MORE_MESSAGES = 1;
+	const int RECEIVE_HWM = 100000;
+	const int SEND_HWM = 100000;
 
-	const std::string CONTROL_KILL = "KILL";
-	const std::string CONTROL_STATUS = "STATUS";
-	const std::string CONTROL_CLOSE = "CLOSE";
+	const std::string CONTROL_CMD_KEY = "msg_val";
+	const std::string CONTROL_PARAM_KEY = "params";
+
+	const std::string CONTROL_STATUS = "status";
+	const std::string CONTROL_CONFIGURE = "configure";
+	const std::string CONTROL_KILL = "kill";
+	const std::string CONTROL_CLOSE = "close";
+	const std::string CONTROL_OFFSET = "offset";
+
+	const std::string CONTROL_RESPONSE_OK = "{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {}}";
+	const std::string CONTROL_RESPONSE_UNABLE = "{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {\"error:\":\"Unable to process control command\"}}";
+	const std::string CONTROL_RESPONSE_NOPARAM = "{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {\"error:\":\"No parameter\"}}";
+	const std::string CONTROL_RESPONSE_NOCFGPARAM = "{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {\"error:\":\"No recognised configure parameter\"}}";
 
 	enum EigerFanState { WAITING_CONSUMERS,WAITING_STREAM,DSTR_HEADER,DSTR_IMAGE,DSTR_END,KILL_REQUESTED};
 

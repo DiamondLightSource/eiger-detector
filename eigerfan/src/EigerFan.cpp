@@ -36,6 +36,8 @@ EigerFan::EigerFan()
 	currentSeries = 0;
 	currentConsumerIndexToSendTo = 0;
 	lastFrameSent = 0;
+	configuredOffset = 0;
+	currentOffset = 0;
 }
 
 EigerFan::EigerFan(EigerFanConfig config_)
@@ -51,6 +53,8 @@ EigerFan::EigerFan(EigerFanConfig config_)
 	currentSeries = 0;
 	currentConsumerIndexToSendTo = 0;
 	lastFrameSent = 0;
+	configuredOffset = 0;
+	currentOffset = 0;
 }
 
 EigerFan::~EigerFan() {
@@ -75,10 +79,9 @@ void EigerFan::run() {
 		fanAddress << "tcp://*:" << port;
 
 		LOG4CXX_INFO(log, std::string("Binding fan send address to ").append(fanAddress.str()));
-		int sndHwmSet = 0;
 
 		boost::shared_ptr<zmq::socket_t> sendSocket(new zmq::socket_t(ctx_, ZMQ_PUSH));
-		sendSocket->setsockopt (ZMQ_SNDHWM, &sndHwmSet, sizeof (sndHwmSet));
+		sendSocket->setsockopt (ZMQ_SNDHWM, &SEND_HWM, sizeof (SEND_HWM));
 		sendSocket->bind(fanAddress.str().c_str());
 		sendSocket->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 		sendSockets.push_back(sendSocket);
@@ -164,6 +167,7 @@ void EigerFan::run() {
 	streamConnectionAddress.append(":");
 	streamConnectionAddress.append(STREAM_PORT_NUMBER);
 	LOG4CXX_INFO(log, std::string("Connecting to stream address at ").append(streamConnectionAddress));
+	recvSocket.setsockopt (ZMQ_RCVHWM, &RECEIVE_HWM, sizeof (RECEIVE_HWM));
 	recvSocket.connect(streamConnectionAddress.c_str());
 	recvSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
@@ -234,11 +238,10 @@ void EigerFan::run() {
 	controlSocket.close();
 }
 
-std::string EigerFan::Stop() {
-	std::string result("OK");
+void EigerFan::Stop() {
+	LOG4CXX_INFO(log, "Stop requested");
 	killRequested = true;
 	state = KILL_REQUESTED;
-	return result;
 }
 
 void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socket) {
@@ -258,7 +261,12 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 			} else if (htype.compare(IMAGE_HEADER_TYPE) == 0) {
 				rapidjson::Value& frameValue = jsonDocument[FRAME_KEY.c_str()];
 				int64_t frame(frameValue.GetInt64());
-				currentConsumerIndexToSendTo = frame % config.num_consumers;
+				// If on the first frame, set the current offset to any configured offset
+				if (frame == 0) {
+					currentOffset = configuredOffset % config.num_consumers;
+					configuredOffset = 0;
+				}
+				currentConsumerIndexToSendTo = (frame + currentOffset) % config.num_consumers;
 				HandleImageDataMessage(message, socket);
 				lastFrameSent = frame;
 			} else if (htype.compare(END_HEADER_TYPE) == 0) {
@@ -325,7 +333,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 1 part but expected 2 for 'basic' detail");
-				return; // TODO is it right to return in this case?
+				return;
 			}
 
 			zmq::message_t messagePart2;
@@ -354,7 +362,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 1 part but expected 8 for 'all' detail");
-				return; // TODO is it right to return in this case?
+				return;
 			}
 
 			// Part 2
@@ -364,7 +372,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 2 part but expected 8 for 'all' detail");
-				return; // TODO is it right to return in this case?
+				return;
 			}
 
 			// Part 3
@@ -374,7 +382,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 3 part but expected 8 for 'all' detail");
-				return; // TODO is it right to return in this case?
+				return;
 			}
 
 			// Part 4
@@ -384,7 +392,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 4 part but expected 8 for 'all' detail");
-				return; // TODO is it right to return in this case?
+				return;
 			}
 
 			// Part 5
@@ -394,7 +402,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 5 part but expected 8 for 'all' detail");
-				return; // TODO is it right to return in this case?
+				return;
 			}
 
 			// Part 6
@@ -404,7 +412,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 6 part but expected 8 for 'all' detail");
-				return; // TODO is it right to return in this case?
+				return;
 			}
 
 			// Part 7
@@ -414,7 +422,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 7 part but expected 8 for 'all' detail");
-				return; // TODO is it right to return in this case?
+				return;
 			}
 
 			// Part 8
@@ -524,7 +532,7 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 	}
 
 	if (state != DSTR_IMAGE && state != DSTR_HEADER) {
-		LOG4CXX_WARN(log, std::string("Received Image Data message in unexpected state: ").append(GetStateString(state))); // TODO debug instead of warn?
+		LOG4CXX_WARN(log, std::string("Received Image Data message in unexpected state: ").append(GetStateString(state)));
 	}
 	state = DSTR_IMAGE;
 	LOG4CXX_DEBUG(log, "Finished Handling Image Data Message");
@@ -577,57 +585,94 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 
 void EigerFan::HandleControlMessage(zmq::message_t &message) {
 
-	std::string command(static_cast<char*>(message.data()), message.size());
-	LOG4CXX_INFO(log, std::string("Handling Control Message: ").append(command));
+	std::string jsonCommand(static_cast<char*>(message.data()), message.size());
+	LOG4CXX_DEBUG(log, std::string("Handling Control Message: ").append(jsonCommand));
 
-	if (command.compare(CONTROL_KILL) == 0) {
-		std::string replyString = Stop();
-		zmq::message_t reply (replyString.size());
-		memcpy (reply.data (), replyString.c_str(), replyString.size());
-		controlSocket.send (reply);
-	} else if (command.compare(CONTROL_STATUS) == 0) {
+	rapidjson::Document ctrlDocument;
 
-		rapidjson::Document document;
-		document.SetObject();
+	std::string replyString(CONTROL_RESPONSE_UNABLE);
 
-		// Add State
-		rapidjson::Value keyState("state", document.GetAllocator());
-		rapidjson::Value valueState(GetStateString(state), document.GetAllocator());
-		document.AddMember(keyState, valueState, document.GetAllocator());
+	ctrlDocument.Parse(jsonCommand.c_str());
+	if (ctrlDocument.HasParseError() || !ctrlDocument.HasMember(CONTROL_CMD_KEY.c_str())) {
+		LOG4CXX_ERROR(log, "Error parsing control message into json: " << jsonCommand);
+	} else {
+		rapidjson::Value& cmdValue = ctrlDocument[CONTROL_CMD_KEY.c_str()];
+		std::string command(cmdValue.GetString());
 
-		// Add Number of connected
-		rapidjson::Value keyNumConn("num_conn", document.GetAllocator());
-		rapidjson::Value valueNumConn(numConnectedConsumers);
-		document.AddMember(keyNumConn, valueNumConn, document.GetAllocator());
+		if (command.compare(CONTROL_STATUS) == 0) {
 
-		// Add Current series
-		rapidjson::Value keySeries("series", document.GetAllocator());
-		rapidjson::Value valueSeries(currentSeries);
-		document.AddMember(keySeries, valueSeries, document.GetAllocator());
+			rapidjson::Document document;
+			document.SetObject();
 
-		// Add Last Frame sent
-		rapidjson::Value keyFrame("frame", document.GetAllocator());
-		rapidjson::Value valueFrame(lastFrameSent);
-		document.AddMember(keyFrame, valueFrame, document.GetAllocator());
+			// Add State
+			rapidjson::Value keyState("state", document.GetAllocator());
+			rapidjson::Value valueState(GetStateString(state), document.GetAllocator());
+			document.AddMember(keyState, valueState, document.GetAllocator());
 
-		rapidjson::StringBuffer buffer;
-		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+			// Add Number of connected
+			rapidjson::Value keyNumConn("num_conn", document.GetAllocator());
+			rapidjson::Value valueNumConn(numConnectedConsumers);
+			document.AddMember(keyNumConn, valueNumConn, document.GetAllocator());
 
-		document.Accept(writer);
-		std::string status(buffer.GetString());
-		zmq::message_t reply (status.size());
-		memcpy (reply.data (), status.c_str(), status.size());
-		controlSocket.send (reply);
-	} else if (command.compare(CONTROL_CLOSE) == 0) {
-		// Close gracefully - if currently acquiring data, send end of stream message and terminate
-		if (state == DSTR_HEADER || state == DSTR_IMAGE) {
-			SendFabricatedEndMessage();
+			// Add Current series
+			rapidjson::Value keySeries("series", document.GetAllocator());
+			rapidjson::Value valueSeries(currentSeries);
+			document.AddMember(keySeries, valueSeries, document.GetAllocator());
+
+			// Add Last Frame sent
+			rapidjson::Value keyFrame("frame", document.GetAllocator());
+			rapidjson::Value valueFrame(lastFrameSent);
+			document.AddMember(keyFrame, valueFrame, document.GetAllocator());
+
+			// Add current offset being applied to the fan distribution
+			rapidjson::Value keyOffset("fan_offset", document.GetAllocator());
+			rapidjson::Value valueOffset(currentOffset);
+			document.AddMember(keyOffset, valueOffset, document.GetAllocator());
+
+			rapidjson::StringBuffer buffer;
+			rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+
+			document.Accept(writer);
+
+			std::ostringstream oss;
+			oss << "{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": " << buffer.GetString() << "}";
+			replyString.assign(oss.str());
+
+		} else if (command.compare(CONTROL_CONFIGURE) == 0) {
+
+			if (ctrlDocument.HasMember(CONTROL_PARAM_KEY.c_str())) {
+				rapidjson::Value& paramsValue = ctrlDocument[CONTROL_PARAM_KEY.c_str()];
+				if (paramsValue.HasMember(CONTROL_KILL.c_str())) {
+					Stop();
+					replyString.assign(CONTROL_RESPONSE_OK.c_str());
+				} else if (paramsValue.HasMember(CONTROL_CLOSE.c_str())) {
+					// Close gracefully - if currently acquiring data, send end of stream message and terminate
+					if (state == DSTR_HEADER || state == DSTR_IMAGE) {
+						SendFabricatedEndMessage();
+					}
+					Stop();
+					replyString.assign(CONTROL_RESPONSE_OK.c_str());
+				} else if (paramsValue.HasMember(CONTROL_OFFSET.c_str())) {
+					// Change the consumer to send to based on an offset value
+					configuredOffset = paramsValue[CONTROL_OFFSET.c_str()].GetInt();
+					LOG4CXX_INFO(log, "Offset changed to " << configuredOffset);
+					replyString.assign(CONTROL_RESPONSE_OK.c_str());
+				} else {
+					LOG4CXX_ERROR(log, "No recognised configure parameter");
+					replyString.assign(CONTROL_RESPONSE_NOCFGPARAM);
+				}
+			} else {
+				LOG4CXX_ERROR(log, "No parameter on configure command");
+				replyString.assign(CONTROL_RESPONSE_NOPARAM.c_str());
+			}
+		} else {
+			LOG4CXX_WARN(log, "Received unknown control command: " << command);
 		}
-		std::string replyString = Stop();
-		zmq::message_t reply (replyString.size());
-		memcpy (reply.data (), replyString.c_str(), replyString.size());
-		controlSocket.send (reply);
 	}
+
+	zmq::message_t reply (replyString.size());
+	memcpy (reply.data(), replyString.c_str(), replyString.size());
+	controlSocket.send(reply);
 
 	// Handle any message parts at the end
 	controlSocket.getsockopt(ZMQ_RCVMORE, &more, &more_size);

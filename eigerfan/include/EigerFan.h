@@ -24,7 +24,7 @@ public:
 	EigerFan(EigerFanConfig config_);
 	virtual ~EigerFan();
 	void run();
-	std::string Stop();
+	void Stop();
 	void SetNumberOfConsumers(int number);
 protected:
 	void HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socket);
@@ -56,6 +56,8 @@ private:
 	int currentConsumerIndexToSendTo;
 	std::string currentAcquisitionID;
 	uint64_t lastFrameSent;
+	int configuredOffset;
+	int currentOffset;
 };
 
 
