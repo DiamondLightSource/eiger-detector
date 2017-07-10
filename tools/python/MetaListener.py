@@ -29,6 +29,8 @@ class MetaWriter:
         self.flushFrequency = 100
         self.needToWriteData = False
         self.arraysCreated = False
+        self.fileCreated = False
+        self.closeAfterWrite = False
         
         self.startNewAcquisition()
         
@@ -41,23 +43,7 @@ class MetaWriter:
 
         metaFileName = self.acquisitionID + '_meta.hdf5'
 
-        fullFileName = self.directory + '/' + metaFileName
-
-        self.logger.info("Writing meta data to: %s" % fullFileName)
-
-        self.f = h5py.File(fullFileName, "w", libver='latest')
-
-        self.startDset = self.f.create_dataset("start_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.stopDset = self.f.create_dataset("stop_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.realDset = self.f.create_dataset("real_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.frameDset = self.f.create_dataset("frame", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.sizeDset = self.f.create_dataset("size", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.hashDset = self.f.create_dataset("hash", (0,), maxshape=(None,), dtype='S32')
-        self.encodingDset = self.f.create_dataset("encoding", (0,), maxshape=(None,), dtype='S10')
-        self.dtypeDset = self.f.create_dataset("datatype", (0,), maxshape=(None,), dtype='S6')
-        self.frameSeriesDset = self.f.create_dataset("frame_series", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.frameWrittenDset = self.f.create_dataset("frame_written", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
-        self.offsetWrittenDset = self.f.create_dataset("offset_written", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        self.fullFileName = self.directory + '/' + metaFileName
 
         self.seriesCreated = False
         self.configCreated = False
@@ -67,6 +53,25 @@ class MetaWriter:
         self.globalAppendixCreated = False
 
         return
+      
+    def createFileAndFrameDatasets(self):
+        self.logger.info("Writing meta data to: %s" % self.fullFileName)
+
+        self.hdf5File = h5py.File(self.fullFileName, "w", libver='latest')
+
+        self.startDset = self.hdf5File.create_dataset("start_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        self.stopDset = self.hdf5File.create_dataset("stop_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        self.realDset = self.hdf5File.create_dataset("real_time", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        self.frameDset = self.hdf5File.create_dataset("frame", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        self.sizeDset = self.hdf5File.create_dataset("size", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        self.hashDset = self.hdf5File.create_dataset("hash", (0,), maxshape=(None,), dtype='S32')
+        self.encodingDset = self.hdf5File.create_dataset("encoding", (0,), maxshape=(None,), dtype='S10')
+        self.dtypeDset = self.hdf5File.create_dataset("datatype", (0,), maxshape=(None,), dtype='S6')
+        self.frameSeriesDset = self.hdf5File.create_dataset("frame_series", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        self.frameWrittenDset = self.hdf5File.create_dataset("frame_written", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        self.offsetWrittenDset = self.hdf5File.create_dataset("offset_written", (0,), maxshape=(None,), dtype='int64', fillvalue=-1)
+        
+        self.fileCreated = True
 
     def handleGlobalHeaderNone(self, message):
         self.logger.debug('Handling global header none for acqID ' + self.acquisitionID)
@@ -76,8 +81,11 @@ class MetaWriter:
             self.logger.debug( 'series already created' )
             return
 
+        if self.fileCreated == False:
+            self.createFileAndFrameDatasets()
+            
         npa = np.array(message['series'])
-        self.seriesDset = self.f.create_dataset("series", data=npa)
+        self.seriesDset = self.hdf5File.create_dataset("series", data=npa)
         self.seriesDset.flush()
         self.seriesCreated = True
 
@@ -88,11 +96,14 @@ class MetaWriter:
         self.logger.debug(header)
         self.logger.debug(config)
 
+        if self.fileCreated == False:
+            self.createFileAndFrameDatasets()
+
         if self.configCreated == True:
             self.logger.debug( 'config already created' )
         else:
             nps = np.str(config)
-            cfgDset = self.f.create_dataset("config", data=nps)
+            cfgDset = self.hdf5File.create_dataset("config", data=nps)
             cfgDset.flush()
             self.configCreated = True
 
@@ -100,7 +111,7 @@ class MetaWriter:
             self.logger.debug( 'series already created' )
         else:
             npa = np.array(header['series'])
-            seriesDset = self.f.create_dataset("series", data=npa)
+            seriesDset = self.hdf5File.create_dataset("series", data=npa)
             seriesDset.flush()
             self.seriesCreated = True
 
@@ -114,10 +125,13 @@ class MetaWriter:
             self.logger.debug( 'flatfield already created' )
             return
 
+        if self.fileCreated == False:
+            self.createFileAndFrameDatasets()
+
         self.flatfieldCreated = True
         npa = np.frombuffer(flatfield, dtype=np.float32)
         shape = header['shape']
-        flatfieldDset = self.f.create_dataset("flatfield", (shape[1],shape[0]), data=npa)
+        flatfieldDset = self.hdf5File.create_dataset("flatfield", (shape[1],shape[0]), data=npa)
         flatfieldDset.flush()
         return
 
@@ -129,11 +143,14 @@ class MetaWriter:
             self.logger.debug('pixel mask already created')
             return
 
+        if self.fileCreated == False:
+            self.createFileAndFrameDatasets()
+
         self.pixelMaskCreated = True
 
         npa = np.frombuffer(mask, dtype=np.uint32)
         shape = header['shape']
-        maskDset = self.f.create_dataset("mask", (shape[1],shape[0]), data=npa)
+        maskDset = self.hdf5File.create_dataset("mask", (shape[1],shape[0]), data=npa)
         maskDset.flush()
         return
 
@@ -145,11 +162,14 @@ class MetaWriter:
             self.logger.debug('countrate already created')
             return
 
+        if self.fileCreated == False:
+            self.createFileAndFrameDatasets()
+
         self.countrateCreated = True
 
         npa = np.frombuffer(countrate, dtype=np.float32)
         shape = header['shape']
-        countrateDset = self.f.create_dataset("countrate", (shape[1],shape[0]), data=npa)
+        countrateDset = self.hdf5File.create_dataset("countrate", (shape[1],shape[0]), data=npa)
         countrateDset.flush()
         return
 
@@ -160,10 +180,13 @@ class MetaWriter:
             self.logger.debug('global appendix already created')
             return
 
+        if self.fileCreated == False:
+            self.createFileAndFrameDatasets()
+
         self.globalAppendixCreated = True
 
         nps = np.str(appendix)
-        appendixDset = self.f.create_dataset("globalAppendix", data=nps)
+        appendixDset = self.hdf5File.create_dataset("globalAppendix", data=nps)
         appendixDset.flush()
         return
 
@@ -177,6 +200,8 @@ class MetaWriter:
         if (self.frameOffsetDict.has_key(frameId) == True):
             self.writeFrameData(self.frameOffsetDict[frameId], header)
             del self.frameOffsetDict[frameId]
+            if self.closeAfterWrite == True:
+               self.closeFile()
         else:
             self.frameDataDict[frameId] = header
 
@@ -235,6 +260,9 @@ class MetaWriter:
         self.logger.debug(fileName)
 
         self.numberProcessorsRunning = self.numberProcessorsRunning + 1
+
+        if self.fileCreated == False:
+            self.createFileAndFrameDatasets()
         
         if self.numFramesToWrite == -1:
             self.numFramesToWrite = userHeader['totalFrames']
@@ -266,12 +294,7 @@ class MetaWriter:
       self.dtypeDset.resize(self.numFramesToWrite, axis=0)
       self.frameSeriesDset.resize(self.numFramesToWrite, axis=0)
 
-      # Work out the flush frequency - how often to flush to file. Dividing by 200 gives every 1/2 percent
-      self.flushFrequency = self.numFramesToWrite / 200
-      if self.flushFrequency == 0:
-          self.flushFrequency = 1
-
-      self.f.swmr_mode = True
+      self.hdf5File.swmr_mode = True
 
       self.arraysCreated = True
 
@@ -281,17 +304,28 @@ class MetaWriter:
         if (self.numberProcessorsRunning > 0):
             self.numberProcessorsRunning = self.numberProcessorsRunning - 1
 
-        if self.numberProcessorsRunning == 0:
-            self.logger.info('Last processor ended. Closing file ' + self.acquisitionID + '_meta.hdf5')       
-            self.writeToDatasetsFromArrays()
-            
-            self.f.close()
-          
-            self.finished = True
+        if self.numberProcessorsRunning == 0:   
+            self.logger.info('Last processor ended')
+            self.closeFile()
         else:
             self.logger.info('Processor ended, but not the last')
 
         return
+      
+    def closeFile(self):
+        if len(self.frameOffsetDict) > 0:
+            # Writers have finished but we haven't got all associated meta. Wait till it comes before closing
+            self.logger.info('Unable to close file as Frame Offset Dict Length = ' + str(len(self.frameOffsetDict)))
+            self.closeAfterWrite = True
+            return
+           
+        self.writeToDatasetsFromArrays()
+        
+        self.logger.info('Closing file ' + self.fullFileName) 
+        
+        self.hdf5File.close()
+      
+        self.finished = True
 
     def writeFrameData(self, offset, header):
 
@@ -321,6 +355,8 @@ class MetaWriter:
         return
       
     def writeToDatasetsFromArrays(self):
+      
+        self.logger.debug('Writing data to datasets at write count ' + str(self.writeCount))
 
         if self.arraysCreated == False:
             self.logger.error('Arrays not created, cannot write datasets from frame data')
@@ -359,10 +395,12 @@ class MetaWriter:
       
 class MetaListener:
   
-    def __init__(self, directory, inputs):
+    def __init__(self, directory, inputs, ctrl):
         self.inputs = inputs
         self.directory = directory
+        self.ctrl_port = str(ctrl)
         self.writers = {}
+        self.killRequested = False
         
         # create logger
         self.logger = logging.getLogger('meta_listener')
@@ -389,6 +427,12 @@ class MetaListener:
         context = zmq.Context()
 
         receiverList = []    
+        
+        # Control socket
+        ctrl_address = "tcp://*:" + self.ctrl_port
+        self.logger.info('Binding control address to ' + ctrl_address)
+        ctrlSocket = context.socket(zmq.REP)
+        ctrlSocket.bind(ctrl_address)
 
         # Socket to receive messages on
         for x in inputsList:
@@ -401,41 +445,108 @@ class MetaListener:
         for eachReceiver in receiverList:
             poller.register(eachReceiver, zmq.POLLIN)
 
-        self.logger.info('Listening...')
+        poller.register(ctrlSocket, zmq.POLLIN)
+        
+        self.logger.info('Listening to inputs ' + str(inputsList))
 
-        while True:
+        while self.killRequested == False:
             socks = dict(poller.poll())
             for receiver in receiverList:
                 if socks.get(receiver) == zmq.POLLIN:
                     self.handleMessage(receiver)
 
+            if socks.get(ctrlSocket) == zmq.POLLIN:
+                self.handleControlMessage(ctrlSocket)
+                
         self.logger.info('Finished listening')
 
         # Finished
         for receiver in receiverList:
             receiver.close(linger=0)
+            
+        ctrlSocket.close(linger=0)
 
         context.term()
 
         return    
 
+    def handleControlMessage(self, receiver):
+        self.logger.info('handling control message')
+        message = receiver.recv_json()
+        self.logger.debug(message)
+        
+        if message['msg_val'] == 'status':
+            reply = self.handleStatusMessage()
+        elif message['msg_val'] == 'configure':
+            params = message['params']
+            reply = self.handleConfigureMessageParams(params)
+        else:
+            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}})
+        
+        receiver.send(reply)
+        
+    def handleStatusMessage(self):
+        statusList = []
+        for key in self.writers:
+            writer = self.writers[key]
+            statusList.append({'acquisition_id':key, 'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning})
+            
+        params = {'output':statusList}
+        reply = json.dumps({'msg_type':'ack','msg_val':'status', 'params': params})
+        return reply
+        
+    def handleConfigureMessageParams(self, params):
+        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {'error':'Unable to process configure command'}})
+        if 'kill' in params:
+            self.logger.info('Kill reqeusted')
+            reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
+            self.killRequested = True
+        elif 'acquisition_id' in params:
+            acquisitionID = params['acquisition_id']
+            
+            if acquisitionID in self.writers:
+                self.logger.info('Writer is in writers')
+                acquisitionExists = True
+            else:
+                self.logger.info('Writer not in writers for acquisition [' + acquisitionID + ']')
+                acquisitionExists = False
+                
+            if 'output_dir' in params:
+                if acquisitionExists == False:
+                    self.writers[acquisitionID] = MetaWriter(params['output_dir'], self.logger, acquisitionID)
+                    self.logger.info('Creating new acquisition [' + str(acquisitionID) + '] with output directory ' + str(params['output_dir']))
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
+                    acquisitionExists = True
+                else:
+                    self.logger.info('File already created for acquisition_id: ' + str(acquisitionID))
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}})
+            
+            if 'flush' in params:
+                if acquisitionExists == True:
+                    self.logger.info('Setting acquisition [' + str(acquisitionID) + '] flush to ' + str(params['flush']))
+                    self.writers[acquisitionID].flushFrequency = params['flush']
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
+                else:
+                    self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}})
+
+        else:
+            reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {'error':'no params in config'}})
+        return reply
+        
     def handleMessage(self, receiver):
-        self.logger.info('handling message')
+        self.logger.debug('Handling message')
         message = receiver.recv_json()
         self.logger.debug(message)
         userheader = message['header']
-        self.logger.debug(userheader)
         
         if 'acqID' in userheader:
-            self.logger.info('Had header')
             acquisitionID = userheader['acqID']
         else:
             self.logger.warn('Didnt have header')
             acquisitionID = ''
           
-        if acquisitionID in self.writers:
-            self.logger.info('Writer is in writers')
-        else:
+        if acquisitionID not in self.writers:
             self.logger.info('Writer not in writers, creating new writer for acquisition [' + acquisitionID + ']')
             self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
           
@@ -488,7 +599,8 @@ class MetaListener:
 def options():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inputs", default="tcp://127.0.0.1:5558", help="Input enpoints - comma separated list")
-    parser.add_argument("-d", "--directory", default="/tmp/", help="Directory to write meta data files to")
+    parser.add_argument("-d", "--directory", default="/tmp/", help="Default directory to write meta data files to")
+    parser.add_argument("-c", "--ctrl", default="5659", help="Control channel port to listen on")
     args = parser.parse_args()
     return args
 
@@ -496,7 +608,7 @@ def main():
 
     args = options()
 
-    mh = MetaListener(args.directory, args.inputs)
+    mh = MetaListener(args.directory, args.inputs, args.ctrl)
 
     mh.run()
 
