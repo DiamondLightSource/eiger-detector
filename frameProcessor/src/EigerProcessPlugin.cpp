@@ -62,8 +62,6 @@ namespace FrameProcessor
           setFrameDimensions(data_frame, hdrPtr);
           data_frame->set_acquisition_id(hdrPtr->acquisitionID);
 
-          this->push(data_frame);
-
           // Add Frame number
           rapidjson::Value keyFrame("frame", document.GetAllocator());
           rapidjson::Value valueFrame(hdrPtr->frame_number);
@@ -127,7 +125,9 @@ namespace FrameProcessor
 		  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		  document.Accept(writer);
 
-          publishMeta("eiger-imagedata", buffer.GetString(), buffer.GetString());
+    	  publishMeta("eiger-imagedata", buffer.GetString(), buffer.GetString());
+
+    	  this->push(data_frame);
 	  } else if (hdrPtr->messageType == Eiger::IMAGE_APPENDIX) {
 		  std::string dataString((static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
