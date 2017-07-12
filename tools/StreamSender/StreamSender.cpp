@@ -62,14 +62,33 @@ int main (int argc, char *argv[]) {
 
 	std::cout << "Sending messages..." << std::endl;
 
-	// Example use. Replace with the path to actual files.
+	// Example use for system test data. Replace with the path to actual files.
 	SendFileMessage(socket, "streamfile_1", true);  // Global Header
-	SendFileMessage(socket, "streamfile_2", false); // Global Header Config. 'more' set to false as is the last message in a multipart message
-	SendFileMessage(socket, "streamfile_3", true);  // Image data header
-	SendFileMessage(socket, "streamfile_4", true);  // Image data dimensions
-	SendFileMessage(socket, "streamfile_5", true);  // Image data blob
-	SendFileMessage(socket, "streamfile_6", false); // Image data times. 'more' set to false as is the last message in a multipart message
-	SendFileMessage(socket, "streamfile_7", false); // End message
+	SendFileMessage(socket, "streamfile_2", true);  // Global Header Config.
+	SendFileMessage(socket, "streamfile_3", true);  // Flatfield Header
+	SendFileMessage(socket, "streamfile_4", true);  // Flatfield data blob
+	SendFileMessage(socket, "streamfile_5", true);  // Pixelmask header
+	SendFileMessage(socket, "streamfile_6", true);  // Pixelmask data blob
+	SendFileMessage(socket, "streamfile_7", true);  // Countrate header
+	SendFileMessage(socket, "streamfile_8", true);  // Countrate data blob
+	SendFileMessage(socket, "streamfile_9", false); // Global Header Appendix. 'more' set to false as is the last message in a multipart message
+
+	SendFileMessage(socket, "streamfile_10", true);  // Image data header
+	SendFileMessage(socket, "streamfile_11", true);  // Image data dimensions
+	SendFileMessage(socket, "streamfile_12", true);  // Image data blob
+	SendFileMessage(socket, "streamfile_13", false); // Image data times.
+
+	SendFileMessage(socket, "streamfile_14", true);  // Image data header
+	SendFileMessage(socket, "streamfile_15", true);  // Image data dimensions
+	SendFileMessage(socket, "streamfile_16", true);  // Image data blob
+	SendFileMessage(socket, "streamfile_17", false); // Image data times.
+
+	SendFileMessage(socket, "streamfile_18", true);  // Image data header
+	SendFileMessage(socket, "streamfile_19", true);  // Image data dimensions
+	SendFileMessage(socket, "streamfile_20", true);  // Image data blob
+	SendFileMessage(socket, "streamfile_21", false); // Image data times.
+
+	SendFileMessage(socket, "streamfile_22", false); // End message
 
 	std::cout << "Finished Sending messages" << std::endl;
 
