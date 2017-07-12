@@ -1,3 +1,8 @@
+from pkg_resources import require
+require('pygelf==0.2.11')
+require("h5py==2.7.0")
+require('pyzmq')
+
 import h5py
 import numpy as np
 import zmq
@@ -5,6 +10,7 @@ import json
 import argparse
 import os
 import logging
+import logconfig
 import sys
 
 class MetaWriter:
@@ -355,14 +361,13 @@ class MetaWriter:
         return
       
     def writeToDatasetsFromArrays(self):
-      
-        self.logger.debug('Writing data to datasets at write count ' + str(self.writeCount))
 
         if self.arraysCreated == False:
             self.logger.error('Arrays not created, cannot write datasets from frame data')
             return
 
         if self.needToWriteData == True:
+            self.logger.info('Writing data to datasets at write count ' + str(self.writeCount))
             self.startDset[0:self.numFramesToWrite] = self.startDataArray
             self.stopDset[0:self.numFramesToWrite] = self.stopDataArray
             self.realDset[0:self.numFramesToWrite] = self.realDataArray
@@ -404,20 +409,7 @@ class MetaListener:
         
         # create logger
         self.logger = logging.getLogger('meta_listener')
-        self.logger.setLevel(logging.DEBUG)
-
-        # create console handler and set level to debug
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG)
-
-        # create formatter
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s - %(message)s')
-
-        # add formatter to ch
-        ch.setFormatter(formatter)
-
-        # add ch to logger
-        self.logger.addHandler(ch)
+        logconfig.setup_logging()
 
     def run(self):
         self.logger.info('Starting Meta listener...')
@@ -547,7 +539,7 @@ class MetaListener:
             acquisitionID = ''
           
         if acquisitionID not in self.writers:
-            self.logger.info('Writer not in writers, creating new writer for acquisition [' + acquisitionID + ']')
+            self.logger.info('Creating new writer for acquisition [' + acquisitionID + ']')
             self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
           
         writer = self.writers[acquisitionID]
