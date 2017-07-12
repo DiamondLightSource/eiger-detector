@@ -29,7 +29,7 @@ default_config = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "level": "INFO",
+            "level": "DEBUG",
             "formatter": "extended",
             "stream": "ext://sys.stdout"
         },

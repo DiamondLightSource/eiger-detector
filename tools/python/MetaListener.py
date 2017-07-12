@@ -327,9 +327,9 @@ class MetaWriter:
            
         self.writeToDatasetsFromArrays()
         
-        self.logger.info('Closing file ' + self.fullFileName) 
-        
-        self.hdf5File.close()
+        if hasattr(self, 'hdf5File'):
+            self.logger.info('Closing file ' + self.fullFileName) 
+            self.hdf5File.close()
       
         self.finished = True
 
@@ -397,6 +397,10 @@ class MetaWriter:
             self.offsetWrittenDset.flush()
                                          
             self.needToWriteData = False
+    
+    def stop(self):
+        self.frameOffsetDict.clear()
+        self.closeFile()
       
 class MetaListener:
   
@@ -488,7 +492,7 @@ class MetaListener:
         return reply
         
     def handleConfigureMessageParams(self, params):
-        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {'error':'Unable to process configure command'}})
+        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Unable to process configure command'}})
         if 'kill' in params:
             self.logger.info('Kill reqeusted')
             reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
@@ -511,7 +515,7 @@ class MetaListener:
                     acquisitionExists = True
                 else:
                     self.logger.info('File already created for acquisition_id: ' + str(acquisitionID))
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}})
+                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}})
             
             if 'flush' in params:
                 if acquisitionExists == True:
@@ -520,10 +524,22 @@ class MetaListener:
                     reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
                 else:
                     self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}})
+                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}})
+
+            
+            if 'stop' in params:
+                if acquisitionExists == True:
+                    self.logger.info('Stopping acquisition [' + str(acquisitionID) + ']')
+                    self.writers[acquisitionID].stop()
+                    del self.writers[acquisitionID]
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
+                else:
+                    self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
+                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}})
+
 
         else:
-            reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {'error':'no params in config'}})
+            reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'no params in config'}})
         return reply
         
     def handleMessage(self, receiver):
