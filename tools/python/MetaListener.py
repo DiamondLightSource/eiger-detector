@@ -12,6 +12,7 @@ import os
 import logging
 import logconfig
 import sys
+from datetime import datetime
 
 class MetaWriter:
 
@@ -49,7 +50,7 @@ class MetaWriter:
 
         metaFileName = self.acquisitionID + '_meta.hdf5'
 
-        self.fullFileName = self.directory + '/' + metaFileName
+        self.fullFileName = os.path.join(self.directory, metaFileName)
 
         self.seriesCreated = False
         self.configCreated = False
@@ -477,25 +478,25 @@ class MetaListener:
             params = message['params']
             reply = self.handleConfigureMessageParams(params)
         else:
-            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}})
+            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}, 'timestamp':datetime.now().isoformat()})
         
         receiver.send(reply)
         
     def handleStatusMessage(self):
-        statusList = []
+        statusDict = {}
         for key in self.writers:
             writer = self.writers[key]
-            statusList.append({'acquisition_id':key, 'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning})
+            statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning}
             
-        params = {'output':statusList}
-        reply = json.dumps({'msg_type':'ack','msg_val':'status', 'params': params})
+        params = {'output':statusDict}
+        reply = json.dumps({'msg_type':'ack', 'msg_val':'status', 'params': params, 'timestamp':datetime.now().isoformat()})
         return reply
         
     def handleConfigureMessageParams(self, params):
-        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Unable to process configure command'}})
+        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Unable to process configure command'}, 'timestamp':datetime.now().isoformat()})
         if 'kill' in params:
             self.logger.info('Kill reqeusted')
-            reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
+            reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
             self.killRequested = True
         elif 'acquisition_id' in params:
             acquisitionID = params['acquisition_id']
@@ -511,20 +512,20 @@ class MetaListener:
                 if acquisitionExists == False:
                     self.writers[acquisitionID] = MetaWriter(params['output_dir'], self.logger, acquisitionID)
                     self.logger.info('Creating new acquisition [' + str(acquisitionID) + '] with output directory ' + str(params['output_dir']))
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
                     acquisitionExists = True
                 else:
                     self.logger.info('File already created for acquisition_id: ' + str(acquisitionID))
-                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}})
+                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
             
             if 'flush' in params:
                 if acquisitionExists == True:
                     self.logger.info('Setting acquisition [' + str(acquisitionID) + '] flush to ' + str(params['flush']))
                     self.writers[acquisitionID].flushFrequency = params['flush']
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
                 else:
                     self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
-                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}})
+                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
 
             
             if 'stop' in params:
@@ -532,14 +533,14 @@ class MetaListener:
                     self.logger.info('Stopping acquisition [' + str(acquisitionID) + ']')
                     self.writers[acquisitionID].stop()
                     del self.writers[acquisitionID]
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}})
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
                 else:
                     self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
-                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}})
+                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
 
 
         else:
-            reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'no params in config'}})
+            reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'no params in config'}, 'timestamp':datetime.now().isoformat()})
         return reply
         
     def handleMessage(self, receiver):
