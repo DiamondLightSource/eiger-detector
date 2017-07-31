@@ -24,7 +24,7 @@ set(CMAKE_MODULE_PATH ${eigerdaq_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 # Find and add external packages required for application and test
 find_package( Boost 1.41.0
 	      REQUIRED
-	      COMPONENTS program_options system unit_test_framework thread)
+	      COMPONENTS program_options system unit_test_framework date_time thread)
 find_package(Log4CXX 0.10.0 REQUIRED)
 find_package(ZeroMQ 3.2.4 REQUIRED)
 find_package(OdinData REQUIRED)

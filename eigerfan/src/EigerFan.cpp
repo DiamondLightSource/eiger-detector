@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include "EigerFan.h"
+#include "boost/date_time/posix_time/posix_time.hpp"
 
 // Utility variables
 int more;
@@ -142,7 +143,7 @@ void EigerFan::run() {
 		for (int i = 0; i < config.num_consumers; i++) {
 			if (preRunPollItems [i+1].revents & ZMQ_POLLIN) {
 				monitorSockets[i]->recv(&pollMessage);
-				HandleMonitorMessage(pollMessage, monitorSockets[i]);
+				HandleMonitorMessage(pollMessage, monitorSockets[i], i);
 			}
 		}
 	}
@@ -217,7 +218,7 @@ void EigerFan::run() {
 		for (int i = 0; i < config.num_consumers; i++) {
 			if (runPollItems [i+1].revents & ZMQ_POLLIN) {
 				monitorSockets[i]->recv(&message);
-				HandleMonitorMessage(message, monitorSockets[i]);
+				HandleMonitorMessage(message, monitorSockets[i], i);
 			}
 		}
 
@@ -551,7 +552,7 @@ void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, zmq::socket_t &
 	LOG4CXX_DEBUG(log, "Finished Handling EndOfSeries Message");
 }
 
-void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket) {
+void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank) {
 	LOG4CXX_DEBUG(log, "Handling Monitor Message");
 
 	// Get the event code from the message, which is a number contained in the first 16 bits
@@ -562,14 +563,18 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 		if (WAITING_CONSUMERS != state) {
 			LOG4CXX_ERROR(log, std::string("Consumer connected whilst in state: ").append(GetStateString(state)));
 		} else {
-			LOG4CXX_INFO(log, "Consumer connected");
+			std::ostringstream logMessage;
+			logMessage << "Consumer connected (rank: " << rank << ")";
+			LOG4CXX_INFO(log, logMessage.str());
 		}
 	} else if (event == ZMQ_EVENT_DISCONNECTED) {
 		numConnectedConsumers--;
 		if (WAITING_CONSUMERS != state) {
 			LOG4CXX_ERROR(log, std::string("Consumer disconnected whilst in state: ").append(GetStateString(state)));
 		} else {
-			LOG4CXX_WARN(log, "Consumer disconnected");
+			std::ostringstream logMessage;
+			logMessage << "Consumer disconnected (rank: " << rank << ")";
+			LOG4CXX_WARN(log, logMessage.str());
 		}
 	}
 
@@ -670,8 +675,22 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 		}
 	}
 
-	zmq::message_t reply (replyString.size());
-	memcpy (reply.data(), replyString.c_str(), replyString.size());
+	rapidjson::Document statusDocument;
+	statusDocument.Parse(replyString.c_str());
+
+	std::string ts(boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::local_time()));
+	rapidjson::Value keyTimestamp("timestamp", statusDocument.GetAllocator());
+	rapidjson::Value valueTimestamp(ts, statusDocument.GetAllocator());
+	statusDocument.AddMember(keyTimestamp, valueTimestamp, statusDocument.GetAllocator());
+
+	rapidjson::StringBuffer statusBuffer;
+	rapidjson::Writer<rapidjson::StringBuffer> statusWriter(statusBuffer);
+	statusDocument.Accept(statusWriter);
+
+	std::string replyWithTimestamp = statusBuffer.GetString();
+
+	zmq::message_t reply (replyWithTimestamp.size());
+	memcpy (reply.data(), replyWithTimestamp.c_str(), replyWithTimestamp.size());
 	controlSocket.send(reply);
 
 	// Handle any message parts at the end
