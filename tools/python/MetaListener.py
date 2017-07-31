@@ -465,6 +465,7 @@ class MetaListener:
 
         context.term()
 
+        self.logger.info("Finished run")
         return    
 
     def handleControlMessage(self, receiver):
@@ -486,7 +487,7 @@ class MetaListener:
         statusDict = {}
         for key in self.writers:
             writer = self.writers[key]
-            statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning}
+            statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning, 'written': writer.writeCount}
             
         params = {'output':statusDict}
         reply = json.dumps({'msg_type':'ack', 'msg_val':'status', 'params': params, 'timestamp':datetime.now().isoformat()})
