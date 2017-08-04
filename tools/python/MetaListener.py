@@ -198,8 +198,8 @@ class MetaWriter:
         return
 
     def handleData(self, header ):
-        self.logger.debug('Handling image data for acqID ' + self.acquisitionID)
-        self.logger.debug(header)
+        ##self.logger.debug('Handling image data for acqID ' + self.acquisitionID)
+        ##self.logger.debug(header)
 
         frameId = header['frame']
 
@@ -230,8 +230,8 @@ class MetaWriter:
         return
 
     def handleFrameWriterWriteFrame(self, value ):
-        self.logger.debug('Handling frame writer write frame for acqID ' + self.acquisitionID)
-        self.logger.debug(value)
+        ##self.logger.debug('Handling frame writer write frame for acqID ' + self.acquisitionID)
+        ##self.logger.debug(value)
         frame_number = value['frame']
         offset_value = value['offset']
         rank = value['rank']
