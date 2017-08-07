@@ -815,6 +815,7 @@ std::string EigerFan::AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messag
 			rapidjson::Value& acquisitionIDValue = appendixDocument[ACQUISITION_ID_KEY.c_str()];
 			acquisitionID = acquisitionIDValue.GetString();
 			currentAcquisitionID = acquisitionID;
+			LOG4CXX_INFO(log, "Acquisition ID is [" << currentAcquisitionID << "]");
 		} else {
 			LOG4CXX_WARN(log, "No acquisition ID in global header appendix");
 		}

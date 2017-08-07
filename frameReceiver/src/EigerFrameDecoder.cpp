@@ -31,6 +31,8 @@ EigerFrameDecoder::EigerFrameDecoder() :
 
 void EigerFrameDecoder::init(LoggerPtr& logger, bool enable_packet_logging, unsigned int frame_timeout_ms)
 {
+	this->logger_ = Logger::getLogger("FR.EigerFrameDecoder");
+	this->logger_->setLevel(Level::getAll());
 	FrameDecoder::init(logger, enable_packet_logging, frame_timeout_ms);
 	LOG4CXX_INFO(logger_, "Eiger frame decoder init called");
 
