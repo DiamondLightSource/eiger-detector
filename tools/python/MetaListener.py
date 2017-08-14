@@ -474,17 +474,22 @@ class MetaListener:
 
     def handleControlMessage(self, receiver):
         self.logger.info('handling control message')
-        message = receiver.recv_json()
-        self.logger.debug(message)
-        
-        if message['msg_val'] == 'status':
-            reply = self.handleStatusMessage()
-        elif message['msg_val'] == 'configure':
-            params = message['params']
-            reply = self.handleConfigureMessageParams(params)
-        else:
-            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}, 'timestamp':datetime.now().isoformat()})
-        
+        try:
+            message = receiver.recv_json()
+            self.logger.debug(message)
+            
+            if message['msg_val'] == 'status':
+                reply = self.handleStatusMessage()
+            elif message['msg_val'] == 'configure':
+                params = message['params']
+                reply = self.handleConfigureMessageParams(params)
+            else:
+                reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}, 'timestamp':datetime.now().isoformat()})
+           
+        except Exception as err:
+            self.logger.error('Unexpected Exception handling control message: ' + str(err))
+            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Error processing control message'}, 'timestamp':datetime.now().isoformat()})
+
         receiver.send(reply)
         
     def handleStatusMessage(self):
@@ -562,11 +567,7 @@ class MetaListener:
                 self.logger.warn('Didnt have header')
                 acquisitionID = ''
               
-            if acquisitionID not in self.writers:
-                self.logger.info('Creating new writer for acquisition [' + acquisitionID + ']')
-                self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
-              
-            writer = self.writers[acquisitionID]
+            writer = self.getWriter(acquisitionID)
 
             if message['parameter'] == "eiger-globalnone":
                 receiver.recv_json()
@@ -601,8 +602,6 @@ class MetaListener:
             elif message['parameter'] == "closefile":
                 fileName = receiver.recv()
                 writer.handleFrameWriterCloseFile()
-                if (writer.finished == True):
-                    del self.writers[acquisitionID]
             elif message['parameter'] == "writeframe":
                 value = receiver.recv_json()
                 writer.handleFrameWriterWriteFrame(value)
@@ -615,6 +614,27 @@ class MetaListener:
             self.logger.error('Unexpected Exception handling message: ' + str(err))
 
         return
+      
+    def getWriter(self, acquisitionID):
+        
+        if acquisitionID not in self.writers:
+            self.logger.info('Creating new writer for acquisition [' + acquisitionID + ']')
+            self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
+            # Now delete any existing finsihed acquisitions
+            for key, value in self.writers.items():
+                if value.finished == True:
+                    del self.writers[key]
+            return self.writers[acquisitionID]
+        else:        
+            writer = self.writers[acquisitionID]
+            if (writer.finished == True):
+                self.logger.info('Creating new writer for existing finished acquisition [' + acquisitionID + ']')
+                del self.writers[acquisitionID]
+                self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
+                return self.writers[acquisitionID]
+            else:
+                return writer
+                
 
 def options():
     parser = argparse.ArgumentParser()
