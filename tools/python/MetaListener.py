@@ -419,43 +419,47 @@ class MetaListener:
     def run(self):
         self.logger.info('Starting Meta listener...')
         
-        inputsList = self.inputs.split(',')
+        try:
+            inputsList = self.inputs.split(',')
 
-        context = zmq.Context()
+            context = zmq.Context()
 
-        receiverList = []    
-        
-        # Control socket
-        ctrl_address = "tcp://*:" + self.ctrl_port
-        self.logger.info('Binding control address to ' + ctrl_address)
-        ctrlSocket = context.socket(zmq.REP)
-        ctrlSocket.bind(ctrl_address)
+            receiverList = []    
+            
+            # Control socket
+            ctrl_address = "tcp://*:" + self.ctrl_port
+            self.logger.info('Binding control address to ' + ctrl_address)
+            ctrlSocket = context.socket(zmq.REP)
+            ctrlSocket.bind(ctrl_address)
 
-        # Socket to receive messages on
-        for x in inputsList:
-            newReceiver = context.socket(zmq.SUB)
-            newReceiver.connect(x)
-            newReceiver.setsockopt(zmq.SUBSCRIBE, '')
-            receiverList.append(newReceiver)
+            # Socket to receive messages on
+            for x in inputsList:
+                newReceiver = context.socket(zmq.SUB)
+                newReceiver.connect(x)
+                newReceiver.setsockopt(zmq.SUBSCRIBE, '')
+                receiverList.append(newReceiver)
 
-        poller = zmq.Poller()
-        for eachReceiver in receiverList:
-            poller.register(eachReceiver, zmq.POLLIN)
+            poller = zmq.Poller()
+            for eachReceiver in receiverList:
+                poller.register(eachReceiver, zmq.POLLIN)
 
-        poller.register(ctrlSocket, zmq.POLLIN)
-        
-        self.logger.info('Listening to inputs ' + str(inputsList))
+            poller.register(ctrlSocket, zmq.POLLIN)
+            
+            self.logger.info('Listening to inputs ' + str(inputsList))
 
-        while self.killRequested == False:
-            socks = dict(poller.poll())
-            for receiver in receiverList:
-                if socks.get(receiver) == zmq.POLLIN:
-                    self.handleMessage(receiver)
+            while self.killRequested == False:
+                socks = dict(poller.poll())
+                for receiver in receiverList:
+                    if socks.get(receiver) == zmq.POLLIN:
+                        self.handleMessage(receiver)
 
-            if socks.get(ctrlSocket) == zmq.POLLIN:
-                self.handleControlMessage(ctrlSocket)
-                
-        self.logger.info('Finished listening')
+                if socks.get(ctrlSocket) == zmq.POLLIN:
+                    self.handleControlMessage(ctrlSocket)
+                    
+            self.logger.info('Finished listening')
+
+        except Exception as err:
+            self.logger.error('Unexpected Exception: ' + str(err))
 
         # Finished
         for receiver in receiverList:
@@ -546,64 +550,70 @@ class MetaListener:
         
     def handleMessage(self, receiver):
         self.logger.debug('Handling message')
-        message = receiver.recv_json()
-        self.logger.debug(message)
-        userheader = message['header']
-        
-        if 'acqID' in userheader:
-            acquisitionID = userheader['acqID']
-        else:
-            self.logger.warn('Didnt have header')
-            acquisitionID = ''
-          
-        if acquisitionID not in self.writers:
-            self.logger.info('Creating new writer for acquisition [' + acquisitionID + ']')
-            self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
-          
-        writer = self.writers[acquisitionID]
+   
+        try:
+            message = receiver.recv_json()
+            self.logger.debug(message)
+            userheader = message['header']
+            
+            if 'acqID' in userheader:
+                acquisitionID = userheader['acqID']
+            else:
+                self.logger.warn('Didnt have header')
+                acquisitionID = ''
+              
+            if acquisitionID not in self.writers:
+                self.logger.info('Creating new writer for acquisition [' + acquisitionID + ']')
+                self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
+              
+            writer = self.writers[acquisitionID]
 
-        if message['parameter'] == "eiger-globalnone":
-            receiver.recv_json()
-            writer.handleGlobalHeaderNone(message)
-        elif message['parameter'] == "eiger-globalconfig":
-            config = receiver.recv_json()
-            writer.handleGlobalHeaderConfig(userheader, config)
-        elif message['parameter'] == "eiger-globalflatfield":
-            flatfield = receiver.recv()
-            writer.handleFlatfieldHeader(userheader, flatfield)
-        elif message['parameter'] == "eiger-globalmask":
-            mask = receiver.recv()
-            writer.handleMaskHeader(userheader, mask)
-        elif message['parameter'] == "eiger-globalcountrate":
-            countrate = receiver.recv()
-            writer.handleCountrateHeader(userheader, countrate)
-        elif message['parameter'] == "eiger-headerappendix":
-            appendix = receiver.recv()
-            writer.handleGlobalHeaderAppendix(appendix)
-        elif message['parameter'] == "eiger-imagedata":
-            imageMetaData = receiver.recv_json()
-            writer.handleData(imageMetaData)
-        elif message['parameter'] == "eiger-imageappendix":
-            appendix = receiver.recv()
-            writer.handleImageAppendix(userheader, appendix)
-        elif message['parameter'] == "eiger-end":
-            receiver.recv()
-            writer.handleEnd(message)
-        elif message['parameter'] == "createfile":
-            fileName = receiver.recv()
-            writer.handleFrameWriterCreateFile(userheader, fileName)
-        elif message['parameter'] == "closefile":
-            fileName = receiver.recv()
-            writer.handleFrameWriterCloseFile()
-            if (writer.finished == True):
-                del self.writers[acquisitionID]
-        elif message['parameter'] == "writeframe":
-            value = receiver.recv_json()
-            writer.handleFrameWriterWriteFrame(value)
-        else:
-            self.logger.error('unknown parameter: ' + str(message))
-            value = receiver.recv()
-            self.logger.error('value: ' + str(value))
+            if message['parameter'] == "eiger-globalnone":
+                receiver.recv_json()
+                writer.handleGlobalHeaderNone(message)
+            elif message['parameter'] == "eiger-globalconfig":
+                config = receiver.recv_json()
+                writer.handleGlobalHeaderConfig(userheader, config)
+            elif message['parameter'] == "eiger-globalflatfield":
+                flatfield = receiver.recv()
+                writer.handleFlatfieldHeader(userheader, flatfield)
+            elif message['parameter'] == "eiger-globalmask":
+                mask = receiver.recv()
+                writer.handleMaskHeader(userheader, mask)
+            elif message['parameter'] == "eiger-globalcountrate":
+                countrate = receiver.recv()
+                writer.handleCountrateHeader(userheader, countrate)
+            elif message['parameter'] == "eiger-headerappendix":
+                appendix = receiver.recv()
+                writer.handleGlobalHeaderAppendix(appendix)
+            elif message['parameter'] == "eiger-imagedata":
+                imageMetaData = receiver.recv_json()
+                writer.handleData(imageMetaData)
+            elif message['parameter'] == "eiger-imageappendix":
+                appendix = receiver.recv()
+                writer.handleImageAppendix(userheader, appendix)
+            elif message['parameter'] == "eiger-end":
+                receiver.recv()
+                writer.handleEnd(message)
+            elif message['parameter'] == "createfile":
+                fileName = receiver.recv()
+                writer.handleFrameWriterCreateFile(userheader, fileName)
+            elif message['parameter'] == "closefile":
+                fileName = receiver.recv()
+                writer.handleFrameWriterCloseFile()
+                if (writer.finished == True):
+                    del self.writers[acquisitionID]
+            elif message['parameter'] == "writeframe":
+                value = receiver.recv_json()
+                writer.handleFrameWriterWriteFrame(value)
+            else:
+                self.logger.error('unknown parameter: ' + str(message))
+                value = receiver.recv()
+                self.logger.error('value: ' + str(value))
+
+        except Exception as err:
+            self.logger.error('Unexpected Exception handling message: ' + str(err))
+
         return
 
 def options():
