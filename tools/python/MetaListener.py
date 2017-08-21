@@ -473,7 +473,7 @@ class MetaListener:
         return    
 
     def handleControlMessage(self, receiver):
-        self.logger.info('handling control message')
+        self.logger.debug('handling control message')
         try:
             message = receiver.recv_json()
             self.logger.debug(message)
@@ -496,10 +496,16 @@ class MetaListener:
         statusDict = {}
         for key in self.writers:
             writer = self.writers[key]
-            statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning, 'written': writer.writeCount}
+            statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning, 'written': writer.writeCount, 'finished':writer.finished}
             
         params = {'output':statusDict}
         reply = json.dumps({'msg_type':'ack', 'msg_val':'status', 'params': params, 'timestamp':datetime.now().isoformat()})
+        
+        # Now delete any finsihed acquisitions
+        for key, value in self.writers.items():
+            if value.finished == True:
+                del self.writers[key]
+        
         return reply
         
     def handleConfigureMessageParams(self, params):
@@ -520,8 +526,8 @@ class MetaListener:
                 
             if 'output_dir' in params:
                 if acquisitionExists == False:
-                    self.writers[acquisitionID] = MetaWriter(params['output_dir'], self.logger, acquisitionID)
                     self.logger.info('Creating new acquisition [' + str(acquisitionID) + '] with output directory ' + str(params['output_dir']))
+                    self.createNewAcquisition(params['output_dir'], acquisitionID)
                     reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
                     acquisitionExists = True
                 else:
@@ -567,7 +573,11 @@ class MetaListener:
                 self.logger.warn('Didnt have header')
                 acquisitionID = ''
               
-            writer = self.getWriter(acquisitionID)
+            if acquisitionID not in self.writers:
+                self.logger.info('Creating new writer for acquisition [' + acquisitionID + ']')
+                self.createNewAcquisition(self.directory, acquisitionID)
+              
+            writer = self.writers[acquisitionID]
 
             if message['parameter'] == "eiger-globalnone":
                 receiver.recv_json()
@@ -615,25 +625,13 @@ class MetaListener:
 
         return
       
-    def getWriter(self, acquisitionID):
-        
-        if acquisitionID not in self.writers:
-            self.logger.info('Creating new writer for acquisition [' + acquisitionID + ']')
-            self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
-            # Now delete any existing finsihed acquisitions
+    def createNewAcquisition(self, directory, acquisitionID):
+        self.writers[acquisitionID] = MetaWriter(directory, self.logger, acquisitionID)
+        # Check if we have built up too many finished acquisitions and delete them if so
+        if len(self.writers) > 3:
             for key, value in self.writers.items():
                 if value.finished == True:
                     del self.writers[key]
-            return self.writers[acquisitionID]
-        else:        
-            writer = self.writers[acquisitionID]
-            if (writer.finished == True):
-                self.logger.info('Creating new writer for existing finished acquisition [' + acquisitionID + ']')
-                del self.writers[acquisitionID]
-                self.writers[acquisitionID] = MetaWriter(self.directory, self.logger, acquisitionID)
-                return self.writers[acquisitionID]
-            else:
-                return writer
                 
 
 def options():
