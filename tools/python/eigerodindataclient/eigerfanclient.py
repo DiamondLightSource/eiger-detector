@@ -17,16 +17,24 @@ class EigerFanClient(ZMQClient):
     def __init__(self, ip_address, lock):
         super(EigerFanClient, self).__init__(ip_address, lock, 0)
 
+        self.latest_frame = None
+        self.current_consumers = None
+
     def request_status(self):
         return self.send_request("status")["params"]
 
     def request_latest_frame(self):
-        status = self.request_status()
-        return status["frame"]
+        self.update_monitors()
+        return self.latest_frame
 
     def current_consumers(self):
+        self.update_monitors()
+        return self.current_consumers
+
+    def update_monitors(self):
         status = self.request_status()
-        return status[self.CONSUMERS]
+        self.latest_frame = status["frame"]
+        self.current_consumers = status["num_conn"]
 
     def rewind(self, frames, active_frame):
         config = {
