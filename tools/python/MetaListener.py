@@ -38,6 +38,7 @@ class MetaWriter:
         self.arraysCreated = False
         self.fileCreated = False
         self.closeAfterWrite = False
+        self.hdf5File = None
         
         self.startNewAcquisition()
         
@@ -329,8 +330,10 @@ class MetaWriter:
         self.writeToDatasetsFromArrays()
         
         if hasattr(self, 'hdf5File'):
-            self.logger.info('Closing file ' + self.fullFileName) 
-            self.hdf5File.close()
+            if self.hdf5File is not None:
+                self.logger.info('Closing file ' + self.fullFileName) 
+                self.hdf5File.close()
+                self.hdf5File = None
       
         self.finished = True
 
@@ -465,7 +468,7 @@ class MetaListener:
         for receiver in receiverList:
             receiver.close(linger=0)
             
-        ctrlSocket.close(linger=0)
+        ctrlSocket.close(linger=100)
 
         context.term()
 
@@ -473,14 +476,14 @@ class MetaListener:
         return    
 
     def handleControlMessage(self, receiver):
-        self.logger.debug('handling control message')
         try:
             message = receiver.recv_json()
-            self.logger.debug(message)
             
             if message['msg_val'] == 'status':
                 reply = self.handleStatusMessage()
             elif message['msg_val'] == 'configure':
+                self.logger.debug('handling control configure message')
+                self.logger.debug(message)
                 params = message['params']
                 reply = self.handleConfigureMessageParams(params)
             else:
@@ -517,46 +520,46 @@ class MetaListener:
         elif 'acquisition_id' in params:
             acquisitionID = params['acquisition_id']
             
-            if acquisitionID in self.writers:
-                self.logger.info('Writer is in writers')
-                acquisitionExists = True
-            else:
-                self.logger.info('Writer not in writers for acquisition [' + acquisitionID + ']')
-                acquisitionExists = False
-                
-            if 'output_dir' in params:
-                if acquisitionExists == False:
-                    self.logger.info('Creating new acquisition [' + str(acquisitionID) + '] with output directory ' + str(params['output_dir']))
-                    self.createNewAcquisition(params['output_dir'], acquisitionID)
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+            if acquisitionID is not None:
+                if acquisitionID in self.writers:
+                    self.logger.info('Writer is in writers')
                     acquisitionExists = True
                 else:
-                    self.logger.info('File already created for acquisition_id: ' + str(acquisitionID))
-                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
-            
-            if 'flush' in params:
-                if acquisitionExists == True:
-                    self.logger.info('Setting acquisition [' + str(acquisitionID) + '] flush to ' + str(params['flush']))
-                    self.writers[acquisitionID].flushFrequency = params['flush']
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
-                else:
-                    self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
-                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
-
-            
-            if 'stop' in params:
-                if acquisitionExists == True:
-                    self.logger.info('Stopping acquisition [' + str(acquisitionID) + ']')
-                    self.writers[acquisitionID].stop()
-                    del self.writers[acquisitionID]
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
-                else:
-                    self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
-                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
-
+                    self.logger.info('Writer not in writers for acquisition [' + str(acquisitionID) + ']')
+                    acquisitionExists = False
+                    
+                if 'output_dir' in params:
+                    if acquisitionExists == False:
+                        self.logger.info('Creating new acquisition [' + str(acquisitionID) + '] with output directory ' + str(params['output_dir']))
+                        self.createNewAcquisition(params['output_dir'], acquisitionID)
+                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+                        acquisitionExists = True
+                    else:
+                        self.logger.info('File already created for acquisition_id: ' + str(acquisitionID))
+                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
+                
+                if 'flush' in params:
+                    if acquisitionExists == True:
+                        self.logger.info('Setting acquisition [' + str(acquisitionID) + '] flush to ' + str(params['flush']))
+                        self.writers[acquisitionID].flushFrequency = params['flush']
+                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+                    else:
+                        self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
+                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
+    
+                if 'stop' in params:
+                    if acquisitionExists == True:
+                        self.logger.info('Stopping acquisition [' + str(acquisitionID) + ']')
+                        self.writers[acquisitionID].stop()
+                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+                    else:
+                        self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
+                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
+            else:
+                reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Acquisition ID was None'}, 'timestamp':datetime.now().isoformat()})              
 
         else:
-            reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'no params in config'}, 'timestamp':datetime.now().isoformat()})
+            reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No params in config'}, 'timestamp':datetime.now().isoformat()})
         return reply
         
     def handleMessage(self, receiver):
@@ -574,10 +577,16 @@ class MetaListener:
                 acquisitionID = ''
               
             if acquisitionID not in self.writers:
-                self.logger.info('Creating new writer for acquisition [' + acquisitionID + ']')
-                self.createNewAcquisition(self.directory, acquisitionID)
-              
+                self.logger.error('No writer for acquisition [' + acquisitionID + ']')
+                value = receiver.recv()
+                return
+
             writer = self.writers[acquisitionID]
+            
+            if writer.finished == True:
+                self.logger.error('Writer finished for acquisition [' + acquisitionID + ']')
+                value = receiver.recv()
+                return
 
             if message['parameter'] == "eiger-globalnone":
                 receiver.recv_json()
@@ -626,6 +635,7 @@ class MetaListener:
         return
       
     def createNewAcquisition(self, directory, acquisitionID):
+        self.logger.info('Creating new acquisition for: ' + str(acquisitionID))
         self.writers[acquisitionID] = MetaWriter(directory, self.logger, acquisitionID)
         # Check if we have built up too many finished acquisitions and delete them if so
         if len(self.writers) > 3:
