@@ -18,6 +18,13 @@
 #include <boost/shared_ptr.hpp>
 
 class EigerFan {
+
+	typedef struct
+	{
+		int connected;
+		boost::shared_ptr<zmq::socket_t> sendSocket;
+	} EigerConsumer;
+
 public:
 
 	EigerFan();
@@ -39,6 +46,8 @@ protected:
 	void SendFabricatedEndMessage();
 	std::string AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messageAppendix);
 	std::string AddAcquisitionIDToPart1(std::string acquisitionID);
+	int GetNumberOfConnectedConsumers();
+	bool ExpectedConsumersConnected();
 
 private:
 	log4cxx::LoggerPtr log;
@@ -47,9 +56,8 @@ private:
 	zmq::context_t ctx_;
 	zmq::socket_t recvSocket;
 	zmq::socket_t controlSocket;
-	std::vector<boost::shared_ptr<zmq::socket_t> > sendSockets;
+	std::vector<EigerConsumer> consumers;
 
-	int numConnectedConsumers;
 	bool killRequested;
 	Eiger::EigerFanState state;
 	int currentSeries;

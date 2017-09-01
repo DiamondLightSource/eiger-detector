@@ -31,7 +31,6 @@ EigerFan::EigerFan()
   controlSocket(ctx_, ZMQ_REP) {
 	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
 	LOG4CXX_INFO(log, "Creating EigerFan object from default options");
-	numConnectedConsumers = 0;
 	killRequested = false;
 	state = WAITING_CONSUMERS;
 	currentSeries = 0;
@@ -48,7 +47,6 @@ EigerFan::EigerFan(EigerFanConfig config_)
 	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
 	config = config_;
 	LOG4CXX_INFO(log, "Creating EigerFan object from config options");
-	numConnectedConsumers = 0;
 	killRequested = false;
 	state = WAITING_CONSUMERS;
 	currentSeries = 0;
@@ -64,7 +62,7 @@ EigerFan::~EigerFan() {
 void EigerFan::run() {
     LOG4CXX_INFO(log, "EigerFan::run()");
 	LOG4CXX_INFO(log, "Starting EigerFan");
-	int linger = 0;
+	int linger = 100; // Socket linger timeout in milliseconds
 
 	// Setup Control socket
 	std::string controlAddress("tcp://*:");
@@ -85,7 +83,10 @@ void EigerFan::run() {
 		sendSocket->setsockopt (ZMQ_SNDHWM, &SEND_HWM, sizeof (SEND_HWM));
 		sendSocket->bind(fanAddress.str().c_str());
 		sendSocket->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
-		sendSockets.push_back(sendSocket);
+		EigerConsumer consumer;
+		consumer.connected = false;
+		consumer.sendSocket = sendSocket;
+		consumers.push_back(consumer);
 	}
 
 	std::vector<boost::shared_ptr<zmq::socket_t> > monitorSockets;
@@ -96,7 +97,7 @@ void EigerFan::run() {
 
 		// Setup monitor for Fan Send Socket to listen to accepted and disconnected events
 
-		zmq::socket_t* socketToMonitor = sendSockets[i].get();
+		zmq::socket_t* socketToMonitor = consumers[i].sendSocket.get();
 
 		int rc = zmq_socket_monitor(*socketToMonitor, monitorAddress.str().c_str(), ZMQ_EVENT_ACCEPTED | ZMQ_EVENT_DISCONNECTED);
 		if (rc < 0) {
@@ -131,7 +132,7 @@ void EigerFan::run() {
 		preRunPollItems[i+1] = monitorPollItem;
 	}
 
-	while (numConnectedConsumers < config.num_consumers && killRequested != true) {
+	while (ExpectedConsumersConnected() != true && killRequested != true) {
 		zmq::message_t pollMessage;
 		zmq::poll (&preRunPollItems [0], config.num_consumers + 1, -1);
 
@@ -152,14 +153,14 @@ void EigerFan::run() {
 		LOG4CXX_INFO(log, "Kill was requested before all consumers had joined");
 		for (int i = 0; i < config.num_consumers; i++) {
 			monitorSockets[i]->close();
-			sendSockets[i]->close();
+			consumers[i].sendSocket->close();
 		}
 		controlSocket.close();
 		return;
 	}
 
 	std::ostringstream oss;
-	oss << "All " << numConnectedConsumers << " expected consumers connected. Connecting to Eiger Stream";
+	oss << "All " << GetNumberOfConnectedConsumers() << " expected consumers connected. Connecting to Eiger Stream";
 
 	LOG4CXX_INFO(log, oss.str());
 
@@ -232,7 +233,7 @@ void EigerFan::run() {
 	LOG4CXX_INFO(log, "Shutting down EigerFan sockets");
 	for (int i = 0; i < config.num_consumers; i++) {
 		monitorSockets[i]->close();
-		sendSockets[i]->close();
+		consumers[i].sendSocket->close();
 	}
 
 	recvSocket.close();
@@ -559,22 +560,27 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 	uint16_t event = *(uint16_t *) (message.data());
 
 	if (event == ZMQ_EVENT_ACCEPTED) {
-		numConnectedConsumers++;
+		std::ostringstream logMessage;
+		logMessage << "Consumer connected (rank: " << rank << ")";
+		LOG4CXX_INFO(log, logMessage.str());
+		consumers[rank].connected++;
+		if (consumers[rank].connected > 1) {
+			LOG4CXX_ERROR(log, "More than one consumer connected (" << consumers[rank].connected << ") with the same rank (" << rank << ")");
+		}
 		if (WAITING_CONSUMERS != state) {
-			LOG4CXX_ERROR(log, std::string("Consumer connected whilst in state: ").append(GetStateString(state)));
-		} else {
-			std::ostringstream logMessage;
-			logMessage << "Consumer connected (rank: " << rank << ")";
-			LOG4CXX_INFO(log, logMessage.str());
+			LOG4CXX_ERROR(log, "Consumer connected whilst in state: " << GetStateString(state));
 		}
 	} else if (event == ZMQ_EVENT_DISCONNECTED) {
-		numConnectedConsumers--;
+		std::ostringstream logMessage;
+		logMessage << "Consumer disconnected (rank: " << rank << ")";
+		LOG4CXX_WARN(log, logMessage.str());
+		consumers[rank].connected--;
+		if (consumers[rank].connected < 0) {
+			LOG4CXX_ERROR(log, "Number of consumers connected for rank " << rank << " was less than 0");
+			consumers[rank].connected = 0;
+		}
 		if (WAITING_CONSUMERS != state) {
-			LOG4CXX_ERROR(log, std::string("Consumer disconnected whilst in state: ").append(GetStateString(state)));
-		} else {
-			std::ostringstream logMessage;
-			logMessage << "Consumer disconnected (rank: " << rank << ")";
-			LOG4CXX_WARN(log, logMessage.str());
+			LOG4CXX_ERROR(log, "Consumer disconnected whilst in state: " << GetStateString(state));
 		}
 	}
 
@@ -591,7 +597,6 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 void EigerFan::HandleControlMessage(zmq::message_t &message) {
 
 	std::string jsonCommand(static_cast<char*>(message.data()), message.size());
-	LOG4CXX_DEBUG(log, std::string("Handling Control Message: ").append(jsonCommand));
 
 	rapidjson::Document ctrlDocument;
 
@@ -616,7 +621,7 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 
 			// Add Number of connected
 			rapidjson::Value keyNumConn("num_conn", document.GetAllocator());
-			rapidjson::Value valueNumConn(numConnectedConsumers);
+			rapidjson::Value valueNumConn(GetNumberOfConnectedConsumers());
 			document.AddMember(keyNumConn, valueNumConn, document.GetAllocator());
 
 			// Add Current series
@@ -644,6 +649,7 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 			replyString.assign(oss.str());
 
 		} else if (command.compare(CONTROL_CONFIGURE) == 0) {
+			LOG4CXX_DEBUG(log, std::string("Handling Control Configure Message: ").append(jsonCommand));
 
 			if (ctrlDocument.HasMember(CONTROL_PARAM_KEY.c_str())) {
 				rapidjson::Value& paramsValue = ctrlDocument[CONTROL_PARAM_KEY.c_str()];
@@ -700,60 +706,76 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 		controlSocket.recv(&messagePartExtra);
 		LOG4CXX_ERROR(log, "Control contained more parts than expected");
 	}
-
-	LOG4CXX_DEBUG(log, "Finished Handling Control Message");
 }
 
 void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
-	LOG4CXX_DEBUG(log, "Sending message to all consumers. Number of consumers = " << numConnectedConsumers);
+	int numConsumersToSendTo = config.num_consumers;
+	LOG4CXX_DEBUG(log, "Sending message to all consumers. Number of consumers = " << GetNumberOfConnectedConsumers());
 	// Make as many copies as necessary (number to send minus 1) and send them
-	for (int i = 0; i < numConnectedConsumers-1; i++) {
-		zmq::message_t messageCopy;
-		messageCopy.copy(&message);
-		if (sendSockets.at(i)->send(messageCopy, flags) == false) {
-			LOG4CXX_ERROR(log, "Send socket returned false");
+	for (int i = 0; i < numConsumersToSendTo-1; i++) {
+		if (consumers.at(i).connected > 0) {
+			zmq::message_t messageCopy;
+			messageCopy.copy(&message);
+			if (consumers.at(i).sendSocket->send(messageCopy, flags) == false) {
+				LOG4CXX_ERROR(log, "Send socket returned false");
+			}
+		} else {
+			LOG4CXX_ERROR(log, "Consumer with rank " << i << " not connected");
 		}
 	}
 	// Send the actual message for the last one
-	if (sendSockets.at(numConnectedConsumers-1)->send(message, flags) == false) {
-		LOG4CXX_ERROR(log, "Send socket returned false");
+	if (consumers.at(numConsumersToSendTo-1).connected > 0) {
+		if (consumers.at(numConsumersToSendTo-1).sendSocket->send(message, flags) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+	} else {
+		LOG4CXX_ERROR(log, "Consumer with rank " << numConsumersToSendTo-1 << " not connected");
 	}
 
 	LOG4CXX_DEBUG(log, "Finished Sending message to all consumers");
 }
 
 void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageList) {
-	LOG4CXX_DEBUG(log, "Sending multiple messages to all consumers. Number of consumers = " << numConnectedConsumers);
 	int messageListSize = messageList.size();
+	int numConsumersToSendTo = config.num_consumers;
+	LOG4CXX_DEBUG(log, "Sending multiple messages to all consumers. Number of consumers = " << GetNumberOfConnectedConsumers());
 	// Make as many copies as necessary (number to send minus 1) and send them
-	for (int consumerCount = 0; consumerCount < numConnectedConsumers-1; consumerCount++) {
-		for (int messageCount = 0; messageCount < messageListSize; messageCount++)
-		{
-			zmq::message_t messageCopy;
-			messageCopy.copy(messageList[messageCount]);
-			if (messageCount != messageListSize - 1) {
-				if (sendSockets.at(consumerCount)->send(messageCopy, ZMQ_SNDMORE) == false) {
-					LOG4CXX_ERROR(log, "Send socket returned false");
-				}
-			} else {
-				if (sendSockets.at(consumerCount)->send(messageCopy) == false) {
-					LOG4CXX_ERROR(log, "Send socket returned false");
+	for (int consumerCount = 0; consumerCount < numConsumersToSendTo-1; consumerCount++) {
+		if (consumers.at(consumerCount).connected > 0) {
+			for (int messageCount = 0; messageCount < messageListSize; messageCount++)
+			{
+				zmq::message_t messageCopy;
+				messageCopy.copy(messageList[messageCount]);
+				if (messageCount != messageListSize - 1) {
+					if (consumers.at(consumerCount).sendSocket->send(messageCopy, ZMQ_SNDMORE) == false) {
+						LOG4CXX_ERROR(log, "Send socket returned false");
+					}
+				} else {
+					if (consumers.at(consumerCount).sendSocket->send(messageCopy) == false) {
+						LOG4CXX_ERROR(log, "Send socket returned false");
+					}
 				}
 			}
+		} else {
+			LOG4CXX_ERROR(log, "Consumer with rank " << consumerCount << " not connected");
 		}
 	}
 	// Send the actual message for the last one
-	for (int messageCount = 0; messageCount < messageListSize; messageCount++)
-	{
-		if (messageCount != messageListSize - 1) {
-			if (sendSockets.at(numConnectedConsumers-1)->send(*messageList[messageCount], ZMQ_SNDMORE) == false) {
-				LOG4CXX_ERROR(log, "Send socket returned false");
-			}
-		} else {
-			if (sendSockets.at(numConnectedConsumers-1)->send(*messageList[messageCount]) == false) {
-				LOG4CXX_ERROR(log, "Send socket returned false");
+	if (consumers.at(numConsumersToSendTo-1).connected > 0) {
+		for (int messageCount = 0; messageCount < messageListSize; messageCount++)
+		{
+			if (messageCount != messageListSize - 1) {
+				if (consumers.at(numConsumersToSendTo-1).sendSocket->send(*messageList[messageCount], ZMQ_SNDMORE) == false) {
+					LOG4CXX_ERROR(log, "Send socket returned false");
+				}
+			} else {
+				if (consumers.at(numConsumersToSendTo-1).sendSocket->send(*messageList[messageCount]) == false) {
+					LOG4CXX_ERROR(log, "Send socket returned false");
+				}
 			}
 		}
+	} else {
+		LOG4CXX_ERROR(log, "Consumer with rank " << numConsumersToSendTo-1 << " not connected");
 	}
 
 	messageList.clear();
@@ -764,8 +786,12 @@ void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags) {
 	LOG4CXX_DEBUG(log, "Sending message to single consumers at index:" << currentConsumerIndexToSendTo);
 
 	// Send the message to a consumer
-	if (sendSockets.at(currentConsumerIndexToSendTo)->send(message, flags) == false) {
-		LOG4CXX_ERROR(log, "Send socket returned false");
+	if (consumers.at(currentConsumerIndexToSendTo).connected > 0) {
+		if (consumers.at(currentConsumerIndexToSendTo).sendSocket->send(message, flags) == false) {
+			LOG4CXX_ERROR(log, "Send socket returned false");
+		}
+	} else {
+		LOG4CXX_ERROR(log, "Consumer with rank " << currentConsumerIndexToSendTo << " not connected");
 	}
 
 	LOG4CXX_DEBUG(log, "Finished Sending message to single consumer");
@@ -824,7 +850,6 @@ std::string EigerFan::AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messag
 }
 
 std::string EigerFan::AddAcquisitionIDToPart1(std::string acquisitionID) {
-
 	rapidjson::Value keyAcquisitionID(Eiger::ACQUISITION_ID_KEY.c_str(), jsonDocument.GetAllocator());
 	rapidjson::Value valueAcquisitionID(acquisitionID, jsonDocument.GetAllocator());
 	jsonDocument.AddMember(keyAcquisitionID, valueAcquisitionID, jsonDocument.GetAllocator());
@@ -833,4 +858,26 @@ std::string EigerFan::AddAcquisitionIDToPart1(std::string acquisitionID) {
 	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 	jsonDocument.Accept(writer);
 	return buffer.GetString();
+}
+
+int EigerFan::GetNumberOfConnectedConsumers() {
+	int numConnected = 0;
+	for (int i = 0; i < config.num_consumers; i++) {
+		if (consumers[i].connected > 0) {
+			numConnected++;
+			if (consumers[i].connected > 1) {
+				LOG4CXX_ERROR(log, "More than one consumer connected (" << consumers[i].connected << ") with the same rank (" << i << ")");
+			}
+		}
+	}
+	return numConnected;
+}
+
+bool EigerFan::ExpectedConsumersConnected() {
+	for (int i = 0; i < config.num_consumers; i++) {
+		if (consumers[i].connected != 1) {
+			return false;
+		}
+	}
+	return true;
 }
