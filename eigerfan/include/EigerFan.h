@@ -39,7 +39,7 @@ protected:
 	void HandleImageDataMessage(zmq::message_t &message, zmq::socket_t &socket);
 	void HandleEndOfSeriesMessage(zmq::message_t &message, zmq::socket_t &socket);
 	void HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank);
-	void HandleControlMessage(zmq::message_t &message);
+	void HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage);
 	void SendMessageToAllConsumers(zmq::message_t &message, int flags = 0);
 	void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
 	void SendMessageToSingleConsumer(zmq::message_t &message, int flags = 0);

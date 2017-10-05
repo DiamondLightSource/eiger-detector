@@ -48,7 +48,7 @@ void startEigerFan(EigerFan &eigerFan) {
 
 void shutdownEigerFan() {
 	zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 
 	socket.connect ("tcp://localhost:5559");
 
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckKill )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 
 	socket.connect ("tcp://localhost:5559");
 
@@ -84,7 +84,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckKill )
 	socket.recv (&reply);
 	std::string replyMessage(static_cast<char*>(reply.data()), reply.size());
 
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {}}",replyMessage);
+	std::size_t found = replyMessage.find("{\"msg_type\":\"ack\",\"msg_val\":\"configure\",\"params\":{},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage);
 
     eigerfanThread.join();
 }
@@ -95,7 +96,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckGetStatus )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the command to get the status
@@ -110,7 +111,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckGetStatus )
 	std::string replyMessage(static_cast<char*>(reply.data()), reply.size());
 
 	// Expect the status returned to be a json string, with the state set to WAITING_CONSUMERS and no consumers
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"fan_offset\":0}}", replyMessage);
+	std::size_t found = replyMessage.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage);
 
 	shutdownEigerFan();
     eigerfanThread.join();
@@ -123,7 +125,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckConsumerConnect )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the command to get the status
@@ -138,7 +140,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckConsumerConnect )
 	std::string replyMessage(static_cast<char*>(reply.data()), reply.size());
 
 	// Expect the status returned to be a json string, with the state set to WAITING_CONSUMERS and no consumers
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"fan_offset\":0}}", replyMessage);
+	std::size_t found = replyMessage.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage);
 
 	// Now connect a consumer
 	zmq::socket_t receiver(context, ZMQ_PULL);
@@ -155,7 +158,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckConsumerConnect )
 	socket.recv (&reply);
 	std::string replyMessage2(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to WAITING_STREAM and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":0,\"frame\":0,\"fan_offset\":0}}", replyMessage2);
+	found = replyMessage2.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":0,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage2);
 
 	shutdownEigerFan();
     eigerfanThread.join();
@@ -168,7 +172,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheck2ConsumersConnect )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the command to get the status
@@ -183,7 +187,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheck2ConsumersConnect )
 	std::string replyMessage(static_cast<char*>(reply.data()), reply.size());
 
 	// Expect the status returned to be a json string, with the state set to WAITING_CONSUMERS and no consumers
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"fan_offset\":0}}", replyMessage);
+	std::size_t found = replyMessage.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage);
 
 	// Now connect a consumer
 	zmq::socket_t receiver(context, ZMQ_PULL);
@@ -200,7 +205,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheck2ConsumersConnect )
 	socket.recv (&reply);
 	std::string replyMessage2(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to WAITING_CONSUMERS and 1 consumers
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_CONSUMERS\",\"num_conn\":1,\"series\":0,\"frame\":0,\"fan_offset\":0}}", replyMessage2);
+	found = replyMessage2.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_CONSUMERS\",\"num_conn\":1,\"series\":0,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage2);
 
 	// Now connect a second consumer
 	zmq::socket_t receiver2(context, ZMQ_PULL);
@@ -217,7 +223,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheck2ConsumersConnect )
 	socket.recv (&reply);
 	std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to WAITING_STREAM and 2 consumers
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_STREAM\",\"num_conn\":2,\"series\":0,\"frame\":0,\"fan_offset\":0}}", replyMessage3);
+	found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":2,\"series\":0,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
 
 	shutdownEigerFan();
     eigerfanThread.join();
@@ -230,7 +237,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSends )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 	socket.connect ("tcp://localhost:5559");
 
 	// Build the command to get the status
@@ -267,7 +274,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSends )
 	socket.recv (&reply);
 	std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_HEADER and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"fan_offset\":0}}", replyMessage3);
+	std::size_t found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
 
 	// Check the consumer has been sent the header
 	zmq::message_t consumerMessage;
@@ -311,7 +319,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSends )
 	socket.recv (&reply);
 	std::string replyMessage4(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_IMAGE and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0}}", replyMessage4);
+	found = replyMessage4.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage4);
 
 	// Check the consumer has been sent the image data
 	zmq::message_t consumerMessageI1;
@@ -351,10 +360,9 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSends )
 	socket.recv (&reply);
 	std::string replyMessage5(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_END or WAITING_STREAM and 1 consumer
-	if ((replyMessage5.compare("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0}}") != 0) &&
-			(replyMessage5.compare("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0}}") != 0)) {
-		BOOST_FAIL("Not in correct state after EndOfSeries message");
-	}
+	found = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0},\"timestamp\":");
+	std::size_t found2 = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos || found2!=std::string::npos, "Not in correct state after EndOfSeries message: " << replyMessage5);
 
 	// Check the consumer has been sent the end of series message
 	zmq::message_t consumerMessageEnd;
@@ -373,7 +381,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImages )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 	socket.connect ("tcp://localhost:5559");
 
 	// Build the command to get the status
@@ -410,7 +418,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImages )
 	socket.recv (&reply);
 	std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_HEADER and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"fan_offset\":0}}", replyMessage3);
+	std::size_t found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
 
 	// Check the consumer has been sent the header
 	zmq::message_t consumerMessage;
@@ -454,7 +463,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImages )
 	socket.recv (&reply);
 	std::string replyMessage4(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_IMAGE and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0}}", replyMessage4);
+	found = replyMessage4.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage4);
 
 	// Check the consumer has been sent the image data
 	zmq::message_t consumerMessageI1;
@@ -505,7 +515,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImages )
 	socket.recv (&reply);
 	std::string replyMessage5(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_IMAGE and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":325,\"fan_offset\":0}}", replyMessage5);
+	found = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":325,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage5);
 
 	// Check the consumer has been sent the image data
 	zmq::message_t consumerMessageI21;
@@ -548,10 +559,9 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImages )
 	socket.recv (&reply);
 	std::string replyMessage6(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_END or WAITING_STREAM and 1 consumer
-	if ((replyMessage6.compare("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":325,\"fan_offset\":0}}") != 0) &&
-			(replyMessage6.compare("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":325,\"fan_offset\":0}}") != 0)) {
-		BOOST_FAIL("Not in correct state after EndOfSeries message");
-	}
+	found = replyMessage6.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":325,\"fan_offset\":0},\"timestamp\":");
+	std::size_t found2 = replyMessage6.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":325,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos || found2!=std::string::npos, "Not in correct state after EndOfSeries message: " << replyMessage6);
 
 	// Check the consumer has been sent the end of series message
 	zmq::message_t consumerMessageEnd;
@@ -570,7 +580,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImagesMultiConsumers )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 	socket.connect ("tcp://localhost:5559");
 
 	// Build the command to get the status
@@ -609,7 +619,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImagesMultiConsumers )
 	socket.recv (&reply);
 	std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_HEADER and 2 consumers
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_HEADER\",\"num_conn\":2,\"series\":1,\"frame\":0,\"fan_offset\":0}}", replyMessage3);
+	std::size_t found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":2,\"series\":1,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
 
 	// Check that both consumers have been sent the header
 	zmq::message_t consumerMessage11;
@@ -758,7 +769,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckClose )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the command to get the status
@@ -773,7 +784,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckClose )
 	std::string replyMessage(static_cast<char*>(reply.data()), reply.size());
 
 	// Expect the status returned to be a json string, with the state set to WAITING_CONSUMERS and no consumers
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"fan_offset\":0}}", replyMessage);
+	std::size_t found = replyMessage.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage);
 
 	// Now connect a consumer
 	zmq::socket_t receiver(context, ZMQ_PULL);
@@ -790,7 +802,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckClose )
 	socket.recv (&reply);
 	std::string replyMessage2(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to WAITING_STREAM and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":0,\"frame\":0,\"fan_offset\":0}}", replyMessage2);
+	found = replyMessage2.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":0,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage2);
 
 	// Connect an eiger and send the header
 	zmq::socket_t  eigerStream(context, ZMQ_PUSH);
@@ -827,7 +840,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckClose )
 	socket.recv (&reply3);
 	std::string replyMessage3(static_cast<char*>(reply3.data()), reply3.size());
 
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {}}",replyMessage3);
+	found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"configure\",\"params\":{},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
 
 	// Check the EndOfSeries message is sent
 	zmq::message_t consumerMessageEnd;
@@ -845,7 +859,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsAcquisitionID )
     boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
 
     zmq::context_t context (1);
-	zmq::socket_t socket (context, ZMQ_REQ);
+	zmq::socket_t socket (context, ZMQ_DEALER);
 	socket.connect ("tcp://localhost:5559");
 
 	// Build the command to get the status
@@ -888,7 +902,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsAcquisitionID )
 	socket.recv (&reply);
 	std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_HEADER and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"fan_offset\":0}}", replyMessage3);
+	std::size_t found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
 
 	// Check the consumer has been sent the header WITH THE ACQUISITION ID APPENDED
 	zmq::message_t consumerMessage;
@@ -941,7 +956,8 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsAcquisitionID )
 	socket.recv (&reply);
 	std::string replyMessage4(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_IMAGE and 1 consumer
-	BOOST_CHECK_EQUAL("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0}}", replyMessage4);
+	found = replyMessage4.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage4);
 
 	// Check the consumer has been sent the image data WITH THE ACQUISITION ID APPENDED
 	zmq::message_t consumerMessageI1;
@@ -981,10 +997,9 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsAcquisitionID )
 	socket.recv (&reply);
 	std::string replyMessage5(static_cast<char*>(reply.data()), reply.size());
 	// Expect the status returned to be a json string, with the state set to DSTR_END or WAITING_STREAM and 1 consumer
-	if ((replyMessage5.compare("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0}}") != 0) &&
-			(replyMessage5.compare("{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": {\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0}}") != 0)) {
-		BOOST_FAIL("Not in correct state after EndOfSeries message");
-	}
+	found = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0},\"timestamp\":");
+	std::size_t found2 = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":324,\"fan_offset\":0},\"timestamp\":");
+	BOOST_CHECK_MESSAGE(found!=std::string::npos || found2!=std::string::npos, "Not in correct state after EndOfSeries message: " << replyMessage5);
 
 	// Check the consumer has been sent the end of series message WITH THE ACQUISITION ID APPENDED
 	zmq::message_t consumerMessageEnd;

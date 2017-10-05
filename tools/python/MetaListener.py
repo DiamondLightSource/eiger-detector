@@ -432,7 +432,7 @@ class MetaListener:
             # Control socket
             ctrl_address = "tcp://*:" + self.ctrl_port
             self.logger.info('Binding control address to ' + ctrl_address)
-            ctrlSocket = context.socket(zmq.REP)
+            ctrlSocket = context.socket(zmq.ROUTER)
             ctrlSocket.bind(ctrl_address)
 
             # Socket to receive messages on
@@ -476,9 +476,10 @@ class MetaListener:
         return    
 
     def handleControlMessage(self, receiver):
+        id = receiver.recv()
         try:
             message = receiver.recv_json()
-            
+
             if message['msg_val'] == 'status':
                 reply = self.handleStatusMessage()
             elif message['msg_val'] == 'configure':
@@ -492,7 +493,7 @@ class MetaListener:
         except Exception as err:
             self.logger.error('Unexpected Exception handling control message: ' + str(err))
             reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Error processing control message'}, 'timestamp':datetime.now().isoformat()})
-
+        receiver.send(id, zmq.SNDMORE)
         receiver.send(reply)
         
     def handleStatusMessage(self):

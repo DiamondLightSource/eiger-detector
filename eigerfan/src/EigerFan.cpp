@@ -28,7 +28,7 @@ std::string GetStateString(EigerFanState state) {
 EigerFan::EigerFan()
 : ctx_(EigerFanDefaults::DEFAULT_NUM_THREADS),
   recvSocket(ctx_, ZMQ_PULL),
-  controlSocket(ctx_, ZMQ_REP) {
+  controlSocket(ctx_, ZMQ_ROUTER) {
 	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
 	LOG4CXX_INFO(log, "Creating EigerFan object from default options");
 	killRequested = false;
@@ -43,7 +43,7 @@ EigerFan::EigerFan()
 EigerFan::EigerFan(EigerFanConfig config_)
 : ctx_(config_.num_zmq_threads),
   recvSocket(ctx_, ZMQ_PULL),
-  controlSocket(ctx_, ZMQ_REP) {
+  controlSocket(ctx_, ZMQ_ROUTER) {
 	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
 	config = config_;
 	LOG4CXX_INFO(log, "Creating EigerFan object from config options");
@@ -137,8 +137,10 @@ void EigerFan::run() {
 		zmq::poll (&preRunPollItems [0], config.num_consumers + 1, -1);
 
 		if (preRunPollItems [0].revents & ZMQ_POLLIN) {
+			zmq::message_t idMessage;
+			controlSocket.recv(&idMessage);
 			controlSocket.recv(&pollMessage);
-			HandleControlMessage(pollMessage);
+			HandleControlMessage(pollMessage, idMessage);
 		}
 
 		for (int i = 0; i < config.num_consumers; i++) {
@@ -208,8 +210,10 @@ void EigerFan::run() {
 
 		// Control socket events
 		if (runPollItems [0].revents & ZMQ_POLLIN) {
+			zmq::message_t idMessage;
+			controlSocket.recv(&idMessage);
 			controlSocket.recv(&message);
-			HandleControlMessage(message);
+			HandleControlMessage(message, idMessage);
 			if (killRequested) {
 				break;
 			}
@@ -594,7 +598,7 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 	LOG4CXX_DEBUG(log, "Finished Handling Monitor Message");
 }
 
-void EigerFan::HandleControlMessage(zmq::message_t &message) {
+void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage) {
 
 	std::string jsonCommand(static_cast<char*>(message.data()), message.size());
 
@@ -694,6 +698,8 @@ void EigerFan::HandleControlMessage(zmq::message_t &message) {
 	statusDocument.Accept(statusWriter);
 
 	std::string replyWithTimestamp = statusBuffer.GetString();
+
+	controlSocket.send(idMessage, ZMQ_SNDMORE);
 
 	zmq::message_t reply (replyWithTimestamp.size());
 	memcpy (reply.data(), replyWithTimestamp.c_str(), replyWithTimestamp.size());
