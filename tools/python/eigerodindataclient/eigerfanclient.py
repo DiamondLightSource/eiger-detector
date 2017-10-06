@@ -1,11 +1,8 @@
 import sys
 
-sys.path.insert(
-    0, "/dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/tools/python")
-from common import ZMQClient
+from odin_data.ipc_client import IpcClient
 
-
-class EigerFanClient(ZMQClient):
+class EigerFanClient(IpcClient):
 
     CTRL_PORT = 5559
 
@@ -14,8 +11,8 @@ class EigerFanClient(ZMQClient):
     SERIES = "series"
     FRAME = "frame"
 
-    def __init__(self, ip_address, lock):
-        super(EigerFanClient, self).__init__(ip_address, lock, 0)
+    def __init__(self, ip_address):
+        super(EigerFanClient, self).__init__(ip_address, self.CTRL_PORT)
 
         self.latest_frame = None
         self.current_consumers = None
@@ -41,16 +38,16 @@ class EigerFanClient(ZMQClient):
             "frames": int(frames),
             "active_frame": int(active_frame)
         }
-        self.send_configuration("rewind", config)
+        self.send_configuration(config, "rewind")
 
     def stop(self):
         config = {
             "close": True
         }
-        self.send_configuration_dict(**config)
+        self.send_configuration(config)
 
     def kill(self):
         config = {
             "kill": True,
         }
-        self.send_configuration_dict(**config)
+        self.send_configuration(config)

@@ -1,16 +1,13 @@
 import sys
 
-sys.path.insert(
-    0, "/dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/tools/python")
-from common import ZMQClient
+from odin_data.ipc_client import IpcClient
 
-
-class MetaListenerClient(ZMQClient):
+class MetaListenerClient(IpcClient):
 
     CTRL_PORT = 5659
 
-    def __init__(self, ip_address, lock):
-        super(MetaListenerClient, self).__init__(ip_address, lock, 0)
+    def __init__(self, ip_address):
+        super(MetaListenerClient, self).__init__(ip_address, self.CTRL_PORT)
 
         self.acquisitions = {}
         self.writing = False
@@ -36,24 +33,24 @@ class MetaListenerClient(ZMQClient):
             "output_dir": output_dir,
             "acquisition_id": acquisition_id
         }
-        self.send_configuration_dict(**config)
+        self.send_configuration(config)
 
     def configure_flush_rate(self, frames, acquisition_id):
         config = {
             "flush": int(frames),
             "acquisition_id": acquisition_id
         }
-        self.send_configuration_dict(**config)
+        self.send_configuration(config)
 
     def stop(self, acquisition_id):
         config = {
             "stop": True,
             "acquisition_id": acquisition_id
         }
-        self.send_configuration_dict(**config)
+        self.send_configuration(config)
 
     def kill(self):
         config = {
             "kill": True,
         }
-        self.send_configuration_dict(**config)
+        self.send_configuration(config)
