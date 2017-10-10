@@ -27,7 +27,6 @@ std::string GetStateString(EigerFanState state) {
 
 EigerFan::EigerFan()
 : ctx_(EigerFanDefaults::DEFAULT_NUM_THREADS),
-  recvSocket(ctx_, ZMQ_PULL),
   controlSocket(ctx_, ZMQ_ROUTER) {
 	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
 	LOG4CXX_INFO(log, "Creating EigerFan object from default options");
@@ -42,7 +41,6 @@ EigerFan::EigerFan()
 
 EigerFan::EigerFan(EigerFanConfig config_)
 : ctx_(config_.num_zmq_threads),
-  recvSocket(ctx_, ZMQ_PULL),
   controlSocket(ctx_, ZMQ_ROUTER) {
 	this->log = log4cxx::Logger::getLogger("ED.EigerFan");
 	config = config_;
@@ -171,12 +169,9 @@ void EigerFan::run() {
 	streamConnectionAddress.append(":");
 	streamConnectionAddress.append(STREAM_PORT_NUMBER);
 	LOG4CXX_INFO(log, std::string("Connecting to stream address at ").append(streamConnectionAddress));
-	recvSocket.setsockopt (ZMQ_RCVHWM, &RECEIVE_HWM, sizeof (RECEIVE_HWM));
-	recvSocket.connect(streamConnectionAddress.c_str());
-	recvSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
 	//  Initialise run poll set
-	zmq::pollitem_t runPollItems [config.num_consumers + 2];
+	zmq::pollitem_t runPollItems [config.num_consumers + 1 + config.num_zmq_sockets];
 	zmq_pollitem_t controlRunPollItem;
 	controlRunPollItem.socket = controlSocket;
 	controlRunPollItem.fd = 0;
@@ -194,19 +189,32 @@ void EigerFan::run() {
 		runPollItems[i+1] = monitorPollItem;
 	}
 
-	zmq_pollitem_t recvRunPollItem;
-	recvRunPollItem.socket = recvSocket;
-	recvRunPollItem.fd = 0;
-	recvRunPollItem.events = ZMQ_POLLIN;
-	recvRunPollItem.revents = 0;
-	runPollItems[config.num_consumers + 2 - 1] = recvRunPollItem;
+	std::vector<boost::shared_ptr<zmq::socket_t> > streamSockets;
+	int streamSocketPollItemStartIndex = config.num_consumers + 1;
+	for (int i = 0; i < config.num_zmq_sockets; i++) {
+
+		boost::shared_ptr<zmq::socket_t> recvSocket(new zmq::socket_t(ctx_, ZMQ_PULL));
+		recvSocket->setsockopt (ZMQ_RCVHWM, &RECEIVE_HWM, sizeof (RECEIVE_HWM));
+		recvSocket->connect(streamConnectionAddress.c_str());
+		recvSocket->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
+
+		streamSockets.push_back(recvSocket);
+
+		zmq_pollitem_t recvRunPollItem;
+		zmq::socket_t* streamSocket = recvSocket.get();
+		recvRunPollItem.socket = *streamSocket;
+		recvRunPollItem.fd = 0;
+		recvRunPollItem.events = ZMQ_POLLIN;
+		recvRunPollItem.revents = 0;
+		runPollItems[streamSocketPollItemStartIndex + i] = recvRunPollItem;
+	}
 
 	state = WAITING_STREAM;
 
 	//  Process tasks forever or until kill is requested
 	while (killRequested != true) {
 		zmq::message_t message;
-		zmq::poll (&runPollItems [0], config.num_consumers + 2, -1);
+		zmq::poll (&runPollItems [0], config.num_consumers + 1 + config.num_zmq_sockets, -1);
 
 		// Control socket events
 		if (runPollItems [0].revents & ZMQ_POLLIN) {
@@ -228,9 +236,11 @@ void EigerFan::run() {
 		}
 
 		// Stream socket events
-		if (runPollItems [config.num_consumers + 2 - 1].revents & ZMQ_POLLIN) {
-			recvSocket.recv(&message);
-			HandleStreamMessage(message, recvSocket);
+		for (int i = 0; i < config.num_zmq_sockets; i++) {
+			if (runPollItems [streamSocketPollItemStartIndex + i].revents & ZMQ_POLLIN) {
+                streamSockets[i]->recv(&message);
+				HandleStreamMessage(message, streamSockets[i]);
+			}
 		}
 	}
 
@@ -240,7 +250,10 @@ void EigerFan::run() {
 		consumers[i].sendSocket->close();
 	}
 
-	recvSocket.close();
+	for (int i = 0; i < config.num_zmq_sockets; i++) {
+		streamSockets[i]->close();
+	}
+
 	controlSocket.close();
 }
 
@@ -250,7 +263,7 @@ void EigerFan::Stop() {
 	state = KILL_REQUESTED;
 }
 
-void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socket) {
+void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket) {
 
 	try {
 		std::string smessage(static_cast<char*>(message.data()), message.size());
@@ -272,7 +285,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
 					currentOffset = configuredOffset % config.num_consumers;
 					configuredOffset = 0;
 				}
-				currentConsumerIndexToSendTo = (frame + currentOffset) % config.num_consumers;
+                currentConsumerIndexToSendTo = (frame + currentOffset) % config.num_consumers;
 				HandleImageDataMessage(message, socket);
 				lastFrameSent = frame;
 			} else if (htype.compare(END_HEADER_TYPE) == 0) {
@@ -293,16 +306,16 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socke
     }
 
 	// Ensure there aren't any leftover messages on the socket
-	recvSocket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+	socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	while (more == MORE_MESSAGES) {
 		zmq::message_t messagePartExtra;
-		socket.recv(&messagePartExtra);
+		socket->recv(&messagePartExtra);
 		LOG4CXX_ERROR(log, "Unexpected unhandled message in stream");
-		recvSocket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+		socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	}
 }
 
-void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::socket_t &socket) {
+void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, boost::shared_ptr<zmq::socket_t> socket) {
 	std::vector<zmq::message_t*> messageList;
 
 	std::string part1json(static_cast<char*>(messagePart1.data()), messagePart1.size());
@@ -319,11 +332,11 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 		std::string headerDetail(headerDetailValue.GetString());
 
 		if (headerDetail.compare(HEADER_DETAIL_NONE) == 0) {
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more == MORE_MESSAGES) {
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
-				socket.recv(&messageAppendix);
+				socket->recv(&messageAppendix);
 				// Add the Acquisition ID from the appendix to part 1 for easier downstream processing
 				std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
 				zmq::message_t newPart1message(part1WithAcquisitionID.size());
@@ -336,20 +349,20 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			}
 
 		} else if (headerDetail.compare(HEADER_DETAIL_BASIC) == 0) {
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 1 part but expected 2 for 'basic' detail");
 				return;
 			}
 
 			zmq::message_t messagePart2;
-			socket.recv(&messagePart2);
+			socket->recv(&messagePart2);
 
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more == MORE_MESSAGES) {
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
-				socket.recv(&messageAppendix);
+				socket->recv(&messageAppendix);
 				// Add the Acquisition ID from the appendix to part 1 for easier downstream processing
 				std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
 				zmq::message_t newPart1message(part1WithAcquisitionID.size());
@@ -365,7 +378,7 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 			}
 
 		} else if (headerDetail.compare(HEADER_DETAIL_ALL) == 0) {
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 1 part but expected 8 for 'all' detail");
 				return;
@@ -373,9 +386,9 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			// Part 2
 			zmq::message_t messagePart2;
-			socket.recv(&messagePart2);
+			socket->recv(&messagePart2);
 
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 2 part but expected 8 for 'all' detail");
 				return;
@@ -383,9 +396,9 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			// Part 3
 			zmq::message_t messagePart3;
-			socket.recv(&messagePart3);
+			socket->recv(&messagePart3);
 
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 3 part but expected 8 for 'all' detail");
 				return;
@@ -393,9 +406,9 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			// Part 4
 			zmq::message_t messagePart4;
-			socket.recv(&messagePart4);
+			socket->recv(&messagePart4);
 
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 4 part but expected 8 for 'all' detail");
 				return;
@@ -403,9 +416,9 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			// Part 5
 			zmq::message_t messagePart5;
-			socket.recv(&messagePart5);
+			socket->recv(&messagePart5);
 
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 5 part but expected 8 for 'all' detail");
 				return;
@@ -413,9 +426,9 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			// Part 6
 			zmq::message_t messagePart6;
-			socket.recv(&messagePart6);
+			socket->recv(&messagePart6);
 
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 6 part but expected 8 for 'all' detail");
 				return;
@@ -423,9 +436,9 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			// Part 7
 			zmq::message_t messagePart7;
-			socket.recv(&messagePart7);
+			socket->recv(&messagePart7);
 
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more != MORE_MESSAGES) {
 				LOG4CXX_ERROR(log, "Header only contained 7 part but expected 8 for 'all' detail");
 				return;
@@ -433,13 +446,13 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 
 			// Part 8
 			zmq::message_t messagePart8;
-			socket.recv(&messagePart8);
+			socket->recv(&messagePart8);
 
-			socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+			socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 			if (more == MORE_MESSAGES) {
 				LOG4CXX_DEBUG(log, "Header has appendix");
 				zmq::message_t messageAppendix;
-				socket.recv(&messageAppendix);
+				socket->recv(&messageAppendix);
 				// Add the Acquisition ID from the appendix to part 1 for easier downstream processing
 				std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
 				zmq::message_t newPart1message(part1WithAcquisitionID.size());
@@ -478,10 +491,10 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, zmq::sock
 	LOG4CXX_DEBUG(log, "Finished Handling Header Message");
 }
 
-void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_t &socket) {
+void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, boost::shared_ptr<zmq::socket_t> socket) {
 	LOG4CXX_DEBUG(log, "Handling Image Data Message");
 
-	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+	socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	if (more != MORE_MESSAGES) {
 		LOG4CXX_ERROR(log, "Image Data only contained 1 part");
 		return;
@@ -494,9 +507,9 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 
 	// Part 2 - shape and size
 	zmq::message_t messagePart2;
-	socket.recv(&messagePart2);
+	socket->recv(&messagePart2);
 
-	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+	socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	if (more != MORE_MESSAGES) {
 		LOG4CXX_ERROR(log, "Image Data only contained 2 parts");
 		return;
@@ -504,9 +517,9 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 
 	// Part 3 - data blob
 	zmq::message_t messagePart3;
-	socket.recv(&messagePart3);
+	socket->recv(&messagePart3);
 
-	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+	socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	if (more != MORE_MESSAGES) {
 		LOG4CXX_ERROR(log, "Image Data only contained 3 parts");
 		return;
@@ -514,14 +527,14 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 
 	//Part 4 - times
 	zmq::message_t messagePart4;
-	socket.recv(&messagePart4);
+	socket->recv(&messagePart4);
 
 	// Handle appendix
-	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+	socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	if (more == MORE_MESSAGES) {
 		LOG4CXX_DEBUG(log, "Image has appendix");
 		zmq::message_t messageAppendix;
-		socket.recv(&messageAppendix);
+		socket->recv(&messageAppendix);
 
 		// Send the data on to a consumer
 	    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
@@ -544,7 +557,7 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, zmq::socket_
 	LOG4CXX_DEBUG(log, "Finished Handling Image Data Message");
 }
 
-void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, zmq::socket_t &socket) {
+void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket) {
 	LOG4CXX_INFO(log, "Handling EndOfSeries Message");
 	std::string part1WithAcquisitionID = AddAcquisitionIDToPart1(currentAcquisitionID);
 	zmq::message_t newPart1message(part1WithAcquisitionID.size());

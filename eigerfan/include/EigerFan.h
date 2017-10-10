@@ -34,10 +34,10 @@ public:
 	void Stop();
 	void SetNumberOfConsumers(int number);
 protected:
-	void HandleStreamMessage(zmq::message_t &message, zmq::socket_t &socket);
-	void HandleGlobalHeaderMessage(zmq::message_t &message, zmq::socket_t &socket);
-	void HandleImageDataMessage(zmq::message_t &message, zmq::socket_t &socket);
-	void HandleEndOfSeriesMessage(zmq::message_t &message, zmq::socket_t &socket);
+	void HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
+	void HandleGlobalHeaderMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
+	void HandleImageDataMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
+	void HandleEndOfSeriesMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
 	void HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank);
 	void HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage);
 	void SendMessageToAllConsumers(zmq::message_t &message, int flags = 0);
@@ -54,7 +54,6 @@ private:
 	rapidjson::Document jsonDocument;
 	EigerFanConfig config;
 	zmq::context_t ctx_;
-	zmq::socket_t recvSocket;
 	zmq::socket_t controlSocket;
 	std::vector<EigerConsumer> consumers;
 

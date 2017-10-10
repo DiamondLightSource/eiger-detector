@@ -14,6 +14,7 @@ namespace EigerFanDefaults {
 	const std::string DEFAULT_CONTROL_PORT_NUMBER = "5559";
 	const std::string DEFAULT_STREAM_ADDRESS = "localhost";
 	const int DEFAULT_FAN_PORT_NUMBER_START = 31600;
+	const int DEFAULT_NUM_SOCKETS = 1;
 }
 
 class EigerFanConfig
@@ -25,7 +26,8 @@ class EigerFanConfig
 		num_consumers(EigerFanDefaults::DEFAULT_NUM_CONSUMERS),
 		ctrl_channel_port(EigerFanDefaults::DEFAULT_CONTROL_PORT_NUMBER),
 		eiger_channel_address(EigerFanDefaults::DEFAULT_STREAM_ADDRESS),
-		fan_channel_port_start(EigerFanDefaults::DEFAULT_FAN_PORT_NUMBER_START)
+		fan_channel_port_start(EigerFanDefaults::DEFAULT_FAN_PORT_NUMBER_START),
+		num_zmq_sockets(EigerFanDefaults::DEFAULT_NUM_SOCKETS)
 		{
 		};
 
@@ -49,6 +51,10 @@ class EigerFanConfig
 		fan_channel_port_start = fanChannelPortStart;
 	}
 
+	void setNum0MQSockets(int numZmqSockets) {
+		num_zmq_sockets = numZmqSockets;
+	}
+
 	const std::string& getCtrlChannelPort() const {
 		return ctrl_channel_port;
 	}
@@ -69,6 +75,10 @@ class EigerFanConfig
 		return fan_channel_port_start;
 	}
 
+	int getNum0MQSockets() const {
+		return num_zmq_sockets;
+	}
+
 	private:
 
 		int                   num_zmq_threads;    // Number of 0MQ threads
@@ -76,6 +86,7 @@ class EigerFanConfig
 		std::string           ctrl_channel_port;  // Port to bind to for the control channel
 		std::string           eiger_channel_address;  // Address to connect to for the Eiger Stream
 		int           		  fan_channel_port_start;  // Port to bind to for the fan channel
+		int                   num_zmq_sockets;    // Number of 0MQ sockets
 
 		friend class EigerFan;
 	};

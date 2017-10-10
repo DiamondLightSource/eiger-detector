@@ -135,6 +135,8 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 					"Set the port to accept control messages on")
 				("addr,s", po::value<std::string>()->default_value(EigerFanDefaults::DEFAULT_STREAM_ADDRESS),
 					"Set the address of the stream to connect to")
+				("sockets,z", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_SOCKETS),
+					"Set the number of zmq sockets to connect to the Eiger with")
 				;
 
 		// Group the variables for parsing at the command line and/or from the configuration file
@@ -211,6 +213,12 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 		{
 			cfg.setEigerChannelAddress(vm["addr"].as<std::string>());
 			LOG4CXX_DEBUG(logger, "Setting Eiger stream address to " << cfg.getEigerChannelAddress());
+		}
+
+		if (vm.count("sockets"))
+		{
+			cfg.setNum0MQSockets(vm["sockets"].as<unsigned int>());
+			LOG4CXX_DEBUG(logger, "Setting number of ZeroMQ sockets to " << cfg.getNum0MQSockets());
 		}
 
 	}
