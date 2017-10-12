@@ -3,8 +3,8 @@ import os
 from odin_data.ipc_client import IpcClient
 
 
-ODIN_DATA_DIR = "/dls_sw/work/tools/RHEL6-x86_64/odin/logtesting/odin-data/build"
-EIGER_DIR = "/dls_sw/work/tools/RHEL6-x86_64/odin/logtesting/eiger-daq/build-dir"
+ODIN_DATA_DIR = "/dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/build"
+EIGER_DIR = "/dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/build-dir"
 
 
 class FrameProcessorClient(IpcClient):
@@ -19,6 +19,7 @@ class FrameProcessorClient(IpcClient):
     META = "meta_endpoint"
     INPUT = "frame_receiver"
     EIGER = "eiger"
+    TIMEOUT = 2000
     LIBRARIES = {EIGER: os.path.join(EIGER_DIR, "lib")}
 
     def __init__(self, rank, processes, ip_address, server_rank=0):
@@ -78,6 +79,12 @@ class FrameProcessorClient(IpcClient):
         }
         self.send_configuration(config, self.FILE_WRITER)
 
+    def timeout(self):
+        config = {
+            "start_timeout_timer": True
+        }
+        self.send_configuration(config, self.FILE_WRITER)
+
     def kill(self):
         config = {
             "shutdown": True
@@ -103,6 +110,7 @@ class FrameProcessorClient(IpcClient):
                 raise RuntimeError(
                     "Cannot initialise while writing")
             self.configure_file_process()
+            self.configure_timeout()
 
     def configure_shared_memory(self, shared_memory, ready, release):
         config = {
@@ -199,6 +207,12 @@ class FrameProcessorClient(IpcClient):
                 "number": int(self.processes),
                 "rank": int(self.rank)
             },
+        }
+        self.send_configuration(config, self.FILE_WRITER)
+
+    def configure_timeout(self):
+        config = {
+            "timeout_timer_period": self.TIMEOUT 
         }
         self.send_configuration(config, self.FILE_WRITER)
 
