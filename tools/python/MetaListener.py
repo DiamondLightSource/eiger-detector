@@ -26,6 +26,7 @@ class MetaWriter:
         self.numFramesToWrite = -1
         self.writeCount = 0
         self.numFrameOffsetsWritten = 0
+        self.writeTimeoutCount = 0
         self.flushFrequency = 100
         self.needToWriteData = False
         self.arraysCreated = False
@@ -355,6 +356,9 @@ class MetaWriter:
         if (self.writeCount % self.flushFrequency == 0):
           self.writeToDatasetsFromArrays()
           
+        # Reset timeout count to 0
+        self.writeTimeoutCount = 0
+          
         return
       
     def writeToDatasetsFromArrays(self):
@@ -493,14 +497,19 @@ class MetaListener:
         for key in self.writers:
             writer = self.writers[key]
             statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning, 'written': writer.writeCount, 'finished':writer.finished}
+            writer.writeTimeoutCount = writer.writeTimeoutCount + 1
             
         params = {'output':statusDict}
         reply = json.dumps({'msg_type':'ack', 'msg_val':'status', 'params': params, 'timestamp':datetime.now().isoformat()})
         
-        # Now delete any finsihed acquisitions
+        # Now delete any finsihed acquisitions, and stop any stagnant ones
         for key, value in self.writers.items():
             if value.finished == True:
                 del self.writers[key]
+            else:
+              if value.numberProcessorsRunning == 0 and value.writeTimeoutCount > 10:
+                  self.logger.info('Force stopping stagnant acquisition: ' + str(key))
+                  value.stop()
         
         return reply
         
