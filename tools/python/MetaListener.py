@@ -455,8 +455,12 @@ class MetaListener:
                 if socks.get(ctrlSocket) == zmq.POLLIN:
                     self.handleControlMessage(ctrlSocket)
                     
+            for key in self.writers:
+                self.logger.info('Forcing close of writer for acquisition' + str(key))
+                writer = self.writers[key]
+                writer.stop()
+                    
             self.logger.info('Finished listening')
-
         except Exception as err:
             self.logger.error('Unexpected Exception: ' + str(err))
 
