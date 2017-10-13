@@ -456,7 +456,7 @@ class MetaListener:
                     self.handleControlMessage(ctrlSocket)
                     
             for key in self.writers:
-                self.logger.info('Forcing close of writer for acquisition' + str(key))
+                self.logger.info('Forcing close of writer for acquisition: ' + str(key))
                 writer = self.writers[key]
                 writer.stop()
                     
