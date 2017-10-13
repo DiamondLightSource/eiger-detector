@@ -284,10 +284,13 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
 				if (frame == 0) {
 					currentOffset = configuredOffset % config.num_consumers;
 					configuredOffset = 0;
+					lastFrameSent = 0;
 				}
                 currentConsumerIndexToSendTo = (frame + currentOffset) % config.num_consumers;
 				HandleImageDataMessage(message, socket);
-				lastFrameSent = frame;
+				if (frame > lastFrameSent) {
+					lastFrameSent = frame;
+				}
 			} else if (htype.compare(END_HEADER_TYPE) == 0) {
 				HandleEndOfSeriesMessage(message, socket);
 				state = WAITING_STREAM;
