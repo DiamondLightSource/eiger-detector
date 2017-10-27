@@ -137,6 +137,8 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 					"Set the address of the stream to connect to")
 				("sockets,z", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_SOCKETS),
 					"Set the number of zmq sockets to connect to the Eiger with")
+				("blocksize,b", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_BLOCK_SIZE),
+					"Set the block size being used by the downstream data file writers to")
 				;
 
 		// Group the variables for parsing at the command line and/or from the configuration file
@@ -219,6 +221,12 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 		{
 			cfg.setNum0MQSockets(vm["sockets"].as<unsigned int>());
 			LOG4CXX_DEBUG(logger, "Setting number of ZeroMQ sockets to " << cfg.getNum0MQSockets());
+		}
+
+		if (vm.count("blocksize"))
+		{
+			cfg.setBlockSize(vm["blocksize"].as<unsigned int>());
+			LOG4CXX_DEBUG(logger, "Setting block size to " << cfg.getBlockSize());
 		}
 
 	}

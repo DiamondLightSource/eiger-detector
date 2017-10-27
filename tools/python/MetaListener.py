@@ -9,9 +9,10 @@ from datetime import datetime
 
 class MetaWriter:
 
-    def __init__(self, directory, logger, acquisitionID):
+    def __init__(self, directory, logger, acquisitionID, blockSize):
         self.logger = logger
         self.acquisitionID = acquisitionID
+        self.blockSize = blockSize
         self.numberProcessorsRunning = 0
         self.frameOffsetDict = {}
         self.frameDataDict = {}
@@ -236,7 +237,7 @@ class MetaWriter:
             self.logger.error('Arrays not created, cannot handle frame writer data')
             return
         
-        offsetToWriteTo = (offset_value * num_processes) + rank
+        offsetToWriteTo = ((offset_value // self.blockSize) * num_processes * self.blockSize) + (offset_value % self.blockSize) + (rank * self.blockSize)
 
         if (self.numFrameOffsetsWritten+1 > self.numFramesToWrite):
             self.frameWrittenDataArray = np.resize(self.frameWrittenDataArray, (self.numFrameOffsetsWritten+1,))
@@ -405,10 +406,11 @@ class MetaWriter:
       
 class MetaListener:
   
-    def __init__(self, directory, inputs, ctrl):
+    def __init__(self, directory, inputs, ctrl, blockSize):
         self.inputs = inputs
         self.directory = directory
         self.ctrl_port = str(ctrl)
+        self.blockSize = int(blockSize)
         self.writers = {}
         self.killRequested = False
         
@@ -642,7 +644,7 @@ class MetaListener:
       
     def createNewAcquisition(self, directory, acquisitionID):
         self.logger.info('Creating new acquisition for: ' + str(acquisitionID))
-        self.writers[acquisitionID] = MetaWriter(directory, self.logger, acquisitionID)
+        self.writers[acquisitionID] = MetaWriter(directory, self.logger, acquisitionID, self.blockSize)
         # Check if we have built up too many finished acquisitions and delete them if so
         if len(self.writers) > 3:
             for key, value in self.writers.items():

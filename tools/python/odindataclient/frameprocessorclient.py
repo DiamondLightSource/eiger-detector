@@ -20,6 +20,7 @@ class FrameProcessorClient(IpcClient):
     INPUT = "frame_receiver"
     EIGER = "eiger"
     TIMEOUT = 2000
+    FRAMES_PER_BLOCK = 1000
     LIBRARIES = {EIGER: os.path.join(EIGER_DIR, "lib")}
 
     def __init__(self, rank, processes, ip_address, server_rank=0):
@@ -183,7 +184,7 @@ class FrameProcessorClient(IpcClient):
         }
         if acq_id is not None:
             config["acquisition_id"] = acq_id
-        self.send_configuration(config, self.FILE_WRITER)
+        self.send_configuration(config, self.FILE_WRITER, timeout=3000)
 
     def create_dataset(self, name, dtype, dimensions,
                        chunks=None, compression=None):
@@ -199,13 +200,14 @@ class FrameProcessorClient(IpcClient):
             config["dataset"]["chunks"] = chunks
         if compression is not None:
             config["dataset"]["compression"] = int(compression)
-        self.send_configuration(config, self.FILE_WRITER)
+        self.send_configuration(config, self.FILE_WRITER, timeout=3000)
 
     def configure_file_process(self):
         config = {
             "process": {
                 "number": int(self.processes),
-                "rank": int(self.rank)
+                "rank": int(self.rank),
+                "frames_per_block": int(self.FRAMES_PER_BLOCK)
             },
         }
         self.send_configuration(config, self.FILE_WRITER)

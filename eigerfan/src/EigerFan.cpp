@@ -286,7 +286,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
 					configuredOffset = 0;
 					lastFrameSent = 0;
 				}
-                currentConsumerIndexToSendTo = (frame + currentOffset) % config.num_consumers;
+                currentConsumerIndexToSendTo = ((frame + currentOffset) / config.block_size) % config.num_consumers;
 				HandleImageDataMessage(message, socket);
 				if (frame > lastFrameSent) {
 					lastFrameSent = frame;

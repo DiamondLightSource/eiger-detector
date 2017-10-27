@@ -15,6 +15,7 @@ namespace EigerFanDefaults {
 	const std::string DEFAULT_STREAM_ADDRESS = "localhost";
 	const int DEFAULT_FAN_PORT_NUMBER_START = 31600;
 	const int DEFAULT_NUM_SOCKETS = 1;
+	const int DEFAULT_BLOCK_SIZE = 1;
 }
 
 class EigerFanConfig
@@ -27,7 +28,8 @@ class EigerFanConfig
 		ctrl_channel_port(EigerFanDefaults::DEFAULT_CONTROL_PORT_NUMBER),
 		eiger_channel_address(EigerFanDefaults::DEFAULT_STREAM_ADDRESS),
 		fan_channel_port_start(EigerFanDefaults::DEFAULT_FAN_PORT_NUMBER_START),
-		num_zmq_sockets(EigerFanDefaults::DEFAULT_NUM_SOCKETS)
+		num_zmq_sockets(EigerFanDefaults::DEFAULT_NUM_SOCKETS),
+		block_size(EigerFanDefaults::DEFAULT_BLOCK_SIZE)
 		{
 		};
 
@@ -55,6 +57,10 @@ class EigerFanConfig
 		num_zmq_sockets = numZmqSockets;
 	}
 
+	void setBlockSize(int blockSize) {
+		block_size = blockSize;
+	}
+
 	const std::string& getCtrlChannelPort() const {
 		return ctrl_channel_port;
 	}
@@ -79,6 +85,10 @@ class EigerFanConfig
 		return num_zmq_sockets;
 	}
 
+	int getBlockSize() const {
+		return block_size;
+	}
+
 	private:
 
 		int                   num_zmq_threads;    // Number of 0MQ threads
@@ -87,6 +97,7 @@ class EigerFanConfig
 		std::string           eiger_channel_address;  // Address to connect to for the Eiger Stream
 		int           		  fan_channel_port_start;  // Port to bind to for the fan channel
 		int                   num_zmq_sockets;    // Number of 0MQ sockets
+		int                   block_size;    // Block Size being used by the downstream data file writers
 
 		friend class EigerFan;
 	};
