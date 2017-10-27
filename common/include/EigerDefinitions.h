@@ -73,7 +73,7 @@ namespace Eiger {
 	typedef struct
 	{
 		EigerMessageType messageType;
-		uint32_t frame_number;
+		int frame_number;
 		uint32_t series;
 
 		uint32_t shapeSizeX;

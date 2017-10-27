@@ -59,7 +59,7 @@ private:
 
     void *current_frame_buffer_;
 
-    uint32_t current_frame_number_;
+    int current_frame_number_;
     int current_frame_buffer_id_;
 
     bool dropping_frame_data_;
