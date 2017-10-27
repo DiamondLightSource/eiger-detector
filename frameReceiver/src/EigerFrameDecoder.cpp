@@ -374,12 +374,12 @@ void EigerFrameDecoder::monitor_buffers(void)
     gettime(&current_time);
 
     // Loop over frame buffers currently in map and check their state
-    std::map<uint32_t, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
+    std::map<int, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
     while (buffer_map_iter != frame_buffer_map_.end())
     {
-        uint32_t frame_num = buffer_map_iter->first;
-        int      buffer_id = buffer_map_iter->second;
-        void*    buffer_addr = buffer_manager_->get_buffer_address(buffer_id);
+        int frame_num = buffer_map_iter->first;
+        int buffer_id = buffer_map_iter->second;
+        void* buffer_addr = buffer_manager_->get_buffer_address(buffer_id);
 //        LATRD::FrameHeader* frame_header = reinterpret_cast<LATRD::FrameHeader*>(buffer_addr);
 
 //        if (elapsed_ms(frame_header->frame_start_time, current_time) > frame_timeout_ms_)
