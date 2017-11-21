@@ -14,3 +14,4 @@ install(TARGETS eigerfan
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
 
+install(FILES ${eigerdaq_SOURCE_DIR}/log4cxx.xml DESTINATION bin)

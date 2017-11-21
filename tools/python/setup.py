@@ -3,14 +3,11 @@
 import sys
 from setuptools import setup, find_packages
 
-import os
-version = os.environ.get("MODULEVER", "0.0")
-
 with open('requirements.txt') as f:
     required = f.read().splitlines()
 
 setup(name='eiger_daq',
-      version=version,
+      version="0.3.1",
       description='Eiger Meta Data Filewriter',
       url='https//github.com/odin-detector/',
       author='Matt Taylor',
