@@ -179,6 +179,7 @@ class FrameProcessorClient(IpcClient):
             "file": {
                 "path": path,
                 "name": name,
+                "earliest_version": True,
             },
             "frames": int(frames),
             "write": True
