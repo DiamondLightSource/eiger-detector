@@ -237,7 +237,7 @@ class MetaWriter:
             self.logger.error('Arrays not created, cannot handle frame writer data')
             return
         
-        offsetToWriteTo = ((offset_value // self.blockSize) * num_processes * self.blockSize) + (offset_value % self.blockSize) + (rank * self.blockSize)
+        offsetToWriteTo = offset_value
 
         if (self.numFrameOffsetsWritten+1 > self.numFramesToWrite):
             self.frameWrittenDataArray = np.resize(self.frameWrittenDataArray, (self.numFrameOffsetsWritten+1,))
@@ -257,10 +257,9 @@ class MetaWriter:
 
         return
 
-    def handleFrameWriterCreateFile(self, userHeader, fileName ):
-        self.logger.debug('Handling frame writer create file for acqID ' + self.acquisitionID)
+    def handleFrameWriterStartAcquisition(self, userHeader):
+        self.logger.debug('Handling frame writer start acquisition for acqID ' + self.acquisitionID)
         self.logger.debug(userHeader)
-        self.logger.debug(fileName)
 
         self.numberProcessorsRunning = self.numberProcessorsRunning + 1
 
@@ -270,6 +269,13 @@ class MetaWriter:
         if self.numFramesToWrite == -1:
             self.numFramesToWrite = userHeader['totalFrames']
             self.createArrays()
+
+        return
+
+    def handleFrameWriterCreateFile(self, userHeader, fileName ):
+        self.logger.debug('Handling frame writer create file for acqID ' + self.acquisitionID)
+        self.logger.debug(userHeader)
+        self.logger.debug(fileName)
 
         return
       
@@ -304,15 +310,6 @@ class MetaWriter:
     def handleFrameWriterCloseFile(self):
         self.logger.debug('Handling frame writer close file for acqID ' + self.acquisitionID)
 
-        if (self.numberProcessorsRunning > 0):
-            self.numberProcessorsRunning = self.numberProcessorsRunning - 1
-
-        if self.numberProcessorsRunning == 0:   
-            self.logger.info('Last processor ended')
-            self.closeFile()
-        else:
-            self.logger.info('Processor ended, but not the last')
-
         return
       
     def closeFile(self):
@@ -331,6 +328,21 @@ class MetaWriter:
                 self.hdf5File = None
       
         self.finished = True
+
+    def handleFrameWriterStopAcquisition(self, userHeader):
+        self.logger.debug('Handling frame writer stop acquisition for acqID ' + self.acquisitionID)
+        self.logger.debug(userHeader)
+
+        if (self.numberProcessorsRunning > 0):
+            self.numberProcessorsRunning = self.numberProcessorsRunning - 1
+
+        if self.numberProcessorsRunning == 0:   
+            self.logger.info('Last processor ended')
+            self.closeFile()
+        else:
+            self.logger.info('Processor ended, but not the last')
+
+        return
 
     def writeFrameData(self, offset, header):
 
@@ -629,6 +641,12 @@ class MetaListener:
             elif message['parameter'] == "closefile":
                 fileName = receiver.recv()
                 writer.handleFrameWriterCloseFile()
+            elif message['parameter'] == "startacquisition":
+                receiver.recv()
+                writer.handleFrameWriterStartAcquisition(userheader)
+            elif message['parameter'] == "stopacquisition":
+                receiver.recv()
+                writer.handleFrameWriterStopAcquisition(userheader)
             elif message['parameter'] == "writeframe":
                 value = receiver.recv_json()
                 writer.handleFrameWriterWriteFrame(value)

@@ -21,6 +21,7 @@ class FrameProcessorClient(IpcClient):
     EIGER = "eiger"
     TIMEOUT = 2000
     FRAMES_PER_BLOCK = 1000
+    BLOCKS_PER_FILE = 1
     LIBRARIES = {EIGER: os.path.join(EIGER_DIR, "lib")}
 
     def __init__(self, rank, processes, ip_address, server_rank=0):
@@ -207,7 +208,8 @@ class FrameProcessorClient(IpcClient):
             "process": {
                 "number": int(self.processes),
                 "rank": int(self.rank),
-                "frames_per_block": int(self.FRAMES_PER_BLOCK)
+                "frames_per_block": int(self.FRAMES_PER_BLOCK),
+                "blocks_per_file": int(self.BLOCKS_PER_FILE)
             },
         }
         self.send_configuration(config, self.FILE_WRITER)

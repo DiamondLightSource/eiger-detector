@@ -46,6 +46,8 @@
     <logger name="FP.DataBlockPool"></logger>
     <logger name="FP.FrameProcessorPlugin"></logger>
     <logger name="FP.FileWriterPlugin"></logger>
+    <logger name="FP.Acquisition"></logger>
+    <logger name="FP.HDF5File"></logger>
     <logger name="FP.EigerProcessPlugin"></logger>
 
     <!-- The FrameReceiver applications logger hierarchy -->

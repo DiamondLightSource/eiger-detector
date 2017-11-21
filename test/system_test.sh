@@ -3,7 +3,7 @@
 # Arguments:
 # 1 - Odin-data build directory               (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/build)
 # 2 - Eiger build directory                   (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/build-dir)
-# 3 - Eiger testdata directory                (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/test/)
+# 3 - Eiger test directory                (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/test/)
 # 4 - Meta Listener directory                 (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/tools/python/)
 # 5 - Directory containing a suitable VENV    (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/)
 # 6 - Directory to write files to             (e.g. /tmp)
@@ -27,7 +27,7 @@ rm $outputdir/sys_test.hdf5
 echo 'Starting Meta Listener'
 
 cd $metalistenerdir
-dls-python MetaListener.py -i tcp://127.0.0.1:5558 -d $outputdir &
+dls-python eigerMetaListener.py -i tcp://127.0.0.1:5558 -d $outputdir &
 metalistener_pid=$!
 
 sleep 2
