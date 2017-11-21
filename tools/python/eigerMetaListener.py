@@ -1,9 +1,10 @@
 import argparse
 
 from pkg_resources import require
-require('pygelf==0.2.11')
-require("h5py==2.7.0")
-require('pyzmq')
+require('pygelf==0.3.1')
+require("h5py==2.7.1")
+require('pyzmq==16.0.2')
+require('odin-data==0-2-0dls2')
 
 from MetaListener import MetaListener
 from odin_data.logconfig import setup_logging, add_graylog_handler, add_logger

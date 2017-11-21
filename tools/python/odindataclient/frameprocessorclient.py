@@ -3,8 +3,8 @@ import os
 from odin_data.ipc_client import IpcClient
 
 
-ODIN_DATA_DIR = "/dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/build"
-EIGER_DIR = "/dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/build-dir"
+ODIN_DATA_DIR = "/dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-2-0dls2/prefix"
+EIGER_DIR = "../../../prefix"
 
 
 class FrameProcessorClient(IpcClient):

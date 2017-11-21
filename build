@@ -1,26 +1,25 @@
-# PROGRAM=eiger-daq
-# VERSION=
+PROGRAM=eiger-daq
+VERSION=0-1-0
 TAR_FILE=none
 
 build()
 {
-    export PATH=$CMAKE_BIN:$PATH
-    
-    echo "Using cmake: " $CMAKE_PREFIX " version: " $(cmake --version)
-    echo "Using boost: " $BOOST_PREFIX
-    echo "Source code in: " $PWD/..
-    echo "Installing to:  " $TARGET_PREFIX 
-    echo "CWD: " $PWD
-    
-    cmake -DCMAKE_VERBOSE_MAKEFILE=ON \
-          -DCMAKE_BUILD_TYPE=Debug \
-          -DBOOST_ROOT=$BOOST_PREFIX \
-          -DZEROMQ_ROOTDIR=$ZEROMQ_PREFIX \
-          -DLOG4CXX_ROOT_DIR=$LOG4CXX_PREFIX \
-          -DCMAKE_INSTALL_PREFIX=$TARGET_PREFIX \
-          ..
-
+    ${CMAKE_BIN}/cmake \
+                       -DBoost_NO_BOOST_CMAKE=ON \
+                       -DZEROMQ_ROOTDIR=${ZEROMQ_PREFIX} \
+                       -DLOG4CXX_ROOT_DIR=${LOG4CXX_PREFIX} \
+                       -DODINDATA_ROOT_DIR=${ODIN_DATA_PREFIX} \
+                       -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
+                       -DCMAKE_INSTALL_PREFIX=${TARGET_PREFIX} \
+                       ${BUILD_SCRIPT_DIR}
     make VERBOSE=1 && make install
-    ls -l bin
+    
+    # Removing pesky dist dir just in case a previous build is left over
+    rm -rf $BUILD_SCRIPT_DIR/tools/python/dist 
+
+    python_depends NUMPY PYZMQ PYGELF H5PY ODIN_DATA
+    
+    export SRC=$BUILD_SCRIPT_DIR/tools/python
+    setuptools_build # Defined in Python/CONFIG
 }
 

@@ -1,4 +1,4 @@
 #!/bin/bash
 # Start the Frame Receiver 3 with rank 3 with parameters to connect to the EigerFan
-cd /dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/build
-./bin/frameReceiver -s Eiger --path=/dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/build-dir/lib -m 16000000000 -d 3 -p 31603 --rxtype zmq -i cs04r-sc-serv-116 --sharedbuf OdinDataBuffer2 --ctrl tcp://*:6000 --ready tcp://*:6001 --release tcp://*:6002 --logconfig /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/odinLog4cxx4.xml
+cd /dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-2-0dls2/prefix
+./bin/frameReceiver -s Eiger --path=../prefix/lib -m 16000000000 -d 3 -p 31603 --rxtype zmq -i cs04r-sc-serv-116 --sharedbuf OdinDataBuffer2 --ctrl tcp://*:6000 --ready tcp://*:6001 --release tcp://*:6002 --logconfig /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/odinLog4cxx.xml
