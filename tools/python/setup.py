@@ -16,7 +16,7 @@ setup(name='eiger_daq',
       install_requires=required,
       entry_points={
         'console_scripts': [
-            'eigerMetaListener = eigerMetaListener:main',
+            'eigerMetaListener = metalistener.eigerMetaListener:main',
          ]
       },
       zip_safe=False,
