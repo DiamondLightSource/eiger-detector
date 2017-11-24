@@ -1,9 +1,15 @@
-eiger-daq
+eiger-detector
 =========
 
 Data Acquisition from the Eiger detector.
 
 eigerfan: a fan-out of the Eiger zeromq push/pull stream.
+
+metalistener: A python application that listens for odin-data meta messages and writes data to a meta file
+
+EigerProcessPlugin: Plugin for the odin-data FrameProcessor
+
+EigerFrameDecoder: Plugin for the odin-data FrameReceiver
 
 dependencies
 ------------
@@ -22,6 +28,7 @@ Build out of source dir using cmake:
           -DBOOST_ROOT=/dls_sw/prod/tools/RHEL6-x86_64/boost/1-48-0/prefix \
           -DZEROMQ_ROOTDIR=/dls_sw/prod/tools/RHEL6-x86_64/zeromq/3-2-4/prefix \
           -DLOG4CXX_ROOT_DIR=/dls_sw/prod/tools/RHEL6-x86_64/log4cxx/0-10-0dls1/prefix \
+          -DODINDATA_ROOT_DIR=/dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-2-0dls2/prefix \
           ..
 
     make VERBOSE=1
@@ -35,10 +42,10 @@ Build as DLS Controls tool
 The build script and configure/RELEASE definitions are already prepared for
 building this module on the DLS Controls build servers as a 'tool'.
 
-Test this on a local machine from a directory level above the eiger-daq dir:
+Test this on a local machine from a directory level above the eiger-detector dir:
 
-    build_program eiger-daq
+    build_program eiger-detector
     
 This will run cmake to configure the dependencies and then run `make` and
-`make install`. The output will be installed into the eiger-daq/prefix dir.
+`make install`. The output will be installed into the eiger-detector/prefix dir.
 

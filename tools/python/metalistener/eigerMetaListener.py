@@ -23,7 +23,7 @@ def main():
     args = options()
 
     add_graylog_handler("cs04r-sc-serv-14.diamond.ac.uk", 12202)
-    add_logger("meta_listener", {"level": "DEBUG", "propagate": True})
+    add_logger("meta_listener", {"level": "INFO", "propagate": True})
     setup_logging()
 
     mh = MetaListener(args.directory, args.inputs, args.ctrl, args.blocksize)

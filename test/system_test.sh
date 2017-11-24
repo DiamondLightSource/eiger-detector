@@ -2,9 +2,9 @@
 # System test to create the Eiger processing chain, and use a simulated Eiger to create a data and meta file
 # Arguments:
 # 1 - Odin-data build directory               (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/build)
-# 2 - Eiger build directory                   (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/build-dir)
-# 3 - Eiger test directory                (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/test/)
-# 4 - Meta Listener directory                 (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-daq/tools/python/)
+# 2 - Eiger build directory                   (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/build-dir)
+# 3 - Eiger test directory                (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/test/)
+# 4 - Meta Listener directory                 (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/tools/python/)
 # 5 - Directory containing a suitable VENV    (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/)
 # 6 - Directory to write files to             (e.g. /tmp)
 

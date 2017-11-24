@@ -4,7 +4,7 @@ from odin_data.ipc_client import IpcClient
 
 
 ODIN_DATA_DIR = "/dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-2-0dls2/prefix"
-EIGER_DIR = "/dls_sw/prod/tools/RHEL6-x86_64/eiger-daq/0-3-1/prefix"
+EIGER_DIR = "/dls_sw/prod/tools/RHEL6-x86_64/eiger-detector/1-0-0/prefix"
 
 
 class FrameProcessorClient(IpcClient):
@@ -19,7 +19,7 @@ class FrameProcessorClient(IpcClient):
     META = "meta_endpoint"
     INPUT = "frame_receiver"
     EIGER = "eiger"
-    TIMEOUT = 2000
+    TIMEOUT = 6000
     FRAMES_PER_BLOCK = 1000
     BLOCKS_PER_FILE = 1
     LIBRARIES = {EIGER: os.path.join(EIGER_DIR, "lib")}

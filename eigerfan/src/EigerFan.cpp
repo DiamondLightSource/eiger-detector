@@ -58,7 +58,7 @@ EigerFan::~EigerFan() {
 }
 
 void EigerFan::run() {
-    LOG4CXX_INFO(log, "EigerFan::run()");
+  LOG4CXX_INFO(log, "EigerFan::run()");
 	LOG4CXX_INFO(log, "Starting EigerFan");
 	int linger = 100; // Socket linger timeout in milliseconds
 

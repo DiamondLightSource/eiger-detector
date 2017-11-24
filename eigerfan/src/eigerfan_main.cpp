@@ -29,7 +29,14 @@ using namespace log4cxx::helpers;
 
 namespace po = boost::program_options;
 
+static bool has_suffix(const std::string &str, const std::string &suffix)
+{
+  return str.size() >= suffix.size() &&
+      str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 int parse_arguments(int argc, char** argv, EigerFanConfig &cfg);
+
 /** Configure logging constants
  *
  * Call this only once per thread context.
@@ -53,14 +60,15 @@ void configure_logging_mdc(const char* app_path)
     	MDC::put("app", app_path);
     }
 
-    char thread_name[256]; thread_name[0]='\0'; thread_name[256-1]='\0';
+    char thread_name[256];
+    thread_name[0]='\0';
+    thread_name[256-1]='\0';
     ::pthread_getname_np(::pthread_self(), thread_name, 256);
     MDC::put("thread", thread_name);
 
     uid_t uid = ::geteuid();
     struct passwd *pw = ::getpwuid(uid);
-    if (pw)
-    {
+    if (pw) {
       MDC::put("user", pw->pw_name);
     }
 }
@@ -71,8 +79,6 @@ int main(int argc, char *argv[])
     setlocale(LC_CTYPE, "UTF-8");
 
     configure_logging_mdc(argv[0]);
-    //BasicConfigurator::configure();
-
     LoggerPtr log(Logger::getLogger("ED.APP"));
     LOG4CXX_INFO(log, "Starting EigerFan application...");
 
@@ -125,6 +131,8 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 		// and in the configuration file
 		po::options_description config("Configuration options");
 		config.add_options()
+        ("logconfig,l", po::value<std::string>(),
+           "Set the log4cxx logging configuration file")
 				("threads,t", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_THREADS),
 					"Set the number of 0MQ threads for the 0MQ context")
 				("consumers,n", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_CONSUMERS),
@@ -186,6 +194,19 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 				exit(1);
 			}
 		}
+
+    if (vm.count("logconfig"))
+    {
+      std::string logconf_fname = vm["logconfig"].as<std::string>();
+      if (has_suffix(logconf_fname, ".xml")) {
+        log4cxx::xml::DOMConfigurator::configure(logconf_fname);
+      } else {
+        PropertyConfigurator::configure(logconf_fname);
+      }
+      LOG4CXX_DEBUG(logger, "log4cxx config file is set to " << vm["logconfig"].as<std::string>());
+    } else {
+      BasicConfigurator::configure();
+    }
 
 		if (vm.count("threads"))
 		{
