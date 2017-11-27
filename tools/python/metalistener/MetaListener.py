@@ -27,6 +27,7 @@ class MetaWriter:
         self.numFramesToWrite = -1
         self.writeCount = 0
         self.numFrameOffsetsWritten = 0
+        self.currentFrameCount = 0
         self.writeTimeoutCount = 0
         self.flushFrequency = 100
         self.needToWriteData = False
@@ -40,7 +41,6 @@ class MetaWriter:
 
     def startNewAcquisition(self):
         
-        self.currentFrameCount = 0
         self.frameOffsetDict.clear()
         self.frameDataDict.clear()
 
@@ -337,10 +337,13 @@ class MetaWriter:
             self.numberProcessorsRunning = self.numberProcessorsRunning - 1
 
         if self.numberProcessorsRunning == 0:   
-            self.logger.info('Last processor ended')
-            self.closeFile()
+            self.logger.info('Last processor ended for acqID ' + str(self.acquisitionID))
+            if self.currentFrameCount >= self.numFramesToWrite:
+                self.closeFile()
+            else:
+                self.logger.info('Not closing file as not all frames written (' + str(self.currentFrameCount) + ' of ' + str(self.numFramesToWrite) + ')')  
         else:
-            self.logger.info('Processor ended, but not the last')
+            self.logger.info('Processor ended, but not the last for acqID ' + str(self.acquisitionID))
 
         return
 
@@ -377,11 +380,11 @@ class MetaWriter:
     def writeToDatasetsFromArrays(self):
 
         if self.arraysCreated == False:
-            self.logger.error('Arrays not created, cannot write datasets from frame data')
+            self.logger.warn('Arrays not created, cannot write datasets from frame data')
             return
 
         if self.needToWriteData == True:
-            self.logger.info('Writing data to datasets at write count ' + str(self.writeCount))
+            self.logger.info('Writing data to datasets at write count ' + str(self.writeCount) + ' for acqID ' + str(self.acquisitionID))
             self.startDset[0:self.numFramesToWrite] = self.startDataArray
             self.stopDset[0:self.numFramesToWrite] = self.stopDataArray
             self.realDset[0:self.numFramesToWrite] = self.realDataArray
@@ -525,7 +528,7 @@ class MetaListener:
             if value.finished == True:
                 del self.writers[key]
             else:
-              if value.numberProcessorsRunning == 0 and value.writeTimeoutCount > 10:
+              if value.numberProcessorsRunning == 0 and value.writeTimeoutCount > 10 and value.fileCreated:
                   self.logger.info('Force stopping stagnant acquisition: ' + str(key))
                   value.stop()
         
@@ -542,7 +545,7 @@ class MetaListener:
             
             if acquisitionID is not None:
                 if acquisitionID in self.writers:
-                    self.logger.info('Writer is in writers')
+                    self.logger.info('Writer is in writers for acq ' + str(acquisitionID))
                     acquisitionExists = True
                 else:
                     self.logger.info('Writer not in writers for acquisition [' + str(acquisitionID) + ']')
@@ -576,7 +579,15 @@ class MetaListener:
                         self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
                         reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
             else:
-                reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Acquisition ID was None'}, 'timestamp':datetime.now().isoformat()})              
+                # If the command is to stop without an acqID then stop all acquisitions
+                if 'stop' in params:
+                    for key in self.writers:
+                        self.logger.info('Forcing close of writer for acquisition: ' + str(key))
+                        writer = self.writers[key]
+                        writer.stop()
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+                else:  
+                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Acquisition ID was None'}, 'timestamp':datetime.now().isoformat()})              
 
         else:
             reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No params in config'}, 'timestamp':datetime.now().isoformat()})
@@ -661,9 +672,17 @@ class MetaListener:
         return
       
     def createNewAcquisition(self, directory, acquisitionID):
+        # First finish any acquisition that is queued up already which hasn't started
+        for key, value in self.writers.items():
+            if value.finished == False and value.numberProcessorsRunning == 0 and value.fileCreated == False:
+                  self.logger.info('Force finishing unused acquisition: ' + str(key))
+                  value.finished = True
+                  
+        # Now create new acquisition          
         self.logger.info('Creating new acquisition for: ' + str(acquisitionID))
         self.writers[acquisitionID] = MetaWriter(directory, self.logger, acquisitionID, self.blockSize)
-        # Check if we have built up too many finished acquisitions and delete them if so
+        
+        # Then check if we have built up too many finished acquisitions and delete them if so
         if len(self.writers) > 3:
             for key, value in self.writers.items():
                 if value.finished == True:
