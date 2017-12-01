@@ -1,11 +1,12 @@
 import os
+import ConfigParser
 
 from odin_data.ipc_client import IpcClient
 
-
-ODIN_DATA_DIR = "/dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-2-0dls2/prefix"
-EIGER_DIR = "/dls_sw/prod/tools/RHEL6-x86_64/eiger-detector/1-0-0/prefix"
-
+CFG_FILE = "frameprocessorclient.cfg"
+CFG_PATHS_SECTION = "Plugin Paths"
+CFG_ODIN_DATA_DIR = "odin-data_path"
+CFG_EIGER_DIR = "eiger-detector_path"
 
 class FrameProcessorClient(IpcClient):
 
@@ -22,17 +23,24 @@ class FrameProcessorClient(IpcClient):
     TIMEOUT = 6000
     FRAMES_PER_BLOCK = 1000
     BLOCKS_PER_FILE = 1
-    LIBRARIES = {EIGER: os.path.join(EIGER_DIR, "lib")}
 
     def __init__(self, rank, processes, ip_address, server_rank=0):
 
+        # Get the location of the odin-data and eiger-detector plugins from the config file
+        this_file_path = os.path.abspath(__file__)
+        cfg_file_path = os.path.join(os.path.dirname(this_file_path), CFG_FILE)
+        config = ConfigParser.ConfigParser()
+        config.read(cfg_file_path)
+        
+        self.ODIN_DATA_DIR = config.get(CFG_PATHS_SECTION, CFG_ODIN_DATA_DIR)     
+        self.LIBRARIES = {self.EIGER: config.get(CFG_PATHS_SECTION, CFG_EIGER_DIR)}
+        
         port = self.CTRL_PORT + server_rank * 1000
         super(FrameProcessorClient, self).__init__(ip_address, port)
         self.processes = processes
         self.rank = rank
 
-        self.meta_endpoint = self.META_ENDPOINT.format(self.META_PORT +
-                                                       1000 * server_rank)
+        self.meta_endpoint = self.META_ENDPOINT.format(self.META_PORT + 1000 * server_rank)
 
         self.plugins = []
         self.writing = False
@@ -147,7 +155,7 @@ class FrameProcessorClient(IpcClient):
     def load_file_writer_plugin(self, index):
         config = {
             "load": {
-                "library": os.path.join(ODIN_DATA_DIR, "lib/libHdf5Plugin.so"),
+                "library": os.path.join(self.ODIN_DATA_DIR, "libHdf5Plugin.so"),
                 "index": index,
                 "name": "FileWriterPlugin",
             },
