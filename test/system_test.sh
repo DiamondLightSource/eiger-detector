@@ -3,13 +3,12 @@
 # Arguments:
 # 1 - Odin-data build directory               (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/build)
 # 2 - Eiger build directory                   (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/build-dir)
-# 3 - Eiger test directory                (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/test/)
+# 3 - Eiger test directory                    (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/test/)
 # 4 - Meta Listener directory                 (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/tools/python/)
-# 5 - Directory containing a suitable VENV    (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/)
-# 6 - Directory to write files to             (e.g. /tmp)
+# 5 - Directory to write files to             (e.g. /tmp)
 
-if [ "$#" -ne 6 ]; then
-    echo "Error: Expecting 6 arguments"
+if [ "$#" -ne 5 ]; then
+    echo "Error: Expecting 5 arguments"
     exit 1
 fi
 
@@ -17,8 +16,7 @@ odinbuilddir=$1
 eigerbuilddir=$2
 eigertestdir=$3
 metalistenerdir=$4
-venvdir=$5
-outputdir=$6
+outputdir=$5
 
 echo 'Removing any pre-existing files'
 rm $outputdir/test_1_meta.hdf5
