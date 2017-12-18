@@ -10,30 +10,39 @@
 namespace FrameReceiver
 {
 
+/**
+ * Constructor
+ */
 EigerFrameDecoder::EigerFrameDecoder() :
-                FrameDecoderZMQ(),
-				current_frame_number_(-1),
-        		current_frame_buffer_id_(-1),
-        		current_frame_buffer_(0),
-        		dropping_frame_data_(false),
-        		frame_timeout_ms_(1000),
-        		frames_timedout_(0),
-				frames_dropped_(0),
-				frames_allocated_(0),
-				currentMessagePart(1),
-				currentMessageType(Eiger::GLOBAL_HEADER_NONE),
-				currentParentMessageType(Eiger::PARENT_MESSAGE_TYPE_GLOBAL),
-				numHeaderMessagesToExpect(1)
+                    FrameDecoderZMQ(),
+                    current_frame_number_(-1),
+                    current_frame_buffer_id_(-1),
+                    current_frame_buffer_(0),
+                    dropping_frame_data_(false),
+                    frame_timeout_ms_(1000),
+                    frames_timedout_(0),
+                    frames_dropped_(0),
+                    frames_allocated_(0),
+                    currentMessagePart(1),
+                    currentMessageType(Eiger::GLOBAL_HEADER_NONE),
+                    currentParentMessageType(Eiger::PARENT_MESSAGE_TYPE_GLOBAL),
+                    numHeaderMessagesToExpect(1)
 {
-    current_raw_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
-    dropped_frame_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
+  current_raw_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
+  dropped_frame_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
 }
 
-void EigerFrameDecoder::init(LoggerPtr& logger, bool enable_packet_logging, unsigned int frame_timeout_ms)
+/**
+ * Initialises the frame decoder
+ *
+ * \param[in] logger The logger
+ * \param[in] config_msg The config parameters to initialise with
+ */
+void EigerFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config_msg)
 {
 	this->logger_ = Logger::getLogger("FR.EigerFrameDecoder");
 	this->logger_->setLevel(Level::getAll());
-	FrameDecoder::init(logger, enable_packet_logging, frame_timeout_ms);
+	FrameDecoder::init(logger, config_msg);
 	LOG4CXX_INFO(logger_, "Eiger frame decoder init called");
 
     if (enable_packet_logging_) {
@@ -41,20 +50,38 @@ void EigerFrameDecoder::init(LoggerPtr& logger, bool enable_packet_logging, unsi
     }
 }
 
+/**
+ * Destructor
+ */
 EigerFrameDecoder::~EigerFrameDecoder()
 {
 }
 
+/**
+ * Gets the size of an Eiger frame
+ *
+ * \return The Eiger frame size
+ */
 const size_t EigerFrameDecoder::get_frame_buffer_size(void) const
 {
     return Eiger::frame_size;
 }
 
+/**
+ * Gets the size of an Eiger frame header
+ *
+ * \return The Eiger frame header size
+ */
 const size_t EigerFrameDecoder::get_frame_header_size(void) const
 {
     return 0;
 }
 
+/**
+ * Gets the buffer to use to store the next message, allocating one if necessary
+ *
+ * \return Pointer to the current buffer
+ */
 void* EigerFrameDecoder::get_next_message_buffer(void)
 {
 	if ((currentParentMessageType == Eiger::PARENT_MESSAGE_TYPE_IMAGE_DATA && currentMessagePart == Eiger::image_data_blob_part) ||
@@ -71,11 +98,22 @@ void* EigerFrameDecoder::get_next_message_buffer(void)
 	}
 }
 
+/**
+ * Gets the size of the next payload
+ *
+ * \return The next payload size
+ */
 size_t EigerFrameDecoder::get_next_payload_size(void) const
 {
     return Eiger::raw_buffer_size;
 }
 
+/**
+ * Processes the message in the current buffer
+ *
+ * \param[in] bytes_received The number of bytes received
+ * \return The state after processing
+ */
 FrameDecoder::FrameReceiveState EigerFrameDecoder::process_message(size_t bytes_received)
 {
 	FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
@@ -188,6 +226,12 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_message(size_t bytes_
     return frame_state;
 }
 
+/**
+ * Processes the global header message
+ *
+ * \param[in] bytes_received The number of bytes received
+ * \return The state after processing
+ */
 FrameDecoder::FrameReceiveState EigerFrameDecoder::process_global_header_message(size_t bytes_received) {
 	FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
 	if (currentMessagePart == Eiger::global_detector_none_part) {
@@ -274,6 +318,12 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_global_header_message
     return frame_state;
 }
 
+/**
+ * Processes the image message message
+ *
+ * \param[in] bytes_received The number of bytes received
+ * \return The state after processing
+ */
 FrameDecoder::FrameReceiveState EigerFrameDecoder::process_image_message(size_t bytes_received) {
 	FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
 	if (currentMessagePart == Eiger::image_data_imaged_part) {
@@ -345,6 +395,12 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_image_message(size_t 
     return frame_state;
 }
 
+/**
+ * Processes the end message
+ *
+ * \param[in] bytes_received The number of bytes received
+ * \return The state after processing
+ */
 FrameDecoder::FrameReceiveState EigerFrameDecoder::process_end_message(size_t bytes_received) {
 	FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
 	// No buffer allocated, so allocate one
@@ -353,6 +409,11 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_end_message(size_t by
     return frame_state;
 }
 
+/**
+ * Called by the zmq stream receiver - parses meta data
+ *
+ * \param[in] meta The meta data
+ */
 void EigerFrameDecoder::frame_meta_data(int meta)
 {
 	// EndOfFrame is the first bit of meta
@@ -366,6 +427,9 @@ void EigerFrameDecoder::frame_meta_data(int meta)
 	}
 }
 
+/**
+ * Monitor the buffers
+ */
 void EigerFrameDecoder::monitor_buffers(void)
 {
     int frames_timedout = 0;
@@ -412,6 +476,13 @@ void EigerFrameDecoder::monitor_buffers(void)
 
 }
 
+/**
+ * Timing helper function to get elapsed time
+ *
+ * \param[in] start The start time
+ * \param[in] end The end time
+ * \return THe elapsed time
+ */
 unsigned int EigerFrameDecoder::elapsed_ms(struct timespec& start, struct timespec& end)
 {
 
@@ -421,6 +492,11 @@ unsigned int EigerFrameDecoder::elapsed_ms(struct timespec& start, struct timesp
     return (unsigned int)((end_ns - start_ns)/1000000);
 }
 
+/**
+ * Allocate the next frame buffer
+ *
+ * If no buffer is free, allocate a temporary buffer and record the fact that frames are being dropped
+ */
 void EigerFrameDecoder::allocate_next_frame_buffer(void) {
 	if (current_frame_buffer_id_ == -1){
 		if (empty_buffer_queue_.empty()){
@@ -444,6 +520,9 @@ void EigerFrameDecoder::allocate_next_frame_buffer(void) {
 	}
 }
 
+/**
+ * Send the buffer to the downstream processors
+ */
 void EigerFrameDecoder::send_buffer(void) {
 
 	if (!dropping_frame_data_) {

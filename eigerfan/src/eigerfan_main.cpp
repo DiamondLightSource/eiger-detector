@@ -29,6 +29,13 @@ using namespace log4cxx::helpers;
 
 namespace po = boost::program_options;
 
+/**
+ * Helper function to determine if filename has suffix
+ *
+ * \param str filename to test
+ * \param suffix suffix to test for
+ * \return true if filename has a suffix
+ */
 static bool has_suffix(const std::string &str, const std::string &suffix)
 {
   return str.size() >= suffix.size() &&
@@ -41,7 +48,7 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg);
  *
  * Call this only once per thread context.
  *
- * @param app_path Path to executable (use argv[0])
+ * \param app_path Path to executable (use argv[0])
  */
 void configure_logging_mdc(const char* app_path)
 {
@@ -73,7 +80,12 @@ void configure_logging_mdc(const char* app_path)
     }
 }
 
-
+/**
+ * Main application start point
+ *
+ * \param argc - standard command-line argument count
+ * \param argv - array of char command-line options
+ */
 int main(int argc, char *argv[])
 {
     setlocale(LC_CTYPE, "UTF-8");
@@ -95,19 +107,20 @@ int main(int argc, char *argv[])
     return rc;
 }
 
-//! Parse command-line arguments and configuration file options.
-//!
-//! This method parses command-line arguments and configuration file options
-//! to configure the application for operation. Most options can either be
-//! given at the command line or stored in an INI-formatted configuration file.
-//! The configuration options are stored in a EigerFanConfig helper object for
-//! retrieval throughout the application.
-//!
-//! \param argc - standard command-line argument count
-//! \param argv - array of char command-line options
-//! \param cfg  - the EigerFanConfig object to populate with the options
-//! \return return code, 0 if OK, 1 if option parsing failed
-
+/**
+ * Parse command-line arguments and configuration file options.
+ *
+ * This method parses command-line arguments and configuration file options
+ * to configure the application for operation. Most options can either be
+ * given at the command line or stored in an INI-formatted configuration file.
+ * The configuration options are stored in a EigerFanConfig helper object for
+ * retrieval throughout the application.
+ *
+ * \param argc - standard command-line argument count
+ * \param argv - array of char command-line options
+ * \param cfg  - the EigerFanConfig object to populate with the options
+ * \return return code, 0 if OK, 1 if option parsing failed
+ */
 int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 {
 	LoggerPtr logger(Logger::getLogger("ED.APP"));
@@ -163,7 +176,7 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 		// If the command-line help option was given, print help and exit
 		if (vm.count("help"))
 		{
-		    std::cout << "usage: frameReceiver [options]" << std::endl << std::endl;
+		  std::cout << "usage: eigerfan [options]" << std::endl << std::endl;
 			std::cout << cmdline_options << std::endl;
 			return 1;
 		}

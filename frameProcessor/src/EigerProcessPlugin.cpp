@@ -9,6 +9,10 @@
 
 namespace FrameProcessor
 {
+
+  /**
+   * Constuctor
+   */
   EigerProcessPlugin::EigerProcessPlugin()
   {
     // Setup logging for the class
@@ -17,10 +21,18 @@ namespace FrameProcessor
     LOG4CXX_TRACE(logger_, "EigerProcessPlugin constructor.");
   }
 
+  /**
+   * Destructor
+   */
   EigerProcessPlugin::~EigerProcessPlugin()
   {
   }
 
+  /**
+   * Processes a frame
+   *
+   * \param[in] frame The frame to process
+   */
   void EigerProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
   {
 	  const Eiger::FrameHeader* hdrPtr = static_cast<const Eiger::FrameHeader*>(frame->get_data());
@@ -235,6 +247,12 @@ namespace FrameProcessor
 	  }
   }
 
+  /**
+   * Set the encoding on the frame
+   *
+   * \param[out] frame The frame to set the encoding on
+   * \param[in] hdrPtr The header containing the encoding
+   */
   void EigerProcessPlugin::setFrameEncoding(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr) {
 	  std::string encoding(hdrPtr->encoding);
 
@@ -252,6 +270,12 @@ namespace FrameProcessor
 	  }
   }
 
+  /**
+   * Set the data type on the frame
+   *
+   * \param[out] frame The frame to set the encoding on
+   * \param[in] hdrPtr The header containing the encoding
+   */
   void EigerProcessPlugin::setFrameDataType(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr) {
 	  std::string dataType(hdrPtr->dataType);
 
@@ -266,6 +290,12 @@ namespace FrameProcessor
 	  }
   }
 
+  /**
+   * Set the dimensions on the frame
+   *
+   * \param[out] frame The frame to set the encoding on
+   * \param[in] hdrPtr The header containing the dimensions
+   */
   void EigerProcessPlugin::setFrameDimensions(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr) {
     dimensions_t dims;
     if (hdrPtr->shapeSizeZ > 0) {
@@ -277,4 +307,4 @@ namespace FrameProcessor
     frame->set_dimensions("data", dims);
   }
 
-} /* namespace filewriter */
+} /* namespace FrameProcessor */

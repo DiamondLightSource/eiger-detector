@@ -13,6 +13,12 @@ size_t more_size = sizeof (more);
 
 using namespace Eiger;
 
+/**
+ * Get a user-friendly string from a state enum value
+ *
+ * \param[in] state State to get the string for
+ * \return The specified state in string format
+ */
 std::string GetStateString(EigerFanState state) {
 	switch(state) {
 		case WAITING_CONSUMERS:	return STATE_WAITING_CONSUMERS;
@@ -25,6 +31,9 @@ std::string GetStateString(EigerFanState state) {
 	return "UNKNOWN STATE";
 }
 
+/**
+ * Default constructor for the EigerFan class
+ */
 EigerFan::EigerFan()
 : ctx_(EigerFanDefaults::DEFAULT_NUM_THREADS),
   controlSocket(ctx_, ZMQ_ROUTER) {
@@ -39,6 +48,11 @@ EigerFan::EigerFan()
 	currentOffset = 0;
 }
 
+/**
+ * Constructor taking config options
+ *
+ * \param[in] config_ Config options
+ */
 EigerFan::EigerFan(EigerFanConfig config_)
 : ctx_(config_.num_zmq_threads),
   controlSocket(ctx_, ZMQ_ROUTER) {
@@ -54,9 +68,17 @@ EigerFan::EigerFan(EigerFanConfig config_)
 	currentOffset = 0;
 }
 
+/**
+ * Destructor
+ */
 EigerFan::~EigerFan() {
 }
 
+/**
+ * Main method to run the EigerFan
+ *
+ * Will loop until kill is requested
+ */
 void EigerFan::run() {
   LOG4CXX_INFO(log, "EigerFan::run()");
 	LOG4CXX_INFO(log, "Starting EigerFan");
@@ -257,12 +279,21 @@ void EigerFan::run() {
 	controlSocket.close();
 }
 
+/**
+ * Request the EigerFan to stop
+ */
 void EigerFan::Stop() {
 	LOG4CXX_INFO(log, "Stop requested");
 	killRequested = true;
 	state = KILL_REQUESTED;
 }
 
+/**
+ * Handle a message from the zmq stream
+ *
+ * \param[in] message The zeromq message to handle
+ * \param[in] socket The socket that the message was received on
+ */
 void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket) {
 
 	try {
@@ -318,6 +349,14 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
 	}
 }
 
+/**
+ * Handle the Global Header message
+ *
+ * This is a multipart message sent by the Eiger at the start of an acquisition and can contain different amounts of meta data
+ *
+ * \param[in] messagePart1 The first part of the message
+ * \param[in] socket The socket that the message was received on
+ */
 void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, boost::shared_ptr<zmq::socket_t> socket) {
 	std::vector<zmq::message_t*> messageList;
 
@@ -494,6 +533,14 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, boost::sh
 	LOG4CXX_DEBUG(log, "Finished Handling Header Message");
 }
 
+/**
+ * Handle the Image Data message
+ *
+ * This is a a multipart message sent by the Eiger containing the image and associated meta data
+ *
+ * \param[in] messagePart1 The first part of the message
+ * \param[in] socket The socket that the message was received on
+ */
 void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, boost::shared_ptr<zmq::socket_t> socket) {
 	LOG4CXX_DEBUG(log, "Handling Image Data Message");
 
@@ -560,6 +607,14 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, boost::share
 	LOG4CXX_DEBUG(log, "Finished Handling Image Data Message");
 }
 
+/**
+ * Handle the Image Data message
+ *
+ * This is a single message sent by the Eiger at the end of an acquisition
+ *
+ * \param[in] message The zeromq message
+ * \param[in] socket The socket that the message was received on
+ */
 void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket) {
 	LOG4CXX_INFO(log, "Handling EndOfSeries Message");
 	std::string part1WithAcquisitionID = AddAcquisitionIDToPart1(currentAcquisitionID);
@@ -573,6 +628,15 @@ void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, boost::shared_p
 	LOG4CXX_DEBUG(log, "Finished Handling EndOfSeries Message");
 }
 
+/**
+ * Handle messages from the monitoring of the zeromq connections
+ *
+ * Used to detect when consumers connect and disconnect from the EigerFan
+ *
+ * \param[in] message The zeromq message
+ * \param[in] socket The socket that the message was received on
+ * \param[in] rank The rank of the consumer connecting or disconnecting
+ */
 void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank) {
 	LOG4CXX_DEBUG(log, "Handling Monitor Message");
 
@@ -614,6 +678,12 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 	LOG4CXX_DEBUG(log, "Finished Handling Monitor Message");
 }
 
+/**
+ * Handle control messages
+ *
+ * \param[in] message The zeromq message containing the control command
+ * \param[in] idMessage The zeromq id message to identify the sender
+ */
 void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage) {
 
 	std::string jsonCommand(static_cast<char*>(message.data()), message.size());
@@ -730,6 +800,12 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
 	}
 }
 
+/**
+ * Send a message to all consumers
+ *
+ * \param[in] message The zeromq message to send
+ * \param[in] flags Any flags to apply to the message (e.g. more messages to come)
+ */
 void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
 	int numConsumersToSendTo = config.num_consumers;
 	LOG4CXX_DEBUG(log, "Sending message to all consumers. Number of consumers = " << GetNumberOfConnectedConsumers());
@@ -757,6 +833,11 @@ void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
 	LOG4CXX_DEBUG(log, "Finished Sending message to all consumers");
 }
 
+/**
+ * Send a list of messages to all consumers
+ *
+ * \param[in] messageList The list of zeromq messages to send
+ */
 void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageList) {
 	int messageListSize = messageList.size();
 	int numConsumersToSendTo = config.num_consumers;
@@ -804,6 +885,14 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
 	LOG4CXX_DEBUG(log, "Finished Sending multiple messages to all consumers");
 }
 
+/**
+ * Send a single messages to the appropriate consumer
+ *
+ * Relies on the currentConsumerIndexToSendTo variable being set to determine which consumer to send to
+ *
+ * \param[in] message The zeromq message to send
+ * \param[in] flags Any flags to apply to the message (e.g. more messages to come)
+ */
 void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags) {
 	LOG4CXX_DEBUG(log, "Sending message to single consumers at index:" << currentConsumerIndexToSendTo);
 
@@ -819,6 +908,12 @@ void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags) {
 	LOG4CXX_DEBUG(log, "Finished Sending message to single consumer");
 }
 
+/**
+ * Send a fabricated end message
+ *
+ * This is needed when the EigerFan is commanded to shut down before finishing an acquisition.
+ * Sending a fabricated end message means that any downstream processors can close cleanly
+ */
 void EigerFan::SendFabricatedEndMessage() {
 	LOG4CXX_INFO(log, "Sending Fabricated EndOfSeries Message");
 
@@ -845,10 +940,24 @@ void EigerFan::SendFabricatedEndMessage() {
 	LOG4CXX_DEBUG(log, "Finished Sending Fabricated EndOfSeries Message");
 }
 
+/**
+ * Sets the configure number of consumers
+ *
+ * \param[in] number The number of consumers
+ */
 void EigerFan::SetNumberOfConsumers(int number) {
 	config.num_consumers = number;
 }
 
+/**
+ * Parses the acquisition id from the zeromq message containing the appendix and
+ * adds it to the first message part.
+ *
+ * This is to enable easier downstream processing
+ *
+ * \param[in] messageAppendix The message containing the appendix with the acquisition id in
+ * \return The string of the first message part which now also contains the acquisition id
+ */
 std::string EigerFan::AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messageAppendix) {
 	std::string appendixjson(static_cast<char*>(messageAppendix.data()), messageAppendix.size());
 	rapidjson::Document appendixDocument;
@@ -871,6 +980,16 @@ std::string EigerFan::AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messag
 	return AddAcquisitionIDToPart1(acquisitionID);
 }
 
+/**
+ * Adds the specified acquisiton ID to the first message part.
+ *
+ * This is to enable easier downstream processing.
+ * This relies on the class variable jsonDocument still containing the
+ * first message part.
+ *
+ * \param[in] acquisitionID The acquisition id
+ * \return The string of the first message part which now also contains the acquisition id
+ */
 std::string EigerFan::AddAcquisitionIDToPart1(std::string acquisitionID) {
 	rapidjson::Value keyAcquisitionID(Eiger::ACQUISITION_ID_KEY.c_str(), jsonDocument.GetAllocator());
 	rapidjson::Value valueAcquisitionID(acquisitionID, jsonDocument.GetAllocator());
@@ -882,6 +1001,11 @@ std::string EigerFan::AddAcquisitionIDToPart1(std::string acquisitionID) {
 	return buffer.GetString();
 }
 
+/**
+ * Gets the number of currently connected consumers
+ *
+ * \return The number of currently connected consumers
+ */
 int EigerFan::GetNumberOfConnectedConsumers() {
 	int numConnected = 0;
 	for (int i = 0; i < config.num_consumers; i++) {
@@ -895,6 +1019,13 @@ int EigerFan::GetNumberOfConnectedConsumers() {
 	return numConnected;
 }
 
+/**
+ * Gets whether the expected number of consumers are connected
+ *
+ * Will return false if more than one consumer is connected to a single channel
+ *
+ * \return True if all expected consumers are connected
+ */
 bool EigerFan::ExpectedConsumersConnected() {
 	for (int i = 0; i < config.num_consumers; i++) {
 		if (consumers[i].connected != 1) {
