@@ -42,7 +42,7 @@ sleep 2
 echo 'Starting Frame Receiver'
 
 cd $odinbuilddir
-./bin/frameReceiver -s Eiger --path=$eigerbuilddir/lib -m 500000000 -d 3 -p 31600 --rxtype zmq &
+./bin/frameReceiver -t Eiger --path=$eigerbuilddir/lib -m 500000000 -d 3 -p 31600 --rxtype zmq &
 framereceiver_pid=$!
 
 sleep 2
