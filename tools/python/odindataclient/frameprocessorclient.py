@@ -187,7 +187,6 @@ class FrameProcessorClient(IpcClient):
             "file": {
                 "path": path,
                 "name": name,
-                "earliest_version": True,
             },
             "frames": int(frames),
             "write": True
@@ -218,7 +217,8 @@ class FrameProcessorClient(IpcClient):
                 "number": int(self.processes),
                 "rank": int(self.rank),
                 "frames_per_block": int(self.FRAMES_PER_BLOCK),
-                "blocks_per_file": int(self.BLOCKS_PER_FILE)
+                "blocks_per_file": int(self.BLOCKS_PER_FILE),
+                "earliest_version": True,
             },
         }
         self.send_configuration(config, self.FILE_WRITER)

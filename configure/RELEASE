@@ -2,7 +2,7 @@ TOOLS_SUPPORT=/dls_sw/prod/tools/RHEL6-x86_64
 CMAKE = $(TOOLS_SUPPORT)/cmake/3-3-0
 LOG4CXX = $(TOOLS_SUPPORT)/log4cxx/0-10-0dls1
 ZEROMQ = $(TOOLS_SUPPORT)/zeromq/3-2-4
-ODIN_DATA = $(TOOLS_SUPPORT)/odin-data/0-2-0dls2
+ODIN_DATA = $(TOOLS_SUPPORT)/odin-data/0-2-0dls3
 
 PYTHON = $(TOOLS_SUPPORT)/Python/2-7-3
 H5PY = $(TOOLS_SUPPORT)/h5py/2-7-1
