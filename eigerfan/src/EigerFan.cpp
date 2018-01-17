@@ -189,7 +189,7 @@ void EigerFan::run() {
 	std::string streamConnectionAddress("tcp://");
 	streamConnectionAddress.append(config.eiger_channel_address);
 	streamConnectionAddress.append(":");
-	streamConnectionAddress.append(STREAM_PORT_NUMBER);
+	streamConnectionAddress.append(config.eiger_channel_port);
 	LOG4CXX_INFO(log, std::string("Connecting to stream address at ").append(streamConnectionAddress));
 
 	//  Initialise run poll set
@@ -587,17 +587,17 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, boost::share
 		socket->recv(&messageAppendix);
 
 		// Send the data on to a consumer
-	    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messagePart4, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messageAppendix, 0);
+    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
+    SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
+    SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE);
+    SendMessageToSingleConsumer(messagePart4, ZMQ_SNDMORE);
+    SendMessageToSingleConsumer(messageAppendix, 0);
 	} else {
 		// Send the data on to a consumer
-	    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE);
-		SendMessageToSingleConsumer(messagePart4, 0);
+    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
+    SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
+    SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE);
+    SendMessageToSingleConsumer(messagePart4, 0);
 	}
 
 	if (state != DSTR_IMAGE && state != DSTR_HEADER) {
