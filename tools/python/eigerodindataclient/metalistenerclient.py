@@ -24,7 +24,13 @@ class MetaListenerClient(IpcClient):
         return self.acquisitions[acquisition_id]["finished"]
 
     def update_monitors(self):
-        self.acquisitions = self.request_status()["output"]
+        reply = self.request_status()
+        
+        if len(reply) == 0:
+            # Reply was empty - possible out of sync messages, try again. TODO remove when out of sync messages fixed
+            reply = self.request_status()
+            
+        self.acquisitions = reply["output"]
         self.writing = any(not self.acquisitions[acq_id]["finished"]
                            for acq_id in self.acquisitions.keys())
 
@@ -33,14 +39,16 @@ class MetaListenerClient(IpcClient):
             "output_dir": output_dir,
             "acquisition_id": acquisition_id
         }
-        self.send_configuration(config)
+        status, reply = self.send_configuration(config, timeout=3000)
+        return status
 
     def configure_flush_rate(self, frames, acquisition_id):
         config = {
             "flush": int(frames),
             "acquisition_id": acquisition_id
         }
-        self.send_configuration(config)
+        status, reply = self.send_configuration(config, timeout=3000)
+        return status
 
     def stop(self, acquisition_id):
         config = {

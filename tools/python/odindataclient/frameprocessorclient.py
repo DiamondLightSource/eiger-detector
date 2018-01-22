@@ -193,7 +193,8 @@ class FrameProcessorClient(IpcClient):
         }
         if acq_id is not None:
             config["acquisition_id"] = acq_id
-        self.send_configuration(config, self.FILE_WRITER, timeout=3000)
+        status, reply = self.send_configuration(config, self.FILE_WRITER, timeout=3000)
+        return status
 
     def create_dataset(self, name, dtype, dimensions,
                        chunks=None, compression=None):
@@ -209,7 +210,8 @@ class FrameProcessorClient(IpcClient):
             config["dataset"]["chunks"] = chunks
         if compression is not None:
             config["dataset"]["compression"] = int(compression)
-        self.send_configuration(config, self.FILE_WRITER, timeout=3000)
+        status, reply = self.send_configuration(config, self.FILE_WRITER, timeout=3000)
+        return status
 
     def configure_file_process(self):
         config = {

@@ -7,12 +7,17 @@ class FrameReceiverClient(IpcClient):
     FAN_ENDPOINT = "tcp://{}:5559"
 
     def __init__(self, ip_address, server_rank=0):
-        super(FrameReceiverClient, self).__init__(ip_address, lock,
-                                                  server_rank)
+        port = self.CTRL_PORT + server_rank * 1000
+        super(FrameReceiverClient, self).__init__(ip_address, port)
+        self.free_buffers = 0
 
     def request_status(self):
         response = self.send_request("status")
-        return response.attrs
+        return response["params"]
+
+    def update_monitors(self):
+        status = self.request_status()
+        self.free_buffers = status["buffers"]["empty"]
 
     def configure_shared_memory(self, shared_memory, ready, release):
         config = {
