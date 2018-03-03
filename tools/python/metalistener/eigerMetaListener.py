@@ -15,6 +15,8 @@ def options():
     parser.add_argument("-d", "--directory", default="/tmp/", help="Default directory to write meta data files to")
     parser.add_argument("-c", "--ctrl", default="5659", help="Control channel port to listen on")
     parser.add_argument("-b", "--blocksize", default=1, help="Block size within the data files")
+    parser.add_argument("--logserver", default="cs04r-sc-serv-14.diamond.ac.uk:12202", help="logserver address and :port")
+    parser.add_argument("--staticlogfields", default=None, help="comma separated list of key=value fields to be attached to every log message")
     args = parser.parse_args()
     return args
 
@@ -22,7 +24,14 @@ def main():
 
     args = options()
 
-    add_graylog_handler("cs04r-sc-serv-14.diamond.ac.uk", 12202)
+    logserver, logserverport = args.logserver.split(':')
+    logserverport = int(logserverport)
+
+    static_fields = None
+    if args.staticlogfields is not None:
+        static_fields = dict([f.split('=') for f in args.staticlogfields.replace(' ','').split(',')])
+
+    add_graylog_handler(logserver, logserverport, static_fields=static_fields)
     add_logger("meta_listener", {"level": "INFO", "propagate": True})
     setup_logging()
 
