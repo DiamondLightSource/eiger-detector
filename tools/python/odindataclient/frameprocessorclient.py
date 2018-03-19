@@ -200,16 +200,16 @@ class FrameProcessorClient(IpcClient):
                        chunks=None, compression=None):
         config = {
             "dataset": {
-                "cmd": "create",
-                "name": name,
-                "datatype": int(dtype),
-                "dims": dimensions
+                name: {
+                    "datatype": int(dtype),
+                    "dims": dimensions
+                }
             }
         }
         if chunks is not None:
-            config["dataset"]["chunks"] = chunks
+            config["dataset"][name]["chunks"] = chunks
         if compression is not None:
-            config["dataset"]["compression"] = int(compression)
+            config["dataset"][name]["compression"] = int(compression)
         status, reply = self.send_configuration(config, self.FILE_WRITER, timeout=3000)
         return status
 
