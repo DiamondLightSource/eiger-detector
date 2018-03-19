@@ -498,22 +498,22 @@ class MetaListener:
             message = receiver.recv_json()
 
             if message['msg_val'] == 'status':
-                reply = self.handleStatusMessage()
+                reply = self.handleStatusMessage(message['id'])
             elif message['msg_val'] == 'configure':
                 self.logger.debug('handling control configure message')
                 self.logger.debug(message)
                 params = message['params']
-                reply = self.handleConfigureMessageParams(params)
+                reply = self.handleConfigureMessageParams(params, message['id'])
             else:
-                reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}, 'timestamp':datetime.now().isoformat()})
+                reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}, 'timestamp':datetime.now().isoformat(), 'id': message['msg_id']})
            
         except Exception as err:
             self.logger.error('Unexpected Exception handling control message: ' + str(err))
-            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Error processing control message'}, 'timestamp':datetime.now().isoformat()})
+            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Error processing control message'}, 'timestamp':datetime.now().isoformat(), 'id': message['msg_id']})
         receiver.send(id, zmq.SNDMORE)
         receiver.send(reply)
         
-    def handleStatusMessage(self):
+    def handleStatusMessage(self, msg_id):
         statusDict = {}
         for key in self.writers:
             writer = self.writers[key]
@@ -521,7 +521,7 @@ class MetaListener:
             writer.writeTimeoutCount = writer.writeTimeoutCount + 1
             
         params = {'output':statusDict}
-        reply = json.dumps({'msg_type':'ack', 'msg_val':'status', 'params': params, 'timestamp':datetime.now().isoformat()})
+        reply = json.dumps({'msg_type':'ack', 'msg_val':'status', 'params': params, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
         
         # Now delete any finsihed acquisitions, and stop any stagnant ones
         for key, value in self.writers.items():
@@ -531,14 +531,14 @@ class MetaListener:
               if value.numberProcessorsRunning == 0 and value.writeTimeoutCount > 10 and value.fileCreated:
                   self.logger.info('Force stopping stagnant acquisition: ' + str(key))
                   value.stop()
-        
+
         return reply
         
-    def handleConfigureMessageParams(self, params):
-        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Unable to process configure command'}, 'timestamp':datetime.now().isoformat()})
+    def handleConfigureMessageParams(self, params, msg_id):
+        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Unable to process configure command'}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
         if 'kill' in params:
             self.logger.info('Kill reqeusted')
-            reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+            reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
             self.killRequested = True
         elif 'acquisition_id' in params:
             acquisitionID = params['acquisition_id']
@@ -555,29 +555,29 @@ class MetaListener:
                     if acquisitionExists == False:
                         self.logger.info('Creating new acquisition [' + str(acquisitionID) + '] with output directory ' + str(params['output_dir']))
                         self.createNewAcquisition(params['output_dir'], acquisitionID)
-                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
                         acquisitionExists = True
                     else:
                         self.logger.info('File already created for acquisition_id: ' + str(acquisitionID))
-                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
+                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
                 
                 if 'flush' in params:
                     if acquisitionExists == True:
                         self.logger.info('Setting acquisition [' + str(acquisitionID) + '] flush to ' + str(params['flush']))
                         self.writers[acquisitionID].flushFrequency = params['flush']
-                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
                     else:
                         self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
-                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
+                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
     
                 if 'stop' in params:
                     if acquisitionExists == True:
                         self.logger.info('Stopping acquisition [' + str(acquisitionID) + ']')
                         self.writers[acquisitionID].stop()
-                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
                     else:
                         self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
-                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat()})
+                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
             else:
                 # If the command is to stop without an acqID then stop all acquisitions
                 if 'stop' in params:
@@ -585,12 +585,12 @@ class MetaListener:
                         self.logger.info('Forcing close of writer for acquisition: ' + str(key))
                         writer = self.writers[key]
                         writer.stop()
-                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat()})
+                    reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
                 else:  
-                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Acquisition ID was None'}, 'timestamp':datetime.now().isoformat()})              
+                    reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'Acquisition ID was None'}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})              
 
         else:
-            reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No params in config'}, 'timestamp':datetime.now().isoformat()})
+            reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No params in config'}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
         return reply
         
     def handleMessage(self, receiver):

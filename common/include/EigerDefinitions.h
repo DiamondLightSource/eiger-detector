@@ -46,6 +46,7 @@ namespace Eiger {
 	const int SEND_HWM = 100000;
 
 	const std::string CONTROL_CMD_KEY = "msg_val";
+  const std::string CONTROL_ID_KEY = "id";
 	const std::string CONTROL_PARAM_KEY = "params";
 
 	const std::string CONTROL_STATUS = "status";

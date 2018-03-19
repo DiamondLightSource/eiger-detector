@@ -25,10 +25,6 @@ class MetaListenerClient(IpcClient):
 
     def update_monitors(self):
         reply = self.request_status()
-        
-        if len(reply) == 0:
-            # Reply was empty - possible out of sync messages, try again. TODO remove when out of sync messages fixed
-            reply = self.request_status()
             
         self.acquisitions = reply["output"]
         self.writing = any(not self.acquisitions[acq_id]["finished"]

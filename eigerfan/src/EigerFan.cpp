@@ -779,6 +779,12 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
 	rapidjson::Value valueTimestamp(ts, statusDocument.GetAllocator());
 	statusDocument.AddMember(keyTimestamp, valueTimestamp, statusDocument.GetAllocator());
 
+  rapidjson::Value& idValue = ctrlDocument[CONTROL_ID_KEY.c_str()];
+  unsigned int msg_id(idValue.GetInt());
+  rapidjson::Value keyId("id", statusDocument.GetAllocator());
+  rapidjson::Value valueId(msg_id);
+  statusDocument.AddMember(keyId, valueId, statusDocument.GetAllocator());
+
 	rapidjson::StringBuffer statusBuffer;
 	rapidjson::Writer<rapidjson::StringBuffer> statusWriter(statusBuffer);
 	statusDocument.Accept(statusWriter);
