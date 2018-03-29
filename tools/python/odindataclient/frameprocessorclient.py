@@ -23,6 +23,7 @@ class FrameProcessorClient(IpcClient):
     TIMEOUT = 6000
     FRAMES_PER_BLOCK = 1000
     BLOCKS_PER_FILE = 1
+    EARLIEST_HDF5_VERSION = True
 
     def __init__(self, rank, processes, ip_address, server_rank=0):
 
@@ -101,7 +102,7 @@ class FrameProcessorClient(IpcClient):
         }
         self.send_configuration(config)
 
-    def initialise(self, connections):
+    def initialise(self, connections, earliest_hdf5_version = EARLIEST_HDF5_VERSION):
         for plugin in connections.keys():
             self.load_plugin(plugin)
         for sink, source in connections.items():
@@ -117,9 +118,8 @@ class FrameProcessorClient(IpcClient):
                 or ("rank" not in hdf_status.keys()
                     or hdf_status["rank"] != self.rank):
             if hdf_status["writing"]:
-                raise RuntimeError(
-                    "Cannot initialise while writing")
-            self.configure_file_process()
+                raise RuntimeError("Cannot initialise while writing")
+            self.configure_file_process(earliest_hdf5_version)
             self.configure_timeout()
 
     def configure_shared_memory(self, shared_memory, ready, release):
@@ -213,14 +213,14 @@ class FrameProcessorClient(IpcClient):
         status, reply = self.send_configuration(config, self.FILE_WRITER, timeout=3000)
         return status
 
-    def configure_file_process(self):
+    def configure_file_process(self, earliest_hdf5_version):
         config = {
             "process": {
                 "number": int(self.processes),
                 "rank": int(self.rank),
                 "frames_per_block": int(self.FRAMES_PER_BLOCK),
                 "blocks_per_file": int(self.BLOCKS_PER_FILE),
-                "earliest_version": True,
+                "earliest_version": earliest_hdf5_version,
             },
         }
         self.send_configuration(config, self.FILE_WRITER)
