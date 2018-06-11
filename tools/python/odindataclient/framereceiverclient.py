@@ -10,6 +10,7 @@ class FrameReceiverClient(IpcClient):
         port = self.CTRL_PORT + server_rank * 1000
         super(FrameReceiverClient, self).__init__(ip_address, port)
         self.free_buffers = 0
+        self.frames_dropped = 0
 
     def request_status(self):
         response = self.send_request("status")
@@ -18,6 +19,7 @@ class FrameReceiverClient(IpcClient):
     def update_monitors(self):
         status = self.request_status()
         self.free_buffers = status["buffers"]["empty"]
+        self.frames_dropped = status["decoder"]["frames_dropped"]
 
     def configure_shared_memory(self, shared_memory, ready, release):
         config = {

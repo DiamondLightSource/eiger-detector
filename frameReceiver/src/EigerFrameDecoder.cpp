@@ -554,4 +554,14 @@ void EigerFrameDecoder::send_buffer(void) {
 	}
 }
 
+/**
+ * Create the status message for this decoder
+ */
+void EigerFrameDecoder::get_status(const std::string param_prefix,
+    OdinData::IpcMessage& status_msg)
+{
+  status_msg.set_param(param_prefix + "name", std::string("EigerFrameDecoder"));
+  status_msg.set_param(param_prefix + "frames_dropped", frames_dropped_);
+}
+
 } /* namespace FrameReceiver */

@@ -39,6 +39,7 @@ public:
     void frame_meta_data(int meta);
 
     void monitor_buffers(void);
+    void get_status(const std::string param_prefix, OdinData::IpcMessage& status_msg);
 
     void* get_packet_header_buffer(void);
 
