@@ -94,8 +94,8 @@ namespace Eiger {
 		char acquisitionID[256];	// acquisitionID
 	} FrameHeader;
 
-	static const size_t raw_buffer_size    = 18000000 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
-	static const size_t frame_size         = 18000000 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
+	static const size_t raw_buffer_size    = 17942760 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
+	static const size_t frame_size         = 17942760 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
 
 	enum EigerMessageParentType { PARENT_MESSAGE_TYPE_GLOBAL, PARENT_MESSAGE_TYPE_IMAGE_DATA, PARENT_MESSAGE_TYPE_END};
 

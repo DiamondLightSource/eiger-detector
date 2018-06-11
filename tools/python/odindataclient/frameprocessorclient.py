@@ -20,7 +20,7 @@ class FrameProcessorClient(IpcClient):
     META = "meta_endpoint"
     INPUT = "frame_receiver"
     EIGER = "eiger"
-    TIMEOUT = 6000
+    TIMEOUT = 9000
     FRAMES_PER_BLOCK = 1000
     BLOCKS_PER_FILE = 1
     EARLIEST_HDF5_VERSION = True
@@ -193,7 +193,7 @@ class FrameProcessorClient(IpcClient):
         }
         if acq_id is not None:
             config["acquisition_id"] = acq_id
-        status, reply = self.send_configuration(config, self.FILE_WRITER, timeout=3000)
+        status, reply = self.send_configuration(config, self.FILE_WRITER, timeout=5000)
         return status
 
     def create_dataset(self, name, dtype, dimensions,
