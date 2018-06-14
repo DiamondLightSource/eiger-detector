@@ -1,2 +1,3 @@
 add_subdirectory(StreamWriter)
 add_subdirectory(StreamSender)
+add_subdirectory(EigerSimulator)
