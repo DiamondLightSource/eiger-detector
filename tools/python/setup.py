@@ -32,10 +32,10 @@ def get_requirements():
   with open('requirements.txt') as f:
     required = f.read().splitlines()
     
-  return required  
+  return required
 
 setup(name='eiger_detector',
-      version="1.1.0",
+      version="1.2.0",
       description='Eiger Meta Data Filewriter',
       author='Matt Taylor',
       author_email='matthew.taylor@diamond.ac.uk',
