@@ -102,6 +102,12 @@ class FrameProcessorClient(IpcClient):
         }
         self.send_configuration(config)
 
+    def clear_errors(self):
+        config = {
+            "clear_errors": True
+        }
+        self.send_configuration(config)
+
     def initialise(self, connections, earliest_hdf5_version = EARLIEST_HDF5_VERSION):
         for plugin in connections.keys():
             self.load_plugin(plugin)
