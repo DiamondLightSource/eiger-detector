@@ -52,7 +52,7 @@ void shutdownEigerFan() {
 
 	socket.connect ("tcp://localhost:5559");
 
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"configure\", \"params\": {\"kill\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"kill\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	memcpy (request.data (), command.c_str(), command.size());
 	socket.send (request);
@@ -74,7 +74,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckKill )
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the kill command
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"configure\", \"params\": {\"kill\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"kill\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	memcpy (request.data (), command.c_str(), command.size());
 	socket.send (request);
@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckGetStatus )
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the command to get the status
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	memcpy (request.data (), command.c_str(), command.size());
 	socket.send (request);
@@ -129,7 +129,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckConsumerConnect )
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the command to get the status
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	memcpy (request.data (), command.c_str(), command.size());
 	socket.send (request);
@@ -176,7 +176,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheck2ConsumersConnect )
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the command to get the status
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	memcpy (request.data (), command.c_str(), command.size());
 	socket.send (request);
@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSends )
 	socket.connect ("tcp://localhost:5559");
 
 	// Build the command to get the status
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	zmq::message_t reply;
 
@@ -385,7 +385,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImages )
 	socket.connect ("tcp://localhost:5559");
 
 	// Build the command to get the status
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	zmq::message_t reply;
 
@@ -584,7 +584,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImagesMultiConsumers )
 	socket.connect ("tcp://localhost:5559");
 
 	// Build the command to get the status
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	zmq::message_t reply;
 
@@ -773,7 +773,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckClose )
 	socket.connect ("tcp://localhost:5559");
 
 	// Send the command to get the status
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	memcpy (request.data (), command.c_str(), command.size());
 	socket.send (request);
@@ -830,7 +830,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckClose )
 	receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	BOOST_CHECK_EQUAL(0, more);
 
-	std::string command2("{\"msg_type\": \"cmd\", \"msg_val\": \"configure\", \"params\": {\"close\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command2("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"close\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request2 (command2.size());
 	memcpy (request2.data (), command2.c_str(), command2.size());
 	socket.send (request2);
@@ -863,7 +863,7 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsAcquisitionID )
 	socket.connect ("tcp://localhost:5559");
 
 	// Build the command to get the status
-	std::string command("{\"msg_type\": \"cmd\", \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
+	std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
 	zmq::message_t request (command.size());
 	zmq::message_t reply;
 

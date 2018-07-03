@@ -674,6 +674,7 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 		zmq::message_t messagePartExtra;
 		socket->recv(&messagePartExtra);
 		LOG4CXX_ERROR(log, "Monitor contained more parts than expected");
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	}
 	LOG4CXX_DEBUG(log, "Finished Handling Monitor Message");
 }
@@ -803,6 +804,7 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
 		zmq::message_t messagePartExtra;
 		controlSocket.recv(&messagePartExtra);
 		LOG4CXX_ERROR(log, "Control contained more parts than expected");
+    controlSocket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
 	}
 }
 

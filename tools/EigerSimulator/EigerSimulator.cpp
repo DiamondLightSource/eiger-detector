@@ -61,7 +61,7 @@ int main (int argc, char *argv[]) {
 	zmq::socket_t socket(context, ZMQ_PUSH);
 	socket.bind(bindAddress.c_str());
 
-	std::cout << "Socket bound, press any key to send data..." << std::endl;
+	std::cout << "Socket bound, press enter to send data..." << std::endl;
 
 	getchar();
 
