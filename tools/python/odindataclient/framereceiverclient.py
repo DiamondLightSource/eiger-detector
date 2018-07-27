@@ -27,4 +27,8 @@ class FrameReceiverClient(IpcClient):
             "fr_ready_cnxn": ready,
             "fr_release_cnxn": release
         }
+
+    def kill(self):
+        response = self.send_request("shutdown")
+        return response["params"]
         # self.send_configuration(self.SHARED_MEMORY_SETUP, config)
