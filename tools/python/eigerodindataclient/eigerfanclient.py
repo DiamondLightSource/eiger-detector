@@ -15,6 +15,7 @@ class EigerFanClient(IpcClient):
         super(EigerFanClient, self).__init__(ip_address, self.CTRL_PORT)
 
         self.latest_frame = None
+        self.state = None
         self.current_consumers = None
 
     def request_status(self):
@@ -32,6 +33,7 @@ class EigerFanClient(IpcClient):
         status = self.request_status()
         self.latest_frame = status["frame"]
         self.current_consumers = status["num_conn"]
+        self.state = status["state"]
 
     def rewind(self, frames, active_frame):
         config = {
