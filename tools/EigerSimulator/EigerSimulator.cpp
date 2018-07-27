@@ -61,11 +61,15 @@ int main (int argc, char *argv[]) {
 	zmq::socket_t socket(context, ZMQ_PUSH);
 	socket.bind(bindAddress.c_str());
 
-	std::cout << "Socket bound, press enter to send data..." << std::endl;
+	std::cout << "Socket bound, press enter to send header..." << std::endl;
 
 	getchar();
 
 	sendHeader(socket, acquisition_id);
+
+  std::cout << "Press enter to send data..." << std::endl;
+
+  getchar();
 
 	sendImageData(socket, file_pattern, frames, hertz);
 
