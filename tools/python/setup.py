@@ -35,7 +35,7 @@ def get_requirements():
   return required
 
 setup(name='eiger_detector',
-      version="1.2.0",
+      version="1.2.1",
       description='Eiger Meta Data Filewriter',
       author='Matt Taylor',
       author_email='matthew.taylor@diamond.ac.uk',
