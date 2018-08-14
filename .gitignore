@@ -3,9 +3,8 @@
 prefix/
 build_name*
 build-dir/
-tools/python/build/
-tools/python/dist/
-tools/python/eiger_daq.egg-info
+*build/
+*dist/
+*.egg-info
 .idea/
 cmake-build-debug/
-
