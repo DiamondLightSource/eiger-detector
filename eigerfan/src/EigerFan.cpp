@@ -317,7 +317,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
 					configuredOffset = 0;
 					lastFrameSent = 0;
 				}
-                currentConsumerIndexToSendTo = ((frame + currentOffset) / config.block_size) % config.num_consumers;
+        currentConsumerIndexToSendTo = ((frame + currentOffset) / config.block_size) % config.num_consumers;
 				HandleImageDataMessage(message, socket);
 				if (frame > lastFrameSent) {
 					lastFrameSent = frame;
@@ -739,7 +739,66 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
 			oss << "{\"msg_type\":\"ack\",\"msg_val\":\"status\", \"params\": " << buffer.GetString() << "}";
 			replyString.assign(oss.str());
 
-		} else if (command.compare(CONTROL_CONFIGURE) == 0) {
+		} else if (command.compare(CONTROL_REQ_CONFIG) == 0) {
+
+      rapidjson::Document document;
+      document.SetObject();
+
+      // Add Number of 0MQ threads
+      rapidjson::Value keyNumZMQThreads("num_zmq_threads", document.GetAllocator());
+      rapidjson::Value valueNumZMQThreads(config.num_zmq_threads);
+      document.AddMember(keyNumZMQThreads, valueNumZMQThreads, document.GetAllocator());
+
+      // Add Number of 0MQ sockets
+      rapidjson::Value keyNumZMQSockets("num_zmq_sockets", document.GetAllocator());
+      rapidjson::Value valueNumZMQSockets(config.num_zmq_sockets);
+      document.AddMember(keyNumZMQSockets, valueNumZMQSockets, document.GetAllocator());
+
+      // Add Number of 0MQ threads
+      rapidjson::Value keyNumConsumers("num_consumers", document.GetAllocator());
+      rapidjson::Value valueNumConsumers(config.num_consumers);
+      document.AddMember(keyNumConsumers, valueNumConsumers, document.GetAllocator());
+
+      // Add control channel port
+      rapidjson::Value keyCtrlPort("ctrl_channel_port", document.GetAllocator());
+      rapidjson::Value valueCtrlPort(config.ctrl_channel_port, document.GetAllocator());
+      document.AddMember(keyCtrlPort, valueCtrlPort, document.GetAllocator());
+
+      // Add Eiger channel address
+      rapidjson::Value keyEigerAddress("eiger_channel_address", document.GetAllocator());
+      rapidjson::Value valueEigerAddress(config.eiger_channel_address, document.GetAllocator());
+      document.AddMember(keyEigerAddress, valueEigerAddress, document.GetAllocator());
+
+      // Add Eiger channel port
+      rapidjson::Value keyEigerPort("eiger_channel_port", document.GetAllocator());
+      rapidjson::Value valueEigerPort(config.eiger_channel_port, document.GetAllocator());
+      document.AddMember(keyEigerPort, valueEigerPort, document.GetAllocator());
+
+      // Add fan channel port start
+      rapidjson::Value keyFanPort("fan_channel_port_start", document.GetAllocator());
+      rapidjson::Value valueFanPort(config.fan_channel_port_start);
+      document.AddMember(keyFanPort, valueFanPort, document.GetAllocator());
+
+      // Add block size
+      rapidjson::Value keyBlockSize("block_size", document.GetAllocator());
+      rapidjson::Value valueBlockSize(config.block_size);
+      document.AddMember(keyBlockSize, valueBlockSize, document.GetAllocator());
+
+      // Add configured offset value
+      rapidjson::Value keyOffset(CONTROL_OFFSET, document.GetAllocator());
+      rapidjson::Value valueOffset(configuredOffset);
+      document.AddMember(keyOffset, valueOffset, document.GetAllocator());
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+
+      document.Accept(writer);
+
+      std::ostringstream oss;
+      oss << "{\"msg_type\":\"ack\",\"msg_val\":\"request_configuration\", \"params\": " << buffer.GetString() << "}";
+      replyString.assign(oss.str());
+
+    } else if (command.compare(CONTROL_CONFIGURE) == 0) {
 			LOG4CXX_DEBUG(log, std::string("Handling Control Configure Message: ").append(jsonCommand));
 
 			if (ctrlDocument.HasMember(CONTROL_PARAM_KEY.c_str())) {

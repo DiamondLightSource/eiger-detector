@@ -35,6 +35,7 @@ class MetaWriter:
         self.fileCreated = False
         self.closeAfterWrite = False
         self.hdf5File = None
+        self.fullFileName = None
         
         self.startNewAcquisition()
         
@@ -43,10 +44,6 @@ class MetaWriter:
         
         self.frameOffsetDict.clear()
         self.frameDataDict.clear()
-
-        metaFileName = self.acquisitionID + '_meta.hdf5'
-
-        self.fullFileName = os.path.join(self.directory, metaFileName)
 
         self.seriesCreated = False
         self.configCreated = False
@@ -58,6 +55,11 @@ class MetaWriter:
         return
       
     def createFileAndFrameDatasets(self):
+
+        metaFileName = self.acquisitionID + '_meta.hdf5'
+
+        self.fullFileName = os.path.join(self.directory, metaFileName)
+        
         self.logger.info("Writing meta data to: %s" % self.fullFileName)
 
         self.hdf5File = h5py.File(self.fullFileName, "w", libver='latest')
@@ -499,17 +501,20 @@ class MetaListener:
 
             if message['msg_val'] == 'status':
                 reply = self.handleStatusMessage(message['id'])
+            elif message['msg_val'] == 'request_configuration':
+                params = message['params']
+                reply = self.handleRequestConfigMessage(params, message['id'])
             elif message['msg_val'] == 'configure':
                 self.logger.debug('handling control configure message')
                 self.logger.debug(message)
                 params = message['params']
                 reply = self.handleConfigureMessageParams(params, message['id'])
             else:
-                reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}, 'timestamp':datetime.now().isoformat(), 'id': message['msg_id']})
+                reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Unknown message value type'}, 'timestamp':datetime.now().isoformat(), 'id': message['id']})
            
         except Exception as err:
             self.logger.error('Unexpected Exception handling control message: ' + str(err))
-            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Error processing control message'}, 'timestamp':datetime.now().isoformat(), 'id': message['msg_id']})
+            reply = json.dumps({'msg_type':'ack','msg_val':message['msg_val'], 'params': {'error':'Error processing control message'}, 'timestamp':datetime.now().isoformat(), 'id': message['id']})
         receiver.send(id, zmq.SNDMORE)
         receiver.send(reply)
         
@@ -517,7 +522,7 @@ class MetaListener:
         statusDict = {}
         for key in self.writers:
             writer = self.writers[key]
-            statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning, 'written': writer.writeCount, 'finished':writer.finished}
+            statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning, 'written': writer.writeCount, 'writing':not writer.finished}
             writer.writeTimeoutCount = writer.writeTimeoutCount + 1
             
         params = {'output':statusDict}
@@ -531,6 +536,28 @@ class MetaListener:
               if value.numberProcessorsRunning == 0 and value.writeTimeoutCount > 10 and value.fileCreated:
                   self.logger.info('Force stopping stagnant acquisition: ' + str(key))
                   value.stop()
+
+        return reply
+      
+    def handleRequestConfigMessage(self, req_params, msg_id):
+        params = {}
+        
+        if 'acquisition_id' in req_params:
+          acquisitionID = req_params['acquisition_id']
+          if acquisitionID in self.writers:
+            writer = self.writers[acquisitionID]
+            params['directory'] = writer.directory
+            params['flushFrequency'] = writer.flushFrequency
+          else:
+            params['directory'] = ""
+            params['flushFrequency'] = ""
+            
+            
+        params['inputs'] = self.inputs
+        params['default_directory'] = self.directory
+        params['ctrl_port'] = self.ctrl_port
+        params['blockSize'] = self.blockSize
+        reply = json.dumps({'msg_type':'ack', 'msg_val':'request_configuration', 'params': params, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
 
         return reply
         
@@ -549,17 +576,18 @@ class MetaListener:
                     acquisitionExists = True
                 else:
                     self.logger.info('Writer not in writers for acquisition [' + str(acquisitionID) + ']')
-                    acquisitionExists = False
+                    self.logger.info('Creating new acquisition [' + str(acquisitionID) + '] with default directory ' + str(self.directory))
+                    self.createNewAcquisition(self.directory, acquisitionID)
+                    acquisitionExists = True
                     
                 if 'output_dir' in params:
-                    if acquisitionExists == False:
-                        self.logger.info('Creating new acquisition [' + str(acquisitionID) + '] with output directory ' + str(params['output_dir']))
-                        self.createNewAcquisition(params['output_dir'], acquisitionID)
+                    if acquisitionExists == True:
+                        self.logger.info('Setting acquisition [' + str(acquisitionID) + '] directory to ' + str(params['output_dir']))
+                        self.writers[acquisitionID].directory = params['output_dir']
                         reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
-                        acquisitionExists = True
                     else:
-                        self.logger.info('File already created for acquisition_id: ' + str(acquisitionID))
-                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'File already created for acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
+                        self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
+                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
                 
                 if 'flush' in params:
                     if acquisitionExists == True:

@@ -19,15 +19,15 @@ class MetaListenerClient(IpcClient):
         self.update_monitors()
         return self.acquisitions[acquisition_id]["written"]
 
-    def request_finished(self, acquisition_id):
+    def request_writing(self, acquisition_id):
         self.update_monitors()
-        return self.acquisitions[acquisition_id]["finished"]
+        return self.acquisitions[acquisition_id]["writing"]
 
     def update_monitors(self):
         reply = self.request_status()
             
         self.acquisitions = reply["output"]
-        self.writing = any(not self.acquisitions[acq_id]["finished"]
+        self.writing = any(self.acquisitions[acq_id]["writing"]
                            for acq_id in self.acquisitions.keys())
 
     def configure_output_dir(self, output_dir, acquisition_id):
