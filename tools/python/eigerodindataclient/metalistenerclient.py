@@ -26,7 +26,7 @@ class MetaListenerClient(IpcClient):
     def update_monitors(self):
         reply = self.request_status()
             
-        self.acquisitions = reply["output"]
+        self.acquisitions = reply["acquisitions"]
         self.writing = any(self.acquisitions[acq_id]["writing"]
                            for acq_id in self.acquisitions.keys())
 

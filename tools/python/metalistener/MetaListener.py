@@ -525,7 +525,7 @@ class MetaListener:
             statusDict[key] = {'filename':writer.fullFileName, 'num_processors':writer.numberProcessorsRunning, 'written': writer.writeCount, 'writing':not writer.finished}
             writer.writeTimeoutCount = writer.writeTimeoutCount + 1
             
-        params = {'output':statusDict}
+        params = {'acquisitions':statusDict}
         reply = json.dumps({'msg_type':'ack', 'msg_val':'status', 'params': params, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
         
         # Now delete any finsihed acquisitions, and stop any stagnant ones
@@ -541,18 +541,13 @@ class MetaListener:
       
     def handleRequestConfigMessage(self, req_params, msg_id):
         params = {}
-        
-        if 'acquisition_id' in req_params:
-          acquisitionID = req_params['acquisition_id']
-          if acquisitionID in self.writers:
-            writer = self.writers[acquisitionID]
-            params['directory'] = writer.directory
-            params['flushFrequency'] = writer.flushFrequency
-          else:
-            params['directory'] = ""
-            params['flushFrequency'] = ""
+
+        acquisitionsDict = {}
+        for key in self.writers:
+            writer = self.writers[key]
+            acquisitionsDict[key] = {'directory':writer.directory, 'flushFrequency':writer.flushFrequency}
             
-            
+        params['acquisitions'] = acquisitionsDict    
         params['inputs'] = self.inputs
         params['default_directory'] = self.directory
         params['ctrl_port'] = self.ctrl_port
