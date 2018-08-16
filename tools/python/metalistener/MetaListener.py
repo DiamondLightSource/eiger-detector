@@ -9,10 +9,9 @@ from datetime import datetime
 
 class MetaWriter:
 
-    def __init__(self, directory, logger, acquisitionID, blockSize):
+    def __init__(self, directory, logger, acquisitionID):
         self.logger = logger
         self.acquisitionID = acquisitionID
-        self.blockSize = blockSize
         self.numberProcessorsRunning = 0
         self.frameOffsetDict = {}
         self.frameDataDict = {}
@@ -423,11 +422,10 @@ class MetaWriter:
       
 class MetaListener:
   
-    def __init__(self, directory, inputs, ctrl, blockSize):
+    def __init__(self, directory, inputs, ctrl):
         self.inputs = inputs
         self.directory = directory
         self.ctrl_port = str(ctrl)
-        self.blockSize = int(blockSize)
         self.writers = {}
         self.killRequested = False
         
@@ -545,13 +543,12 @@ class MetaListener:
         acquisitionsDict = {}
         for key in self.writers:
             writer = self.writers[key]
-            acquisitionsDict[key] = {'directory':writer.directory, 'flushFrequency':writer.flushFrequency}
+            acquisitionsDict[key] = {'output_dir':writer.directory, 'flush':writer.flushFrequency}
             
         params['acquisitions'] = acquisitionsDict    
         params['inputs'] = self.inputs
         params['default_directory'] = self.directory
         params['ctrl_port'] = self.ctrl_port
-        params['blockSize'] = self.blockSize
         reply = json.dumps({'msg_type':'ack', 'msg_val':'request_configuration', 'params': params, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
 
         return reply
@@ -703,7 +700,7 @@ class MetaListener:
                   
         # Now create new acquisition          
         self.logger.info('Creating new acquisition for: ' + str(acquisitionID))
-        self.writers[acquisitionID] = MetaWriter(directory, self.logger, acquisitionID, self.blockSize)
+        self.writers[acquisitionID] = MetaWriter(directory, self.logger, acquisitionID)
         
         # Then check if we have built up too many finished acquisitions and delete them if so
         if len(self.writers) > 3:

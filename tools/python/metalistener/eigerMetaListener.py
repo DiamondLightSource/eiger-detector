@@ -14,7 +14,6 @@ def options():
     parser.add_argument("-i", "--inputs", default="tcp://127.0.0.1:5558", help="Input enpoints - comma separated list")
     parser.add_argument("-d", "--directory", default="/tmp/", help="Default directory to write meta data files to")
     parser.add_argument("-c", "--ctrl", default="5659", help="Control channel port to listen on")
-    parser.add_argument("-b", "--blocksize", default=1, help="Block size within the data files")
     parser.add_argument("--logserver", default="graylog2.diamond.ac.uk:12210", help="logserver address and :port")
     parser.add_argument("--staticlogfields", default=None, help="comma separated list of key=value fields to be attached to every log message")
     args = parser.parse_args()
@@ -35,7 +34,7 @@ def main():
     add_logger("meta_listener", {"level": "INFO", "propagate": True})
     setup_logging()
 
-    mh = MetaListener(args.directory, args.inputs, args.ctrl, args.blocksize)
+    mh = MetaListener(args.directory, args.inputs, args.ctrl)
 
     mh.run()
 
