@@ -2,10 +2,11 @@ TOOLS_SUPPORT=/dls_sw/prod/tools/RHEL6-x86_64
 CMAKE = $(TOOLS_SUPPORT)/cmake/3-3-0
 LOG4CXX = $(TOOLS_SUPPORT)/log4cxx/0-10-0dls1
 ZEROMQ = $(TOOLS_SUPPORT)/zeromq/3-2-4
-ODIN_DATA = $(TOOLS_SUPPORT)/odin-data/0-4-0dls1
+ODINDATA = $(TOOLS_SUPPORT)/odin-data/0-4-0dls1
 
 PYTHON = $(TOOLS_SUPPORT)/Python/2-7-3
 H5PY = $(TOOLS_SUPPORT)/h5py/2-8-0
 NUMPY  = $(TOOLS_SUPPORT)/numpy/1-11-1
 PYZMQ  = $(TOOLS_SUPPORT)/pyzmq/16-0-2dls2
 PYGELF  = $(TOOLS_SUPPORT)/pygelf/0-3-1dls1
+ODINCONTROL = $(TOOLS_SUPPORT)/../../common/python/RHEL6-x86_64/odin-control/0-3-0dls1
