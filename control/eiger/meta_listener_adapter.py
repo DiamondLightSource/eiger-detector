@@ -20,18 +20,28 @@ class MetaListenerAdapter(OdinDataAdapter):
         self.acquisitions = []
         # These parameters are stored under an acquisition tree, so we need to
         # parse out the parameters for the acquisition we have stored
-        self._acquisition_parameters = {
-            "status/filename": "",
-            "status/num_processors": "",
-            "status/writing": "",
-            "status/written": "",
-            "config/output_dir": "",
-            "config/flush": ""
-        }
+        self._acquisition_parameters = [
+            "status/filename",
+            "status/num_processors",
+            "status/writing",
+            "status/written",
+            "config/output_dir",
+            "config/flush"
+        ]
 
         # Parameters must be created before base init called
         super(MetaListenerAdapter, self).__init__(**kwargs)
         self._client = self._clients[0]  # We only have one client
+
+    def _map_acquisition_parameter(self, path):
+        """Map acquisition parameter path string to full uri item list"""
+        # Replace the first slash with acquisitions/<acquisitionID>/
+        # E.g. status/filename -> status/acquisitions/<acquisitionID>/filename
+        full_path = path.replace(
+            "/", "/acquisitions/{}/".format(self.acquisitionID),
+            1  # First slash only
+        )
+        return full_path.split("/")  # Return list of uri items
 
     @request_types('application/json')
     @response_types('application/json', default='application/json')
@@ -52,14 +62,18 @@ class MetaListenerAdapter(OdinDataAdapter):
         if path == "config/acquisition_id":
             response["value"] = self.acquisitionID
         elif path == "config/acquisitions":
-            response["value"] = "," .join(self.acquisitions)
+            acquisition_tree = self.traverse_parameters(
+                self._clients[0].parameters,
+                ["config", "acquisitions"]
+            )
+            response["value"] = "," .join(acquisition_tree.keys())
         elif path in self._acquisition_parameters:
             response["value"] = None
             if self.acquisitionID:
-                full_path = path.replace(
-                    "/", "/acquisitions/{}/".format(self.acquisitionID), 1)
                 response["value"] = self.traverse_parameters(
-                    self._client.parameters, full_path.split("/"))
+                    self._client.parameters,
+                    self._map_acquisition_parameter(path)
+                )
         else:
             return super(MetaListenerAdapter, self).get(path, request)
 
@@ -116,11 +130,9 @@ class MetaListenerAdapter(OdinDataAdapter):
                 status_code = 503
                 response = {'error': OdinDataAdapter.ERROR_FAILED_TO_SEND}
         elif path in self._acquisition_parameters:
-            # Update the stored parameter on the expected path
-            self._acquisition_parameters[path] = value
             # Send the PUT request on with the acquisitionID attached
             try:
-                parameter = path.split("/")[-1]
+                parameter = path.split("/", 1)[-1]  # Remove 'config/'
                 config = {
                     "acquisition_id": self.acquisitionID,
                     parameter: value
@@ -139,7 +151,7 @@ class MetaListenerAdapter(OdinDataAdapter):
     def process_updates(self):
         """Handle additional background update loop tasks
 
-        Reset acquisitionID if it finishes writing
+        Reset acquisitionID if it finishes writing.
 
         """
         if self.acquisitionID:
