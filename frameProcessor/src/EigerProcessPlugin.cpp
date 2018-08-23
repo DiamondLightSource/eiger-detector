@@ -54,12 +54,12 @@ namespace FrameProcessor
 	  rapidjson::Document document;
 	  document.SetObject();
 
-      // Add Acquisition ID
-      std::string acqIDString(hdrPtr->acquisitionID);
-      rapidjson::Value keyAcqID("acqID", document.GetAllocator());
-      rapidjson::Value valueAcqID;
-      valueAcqID.SetString(acqIDString.c_str(), acqIDString.length(), document.GetAllocator());
-      document.AddMember(keyAcqID, valueAcqID, document.GetAllocator());
+    // Add Acquisition ID
+    std::string acqIDString(hdrPtr->acquisitionID);
+    rapidjson::Value keyAcqID("acqID", document.GetAllocator());
+    rapidjson::Value valueAcqID;
+    valueAcqID.SetString(acqIDString.c_str(), acqIDString.length(), document.GetAllocator());
+    document.AddMember(keyAcqID, valueAcqID, document.GetAllocator());
 
 	  if (hdrPtr->messageType == Eiger::IMAGE_DATA) {
 
@@ -73,6 +73,10 @@ namespace FrameProcessor
       setFrameDataType(data_frame, hdrPtr);
       setFrameDimensions(data_frame, hdrPtr);
       data_frame->set_acquisition_id(hdrPtr->acquisitionID);
+
+      // Set the frame UID parameter to the frame number
+      uint64_t uid = hdrPtr->frame_number;
+      data_frame->set_parameter("UID", uid);
 
       // Add Frame number
       rapidjson::Value keyFrame("frame", document.GetAllocator());
@@ -304,7 +308,7 @@ namespace FrameProcessor
     dims.push_back(hdrPtr->shapeSizeY);
     dims.push_back(hdrPtr->shapeSizeX);
 
-    frame->set_dimensions("data", dims);
+    frame->set_dimensions(dims);
   }
 
 } /* namespace FrameProcessor */
