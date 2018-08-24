@@ -313,7 +313,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
 				int64_t frame(frameValue.GetInt64());
 				// If on the first frame, set the current offset to any configured offset
 				if (frame == 0) {
-					currentOffset = configuredOffset % config.num_consumers;
+					currentOffset = configuredOffset;
 					configuredOffset = 0;
 					lastFrameSent = 0;
 				}
