@@ -5,6 +5,7 @@ import json
 import os
 import logging
 import sys
+import time
 from datetime import datetime
 
 class MetaWriter:
@@ -29,6 +30,8 @@ class MetaWriter:
         self.currentFrameCount = 0
         self.writeTimeoutCount = 0
         self.flushFrequency = 100
+        self.flushTimeout = None
+        self.lastFlushed = time.time()
         self.needToWriteData = False
         self.arraysCreated = False
         self.fileCreated = False
@@ -370,7 +373,14 @@ class MetaWriter:
         self.writeCount = self.writeCount + 1
         self.needToWriteData = True
         
-        if (self.writeCount % self.flushFrequency == 0):
+        flush = False
+        if self.flushTimeout is not None:
+          if (time.time() - self.lastFlushed) >= self.flushTimeout:
+            flush = True
+        elif (self.writeCount % self.flushFrequency) == 0:
+          flush = True
+          
+        if flush:
           self.writeToDatasetsFromArrays()
           
         # Reset timeout count to 0
@@ -413,6 +423,8 @@ class MetaWriter:
             self.frameSeriesDset.flush()
             self.frameWrittenDset.flush()
             self.offsetWrittenDset.flush()
+            
+            self.lastFlushed = time.time()
                                          
             self.needToWriteData = False
     
@@ -585,6 +597,15 @@ class MetaListener:
                     if acquisitionExists == True:
                         self.logger.info('Setting acquisition [' + str(acquisitionID) + '] flush to ' + str(params['flush']))
                         self.writers[acquisitionID].flushFrequency = params['flush']
+                        reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
+                    else:
+                        self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
+                        reply = json.dumps({'msg_type':'nack','msg_val':'configure', 'params': {'error':'No current acquisition with acquisition_id: ' + str(acquisitionID)}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
+    
+                if 'flush_timeout' in params:
+                    if acquisitionExists == True:
+                        self.logger.info('Setting acquisition [' + str(acquisitionID) + '] flush timeout to ' + str(params['flush_timeout']))
+                        self.writers[acquisitionID].flushTimeout = params['flush_timeout']
                         reply = json.dumps({'msg_type':'ack','msg_val':'configure', 'params': {}, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
                     else:
                         self.logger.info('No acquisition for acquisition_id: ' + str(acquisitionID))
