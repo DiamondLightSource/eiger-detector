@@ -75,7 +75,7 @@ class FrameProcessorClient(IpcClient):
             self.writing = fw_status["writing"]
             # self.datasets = fw_status["datasets"]
             self.frames_max = fw_status["frames_max"]
-            self.frames_written = fw_status["frames_written"]
+            self.frames_written = fw_status["frames_processed"]
             self.current_acquisition = fw_status["acquisition_id"]
         else:
             self.writing = False
@@ -142,6 +142,8 @@ class FrameProcessorClient(IpcClient):
     def load_plugin(self, plugin):
         if plugin == self.FILE_WRITER:
             self.load_file_writer_plugin(plugin)
+        elif plugin == "offset":
+            self.load_offset_adjustment_plugin(plugin)
         else:
             library, name = self.parse_plugin_definition(
                 plugin, self.LIBRARIES[plugin])
@@ -164,6 +166,18 @@ class FrameProcessorClient(IpcClient):
                 "library": os.path.join(self.ODIN_DATA_DIR, "libHdf5Plugin.so"),
                 "index": index,
                 "name": "FileWriterPlugin",
+            },
+        }
+        self.send_configuration(config, self.PLUGIN,
+                                valid_error="Cannot load plugin with index = "
+                                            "{}, already loaded".format(index))
+
+    def load_offset_adjustment_plugin(self, index):
+        config = {
+            "load": {
+                "library": os.path.join(self.ODIN_DATA_DIR, "libOffsetAdjustmentPlugin.so"),
+                "index": index,
+                "name": "OffsetAdjustmentPlugin",
             },
         }
         self.send_configuration(config, self.PLUGIN,
@@ -208,10 +222,12 @@ class FrameProcessorClient(IpcClient):
             "dataset": {
                 name: {
                     "datatype": int(dtype),
-                    "dims": dimensions
+                    "indexes": True
                 }
             }
         }
+        if dimensions is not None:
+            config["dataset"][name]["dims"] = dimensions
         if chunks is not None:
             config["dataset"][name]["chunks"] = chunks
         if compression is not None:

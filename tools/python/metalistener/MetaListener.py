@@ -538,7 +538,7 @@ class MetaListener:
         params = {'acquisitions':statusDict}
         reply = json.dumps({'msg_type':'ack', 'msg_val':'status', 'params': params, 'timestamp':datetime.now().isoformat(), 'id': msg_id})
         
-        # Now delete any finsihed acquisitions, and stop any stagnant ones
+        # Now delete any finished acquisitions, and stop any stagnant ones
         for key, value in self.writers.items():
             if value.finished == True:
                 del self.writers[key]
