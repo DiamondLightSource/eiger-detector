@@ -102,6 +102,8 @@ class MetaListenerAdapter(OdinDataAdapter):
 
         if path == "config/acquisition_id":
             self.acquisitionID = value
+            # Set inactive so process_updates doesn't clear acquisition ID
+            self.acquisition_active = False
             # Send the PUT request
             try:
                 config = {
