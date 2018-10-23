@@ -68,12 +68,16 @@ class MetaListenerAdapter(OdinDataAdapter):
             )
             response["value"] = "," .join(acquisition_tree.keys())
         elif path in self._acquisition_parameters:
-            response["value"] = None
             if self.acquisitionID:
                 response["value"] = self.traverse_parameters(
                     self._client.parameters,
                     self._map_acquisition_parameter(path)
                 )
+            elif path == "status/writing":
+                # Must return False, not None, if acquisition does not exist
+                response["value"] = False
+            else:
+                response["value"] = None
         else:
             return super(MetaListenerAdapter, self).get(path, request)
 
@@ -131,6 +135,8 @@ class MetaListenerAdapter(OdinDataAdapter):
                 logging.error("Error: %s", err)
                 status_code = 503
                 response = {'error': OdinDataAdapter.ERROR_FAILED_TO_SEND}
+            self.acquisitionID = ""
+            self.acquisition_active = False
         elif path in self._acquisition_parameters:
             # Send the PUT request on with the acquisitionID attached
             try:
