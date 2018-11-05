@@ -10,6 +10,10 @@
 namespace FrameReceiver
 {
 
+const std::string EigerFrameDecoder::CONFIG_DETECTOR_MODEL = "detector_model";
+const std::string EigerFrameDecoder::DETECTOR_MODEL_4M = "4M";
+const std::string EigerFrameDecoder::DETECTOR_MODEL_16M = "16M";
+
 /**
  * Constructor
  */
@@ -19,8 +23,7 @@ EigerFrameDecoder::EigerFrameDecoder() :
                     current_frame_buffer_id_(-1),
                     current_frame_buffer_(0),
                     dropping_frame_data_(false),
-                    frame_timeout_ms_(1000),
-                    frames_timedout_(0),
+                    buffer_size(Eiger::frame_size_16M),
                     frames_dropped_(0),
                     frames_allocated_(0),
                     currentMessagePart(1),
@@ -28,8 +31,8 @@ EigerFrameDecoder::EigerFrameDecoder() :
                     currentParentMessageType(Eiger::PARENT_MESSAGE_TYPE_GLOBAL),
                     numHeaderMessagesToExpect(1)
 {
-  current_raw_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
-  dropped_frame_buffer_.reset(new uint8_t[Eiger::raw_buffer_size]);
+  current_raw_buffer_.reset(new uint8_t[Eiger::frame_size_16M]); // Use biggest frame size possible
+  dropped_frame_buffer_.reset(new uint8_t[Eiger::frame_size_16M]); // Use biggest frame size possible
 }
 
 /**
@@ -45,9 +48,27 @@ void EigerFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config_msg
 	FrameDecoder::init(logger, config_msg);
 	LOG4CXX_INFO(logger_, "Eiger frame decoder init called");
 
-    if (enable_packet_logging_) {
-        LOG4CXX_INFO(packet_logger_, "Logging incoming data");
+	LOG4CXX_DEBUG_LEVEL(2, logger_, "Got decoder config message: " << config_msg.encode());
+
+  // Extract the detector model from the configuration message and set buffer size accordingly
+  if (config_msg.has_param(CONFIG_DETECTOR_MODEL))
+  {
+    detector_model_ = config_msg.get_param<std::string>(CONFIG_DETECTOR_MODEL);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Detector model set to " << detector_model_);
+    if (detector_model_ == DETECTOR_MODEL_4M)
+    {
+      buffer_size = Eiger::frame_size_4M;
     }
+    else if (detector_model_ == DETECTOR_MODEL_16M)
+    {
+      buffer_size = Eiger::frame_size_16M;
+    }
+    else
+    {
+      LOG4CXX_ERROR(packet_logger_, "Unrecognised detector model: " << detector_model_);
+    }
+  }
+
 }
 
 /**
@@ -64,7 +85,7 @@ EigerFrameDecoder::~EigerFrameDecoder()
  */
 const size_t EigerFrameDecoder::get_frame_buffer_size(void) const
 {
-    return Eiger::frame_size;
+  return buffer_size;
 }
 
 /**
@@ -99,16 +120,6 @@ void* EigerFrameDecoder::get_next_message_buffer(void)
 }
 
 /**
- * Gets the size of the next payload
- *
- * \return The next payload size
- */
-size_t EigerFrameDecoder::get_next_payload_size(void) const
-{
-    return Eiger::raw_buffer_size;
-}
-
-/**
  * Processes the message in the current buffer
  *
  * \param[in] bytes_received The number of bytes received
@@ -134,6 +145,7 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_message(size_t bytes_
 				currentParentMessageType = Eiger::PARENT_MESSAGE_TYPE_GLOBAL;
 				// Reset the dropped frame count to start fresh for this acquisition
 				frames_dropped_ = 0;
+				frames_timedout_ = 0; // TODO take out when base decoder has frames dropped variable
 				frames_allocated_ = 0;
 				// Get the series number from the message
 				rapidjson::Value& seriesValue = jsonDocument[Eiger::SERIES_KEY.c_str()];
@@ -432,64 +444,10 @@ void EigerFrameDecoder::frame_meta_data(int meta)
  */
 void EigerFrameDecoder::monitor_buffers(void)
 {
-    int frames_timedout = 0;
-    struct timespec current_time;
-
-    gettime(&current_time);
-
-    // Loop over frame buffers currently in map and check their state
-    std::map<int, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
-    while (buffer_map_iter != frame_buffer_map_.end())
-    {
-        int frame_num = buffer_map_iter->first;
-        int buffer_id = buffer_map_iter->second;
-        void* buffer_addr = buffer_manager_->get_buffer_address(buffer_id);
-//        LATRD::FrameHeader* frame_header = reinterpret_cast<LATRD::FrameHeader*>(buffer_addr);
-
-//        if (elapsed_ms(frame_header->frame_start_time, current_time) > frame_timeout_ms_)
-//        {
-//            LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame " << frame_num << " in buffer " << buffer_id
-//                    << " addr 0x" << std::hex << buffer_addr << std::dec
-//                    << " timed out with " << frame_header->packets_received << " packets received");
-//
-//            frame_header->frame_state = FrameReceiveStateTimedout;
-//            ready_callback_(buffer_id, frame_num);
-//            frames_timedout++;
-//
-//            frame_buffer_map_.erase(buffer_map_iter++);
-//        }
-//        else
-//        {
-            buffer_map_iter++;
-//        }
-    }
-    if (frames_timedout)
-    {
-        LOG4CXX_WARN(logger_, "Released " << frames_timedout << " timed out incomplete frames");
-    }
-    frames_timedout_ += frames_timedout;
-
     LOG4CXX_DEBUG_LEVEL(2, logger_, get_num_empty_buffers() << " empty buffers available. "
     		<< "Frames in the last acquisition: "
 			<< frames_allocated_ << " allocated, "
 			<< frames_dropped_ << " dropped");
-
-}
-
-/**
- * Timing helper function to get elapsed time
- *
- * \param[in] start The start time
- * \param[in] end The end time
- * \return THe elapsed time
- */
-unsigned int EigerFrameDecoder::elapsed_ms(struct timespec& start, struct timespec& end)
-{
-
-    double start_ns = ((double)start.tv_sec * 1000000000) + start.tv_nsec;
-    double end_ns   = ((double)  end.tv_sec * 1000000000) +   end.tv_nsec;
-
-    return (unsigned int)((end_ns - start_ns)/1000000);
 }
 
 /**
@@ -505,9 +463,11 @@ void EigerFrameDecoder::allocate_next_frame_buffer(void) {
 				LOG4CXX_ERROR(logger_, "Frame data detected but no free buffers available. Dropping data for frame " << current_frame_number_);
 				dropping_frame_data_ = true;
 				frames_dropped_++;
+        frames_timedout_++; // TODO take out when base decoder has frames dropped variable
 			} else {
 				LOG4CXX_ERROR(logger_, "Frame data detected but still no free buffers available. Dropping data for frame " << current_frame_number_);
 				frames_dropped_++;
+        frames_timedout_++; // TODO take out when base decoder has frames dropped variable
 			}
 		} else {
 			current_frame_buffer_id_ = empty_buffer_queue_.front();
@@ -562,6 +522,16 @@ void EigerFrameDecoder::get_status(const std::string param_prefix,
 {
   status_msg.set_param(param_prefix + "name", std::string("EigerFrameDecoder"));
   status_msg.set_param(param_prefix + "frames_dropped", frames_dropped_);
+}
+
+void EigerFrameDecoder::request_configuration(const std::string param_prefix,
+    OdinData::IpcMessage& config_reply)
+{
+  // Call the base class method to populate parameters
+  FrameDecoder::request_configuration(param_prefix, config_reply);
+
+  // Add current configuration parameters to reply
+  config_reply.set_param(param_prefix + CONFIG_DETECTOR_MODEL, detector_model_);
 }
 
 } /* namespace FrameReceiver */

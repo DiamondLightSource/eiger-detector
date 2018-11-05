@@ -40,6 +40,7 @@ public:
 
     void monitor_buffers(void);
     void get_status(const std::string param_prefix, OdinData::IpcMessage& status_msg);
+    void request_configuration(const std::string param_prefix, OdinData::IpcMessage& config_reply);
 
     void* get_packet_header_buffer(void);
 
@@ -65,8 +66,9 @@ private:
 
     bool dropping_frame_data_;
 
-    unsigned int frame_timeout_ms_;
-    unsigned int frames_timedout_;
+    std::string detector_model_;
+    size_t buffer_size;
+
     unsigned int frames_dropped_;
     unsigned int frames_allocated_;
 
@@ -77,6 +79,10 @@ private:
     rapidjson::Document jsonDocument;
 
     Eiger::FrameHeader currentHeader;
+
+    static const std::string CONFIG_DETECTOR_MODEL;
+    static const std::string DETECTOR_MODEL_4M;
+    static const std::string DETECTOR_MODEL_16M;
 };
 
 } /* namespace FrameReceiver */
