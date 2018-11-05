@@ -39,6 +39,7 @@ protected:
 	void HandleImageDataMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
 	void HandleEndOfSeriesMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
 	void HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank);
+  void HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_t &socket);
 	void HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage);
 	void SendMessageToAllConsumers(zmq::message_t &message, int flags = 0);
 	void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
@@ -55,6 +56,7 @@ private:
 	EigerFanConfig config;
 	zmq::context_t ctx_;
 	zmq::socket_t controlSocket;
+  zmq::socket_t forwardSocket;
 	std::vector<EigerConsumer> consumers;
 
 	bool killRequested;
@@ -65,6 +67,7 @@ private:
 	uint64_t lastFrameSent;
 	int configuredOffset;
 	int currentOffset;
+	int numConnectedForwardingSockets;
 };
 
 
