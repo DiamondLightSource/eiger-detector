@@ -311,4 +311,29 @@ namespace FrameProcessor
     frame->set_dimensions(dims);
   }
 
+  int EigerProcessPlugin::get_version_major()
+  {
+    return EIGER_DETECTOR_VERSION_MAJOR;
+  }
+
+  int EigerProcessPlugin::get_version_minor()
+  {
+    return EIGER_DETECTOR_VERSION_MINOR;
+  }
+
+  int EigerProcessPlugin::get_version_patch()
+  {
+    return EIGER_DETECTOR_VERSION_PATCH;
+  }
+
+  std::string EigerProcessPlugin::get_version_short()
+  {
+    return EIGER_DETECTOR_VERSION_STR_SHORT;
+  }
+
+  std::string EigerProcessPlugin::get_version_long()
+  {
+    return EIGER_DETECTOR_VERSION_STR;
+  }
+
 } /* namespace FrameProcessor */

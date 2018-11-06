@@ -9,6 +9,7 @@
 #define INCLUDE_EIGERDEFINITIONS_H_
 
 #include <stdint.h>
+#include "version.h"
 
 namespace Eiger {
 

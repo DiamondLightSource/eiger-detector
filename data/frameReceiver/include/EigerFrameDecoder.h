@@ -44,6 +44,12 @@ public:
 
     void* get_packet_header_buffer(void);
 
+    int get_version_major();
+    int get_version_minor();
+    int get_version_patch();
+    std::string get_version_short();
+    std::string get_version_long();
+
 private:
 
     unsigned int elapsed_ms(struct timespec& start, struct timespec& end);

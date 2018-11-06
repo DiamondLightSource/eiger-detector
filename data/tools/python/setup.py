@@ -7,6 +7,7 @@ from dls_dependency_tree import tree as parser
 import os
 import sys
 import ConfigParser
+import versioneer
 from setuptools import setup, find_packages
 
 def get_dependency(module_root, dependecy):
@@ -35,7 +36,8 @@ def get_requirements():
   return required
 
 setup(name='eiger-data',
-      version="1.3",
+      version=versioneer.get_version(),
+      cmdclass=versioneer.get_cmdclass(),
       description='Eiger Meta Data Filewriter',
       author='Matt Taylor',
       author_email='matthew.taylor@diamond.ac.uk',

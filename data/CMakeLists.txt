@@ -16,6 +16,8 @@ set(FRAMERECEIVER_DIR ${eigerdetector_SOURCE_DIR}/frameReceiver)
 set(FRAMEPROCESSOR_DIR ${eigerdetector_SOURCE_DIR}/frameProcessor)
 # Set the tools directory
 set(TOOLS_DIR ${eigerdetector_SOURCE_DIR}/tools)
+# Set the common directory
+set(COMMON_DIR ${eigerdetector_SOURCE_DIR}/common)
 
 # Appends the cmake/modules path inside the MAKE_MODULE_PATH variable which stores the
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):
@@ -28,6 +30,21 @@ find_package( Boost 1.41.0
 find_package(Log4CXX 0.10.0 REQUIRED)
 find_package(ZeroMQ 3.2.4 REQUIRED)
 find_package(OdinData REQUIRED)
+
+message("Determining eiger-detector version")
+include(GetGitRevisionDescription)
+git_describe(GIT_DESC_STR)
+string(REGEX REPLACE "^([0-9]+)[\\.-].*" "\\1" VERSION_MAJOR "${GIT_DESC_STR}")
+string(REGEX REPLACE "^[0-9]+[\\.-]([0-9]+).*" "\\1" VERSION_MINOR "${GIT_DESC_STR}")
+string(REGEX REPLACE "^[0-9]+[\\.-][0-9]+[\\.-]([0-9]+).*" "\\1" VERSION_PATCH "${GIT_DESC_STR}")
+string(REGEX REPLACE "^[0-9]+[\\.-][0-9]+[\\.-][0-9]+-[0-9]+-(.*)" "\\1" VERSION_SHA1 "${GIT_DESC_STR}")
+set(VERSION_SHORT "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+set(VERSION_STR ${GIT_DESC_STR})
+message("-- Git describe version: ${GIT_DESC_STR}")
+message("-- major:${VERSION_MAJOR} minor:${VERSION_MINOR} patch:${VERSION_PATCH} sha1:${VERSION_SHA1}")
+message("-- short version: ${VERSION_SHORT}")
+configure_file(${COMMON_DIR}/include/version.h.in "${CMAKE_BINARY_DIR}/include/version.h")
+include_directories(${CMAKE_BINARY_DIR}/include)
 
 # Add include directory to include path
 include_directories(${eigerdetector_SOURCE_DIR}/include)

@@ -892,6 +892,50 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       oss << "{\"msg_type\":\"ack\",\"msg_val\":\"request_configuration\", \"params\": " << buffer.GetString() << "}";
       replyString.assign(oss.str());
 
+    } else if (command.compare("request_version") == 0) {
+
+      rapidjson::Document document;
+      document.SetObject();
+
+      rapidjson::Document versionDocument;
+      versionDocument.SetObject();
+
+      rapidjson::Document subDocument;
+      subDocument.SetObject();
+
+      // Add Eiger channel address
+      rapidjson::Value keyFull("full", subDocument.GetAllocator());
+      rapidjson::Value valueFull(EIGER_DETECTOR_VERSION_STR, subDocument.GetAllocator());
+      subDocument.AddMember(keyFull, valueFull, subDocument.GetAllocator());
+      // Add Eiger channel address
+      rapidjson::Value keyMajor("major", subDocument.GetAllocator());
+      rapidjson::Value valueMajor(EIGER_DETECTOR_VERSION_MAJOR);
+      subDocument.AddMember(keyMajor, valueMajor, subDocument.GetAllocator());
+      // Add Eiger channel address
+      rapidjson::Value keyMinor("minor", subDocument.GetAllocator());
+      rapidjson::Value valueMinor(EIGER_DETECTOR_VERSION_MINOR);
+      subDocument.AddMember(keyMinor, valueMinor, subDocument.GetAllocator());
+      // Add Eiger channel address
+      rapidjson::Value keyPatch("patch", subDocument.GetAllocator());
+      rapidjson::Value valuePatch(EIGER_DETECTOR_VERSION_PATCH);
+      subDocument.AddMember(keyPatch, valuePatch, subDocument.GetAllocator());
+      // Add Eiger channel address
+      rapidjson::Value keyShort("short", subDocument.GetAllocator());
+      rapidjson::Value valueShort(EIGER_DETECTOR_VERSION_STR_SHORT, subDocument.GetAllocator());
+      subDocument.AddMember(keyShort, valueShort, subDocument.GetAllocator());
+
+      versionDocument.AddMember("eiger-detector", subDocument, versionDocument.GetAllocator());
+      document.AddMember("version", versionDocument, document.GetAllocator());
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+
+      document.Accept(writer);
+
+      std::ostringstream oss;
+      oss << "{\"msg_type\":\"ack\",\"msg_val\":\"request_version\", \"params\": " << buffer.GetString() << "}";
+      replyString.assign(oss.str());
+
     } else if (command.compare(CONTROL_CONFIGURE) == 0) {
 			LOG4CXX_DEBUG(log, std::string("Handling Control Configure Message: ").append(jsonCommand));
 

@@ -534,4 +534,29 @@ void EigerFrameDecoder::request_configuration(const std::string param_prefix,
   config_reply.set_param(param_prefix + CONFIG_DETECTOR_MODEL, detector_model_);
 }
 
+int EigerFrameDecoder::get_version_major()
+{
+  return EIGER_DETECTOR_VERSION_MAJOR;
+}
+
+int EigerFrameDecoder::get_version_minor()
+{
+  return EIGER_DETECTOR_VERSION_MINOR;
+}
+
+int EigerFrameDecoder::get_version_patch()
+{
+  return EIGER_DETECTOR_VERSION_PATCH;
+}
+
+std::string EigerFrameDecoder::get_version_short()
+{
+  return EIGER_DETECTOR_VERSION_STR_SHORT;
+}
+
+std::string EigerFrameDecoder::get_version_long()
+{
+  return EIGER_DETECTOR_VERSION_STR;
+}
+
 } /* namespace FrameReceiver */
