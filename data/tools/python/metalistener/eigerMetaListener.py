@@ -1,4 +1,6 @@
 import argparse
+import sys
+import os
 
 from pkg_resources import require
 require('pygelf==0.3.1')
@@ -35,7 +37,9 @@ def main():
     add_graylog_handler(logserver, logserverport, static_fields=static_fields)
     add_logger("meta_listener", {"level": "INFO", "propagate": True})
     setup_logging()
-
+    
+    sys.path.append(os.path.dirname(os.path.realpath(__file__))) # TODO temp workaround for file path issue
+    
     mh = MetaListener(args.directory, args.inputs, args.ctrl, "eiger_meta_writer.EigerMetaWriter")
 
     mh.run()
