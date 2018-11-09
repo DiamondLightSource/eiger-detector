@@ -65,6 +65,7 @@ private:
 	int currentConsumerIndexToSendTo;
 	std::string currentAcquisitionID;
 	uint64_t lastFrameSent;
+  uint64_t num_frames_sent;
 	int configuredOffset;
 	int currentOffset;
 	int numConnectedForwardingSockets;

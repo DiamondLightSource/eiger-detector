@@ -45,6 +45,7 @@ EigerFan::EigerFan()
 	currentSeries = 0;
 	currentConsumerIndexToSendTo = 0;
 	lastFrameSent = 0;
+	num_frames_sent = 0;
 	configuredOffset = 0;
 	currentOffset = 0;
 	numConnectedForwardingSockets = 0;
@@ -67,6 +68,7 @@ EigerFan::EigerFan(EigerFanConfig config_)
 	currentSeries = 0;
 	currentConsumerIndexToSendTo = 0;
 	lastFrameSent = 0;
+	num_frames_sent = 0;
 	configuredOffset = 0;
 	currentOffset = 0;
   numConnectedForwardingSockets = 0;
@@ -361,20 +363,20 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
 			std::string htype(headerTypeValue.GetString());
 			if (htype.compare(GLOBAL_HEADER_TYPE) == 0) {
 				HandleGlobalHeaderMessage(message, socket);
+        // At the start of an acquisition so set the current offset to any configured offset
+        currentOffset = configuredOffset;
+        configuredOffset = 0;
+        lastFrameSent = 0;
+        num_frames_sent = 0;
 			} else if (htype.compare(IMAGE_HEADER_TYPE) == 0) {
 				rapidjson::Value& frameValue = jsonDocument[FRAME_KEY.c_str()];
 				int64_t frame(frameValue.GetInt64());
-				// If on the first frame, set the current offset to any configured offset
-				if (frame == 0) {
-					currentOffset = configuredOffset;
-					configuredOffset = 0;
-					lastFrameSent = 0;
-				}
         currentConsumerIndexToSendTo = ((frame + currentOffset) / config.block_size) % config.num_consumers;
 				HandleImageDataMessage(message, socket);
 				if (frame > lastFrameSent) {
 					lastFrameSent = frame;
 				}
+				num_frames_sent++;
 			} else if (htype.compare(END_HEADER_TYPE) == 0) {
 				HandleEndOfSeriesMessage(message, socket);
 				state = WAITING_STREAM;
@@ -818,6 +820,11 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
 			rapidjson::Value keyFrame("frame", document.GetAllocator());
 			rapidjson::Value valueFrame(lastFrameSent);
 			document.AddMember(keyFrame, valueFrame, document.GetAllocator());
+
+      // Add Number of Frames sent
+      rapidjson::Value keyFrame("frames_sent", document.GetAllocator());
+      rapidjson::Value valueFrame(num_frames_sent);
+      document.AddMember(keyFrame, valueFrame, document.GetAllocator());
 
 			// Add current offset being applied to the fan distribution
 			rapidjson::Value keyOffset("fan_offset", document.GetAllocator());
