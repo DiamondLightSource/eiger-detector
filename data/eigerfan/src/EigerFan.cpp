@@ -822,9 +822,9 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
 			document.AddMember(keyFrame, valueFrame, document.GetAllocator());
 
       // Add Number of Frames sent
-      rapidjson::Value keyFrame("frames_sent", document.GetAllocator());
-      rapidjson::Value valueFrame(num_frames_sent);
-      document.AddMember(keyFrame, valueFrame, document.GetAllocator());
+      rapidjson::Value keyFramesSent("frames_sent", document.GetAllocator());
+      rapidjson::Value valueFramesSent(num_frames_sent);
+      document.AddMember(keyFramesSent, valueFramesSent, document.GetAllocator());
 
 			// Add current offset being applied to the fan distribution
 			rapidjson::Value keyOffset("fan_offset", document.GetAllocator());
