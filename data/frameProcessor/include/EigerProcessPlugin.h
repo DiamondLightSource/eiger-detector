@@ -63,6 +63,6 @@ namespace FrameProcessor
    */
   REGISTER(FrameProcessorPlugin, EigerProcessPlugin, "EigerProcessPlugin");
 
-} /* namespace filewriter */
+} /* namespace FrameProcessor */
 
 #endif /* TOOLS_FILEWRITER_EIGERPROCESSPLUGIN_H_ */

@@ -29,9 +29,9 @@ int delay_adjustment = 70000;
 
 void my_free (void *data, void *hint)
 {
-    // We've allocated the buffer using malloc and
-    // at this point we deallocate it using free.
-    free (data);
+  // We've allocated the buffer using malloc and
+  // at this point we deallocate it using free.
+  free (data);
 }
 
 /**
@@ -50,37 +50,37 @@ int main (int argc, char *argv[]) {
     return rc;
   }
 
-	std::string bindAddress("tcp://*:");
-	bindAddress.append(port);
+  std::string bindAddress("tcp://*:");
+  bindAddress.append(port);
 
-	std::cout << "Binding to " << bindAddress << "..." << std::endl;
+  std::cout << "Binding to " << bindAddress << "..." << std::endl;
 
-	zmq::context_t context(1);
+  zmq::context_t context(1);
 
-	// Setup socket to send messages on
-	zmq::socket_t socket(context, ZMQ_PUSH);
-	socket.bind(bindAddress.c_str());
+  // Setup socket to send messages on
+  zmq::socket_t socket(context, ZMQ_PUSH);
+  socket.bind(bindAddress.c_str());
 
-	std::cout << "Socket bound, press enter to send header..." << std::endl;
+  std::cout << "Socket bound, press enter to send header..." << std::endl;
 
-	getchar();
+  getchar();
 
-	sendHeader(socket, acquisition_id);
+  sendHeader(socket, acquisition_id);
 
   std::cout << "Press enter to send data..." << std::endl;
 
   getchar();
 
-	sendImageData(socket, file_pattern, frames, hertz);
+  sendImageData(socket, file_pattern, frames, hertz);
 
-	sendEndOfSeries(socket);
+  sendEndOfSeries(socket);
 
-	std::cout << "Finished Sending messages" << std::endl;
+  std::cout << "Finished Sending messages" << std::endl;
 
-	// Give 0MQ time to deliver
-	sleep (1);
+  // Give 0MQ time to deliver
+  sleep (1);
 
-	return 0;
+  return 0;
 }
 
 void sendHeader(zmq::socket_t& sender, std::string acq_id) {
@@ -295,31 +295,31 @@ int parse_arguments(int argc, char** argv)
     // Declare a group of options that will allowed only on the command line
     po::options_description generic("Generic options");
     generic.add_options()
-        ("help,h",
-          "Print this help message")
-        ("version,v",
-          "Print program version string")
-        ("config,c",po::value<std::string>(&config_file),
-          "Specify program configuration file")
-        ;
+            ("help,h",
+                "Print this help message")
+            ("version,v",
+                "Print program version string")
+            ("config,c",po::value<std::string>(&config_file),
+                "Specify program configuration file")
+            ;
 
     // Declare a group of options that will be allowed both on the command line
     // and in the configuration file
     po::options_description config("Configuration options");
     config.add_options()
-        ("acqid,a", po::value<std::string>()->default_value(acquisition_id),
-          "Set the acquisition ID")
-        ("filepattern,f", po::value<std::string>()->default_value(file_pattern),
-          "Set the file pattern to read the data from")
-        ("frames,n", po::value<unsigned int>()->default_value(frames),
-          "Set the number of frames to send")
-        ("hertz,z", po::value<unsigned int>()->default_value(hertz),
-          "Set the acquisition speed in hertz")
-        ("delay,d", po::value<unsigned int>()->default_value(delay_adjustment),
-          "Set the delay adjustment in nanoseconds")
-        ("port,p", po::value<std::string>()->default_value(port),
-          "Set the port to bind to")
-        ;
+            ("acqid,a", po::value<std::string>()->default_value(acquisition_id),
+                "Set the acquisition ID")
+            ("filepattern,f", po::value<std::string>()->default_value(file_pattern),
+                "Set the file pattern to read the data from")
+            ("frames,n", po::value<unsigned int>()->default_value(frames),
+                "Set the number of frames to send")
+            ("hertz,z", po::value<unsigned int>()->default_value(hertz),
+                "Set the acquisition speed in hertz")
+            ("delay,d", po::value<unsigned int>()->default_value(delay_adjustment),
+                "Set the delay adjustment in nanoseconds")
+            ("port,p", po::value<std::string>()->default_value(port),
+                "Set the port to bind to")
+            ;
 
     // Group the variables for parsing at the command line and/or from the configuration file
     po::options_description cmdline_options;

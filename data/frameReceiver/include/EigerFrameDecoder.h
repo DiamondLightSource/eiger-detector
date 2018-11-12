@@ -24,12 +24,12 @@
 namespace FrameReceiver
 {
 
-class EigerFrameDecoder : public FrameDecoderZMQ
-{
-public:
-	EigerFrameDecoder();
-	virtual ~EigerFrameDecoder();
-	void init(LoggerPtr& logger, OdinData::IpcMessage& config_msg);
+  class EigerFrameDecoder : public FrameDecoderZMQ
+  {
+  public:
+    EigerFrameDecoder();
+    virtual ~EigerFrameDecoder();
+    void init(LoggerPtr& logger, OdinData::IpcMessage& config_msg);
     const size_t get_frame_buffer_size(void) const;
     const size_t get_frame_header_size(void) const;
 
@@ -50,7 +50,7 @@ public:
     std::string get_version_short();
     std::string get_version_long();
 
-private:
+  private:
 
     unsigned int elapsed_ms(struct timespec& start, struct timespec& end);
     void allocate_next_frame_buffer(void);
@@ -89,7 +89,7 @@ private:
     static const std::string CONFIG_DETECTOR_MODEL;
     static const std::string DETECTOR_MODEL_4M;
     static const std::string DETECTOR_MODEL_16M;
-};
+  };
 
 } /* namespace FrameReceiver */
 

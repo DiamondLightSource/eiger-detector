@@ -11,11 +11,11 @@
 
 namespace FrameReceiver
 {
-    /**
-     * Registration of this decoder through the ClassLoader.  This macro
-     * registers the class without needing to worry about name mangling
-     */
-    REGISTER(FrameDecoder, EigerFrameDecoder, "EigerFrameDecoder");
+  /**
+   * Registration of this decoder through the ClassLoader.  This macro
+   * registers the class without needing to worry about name mangling
+   */
+  REGISTER(FrameDecoder, EigerFrameDecoder, "EigerFrameDecoder");
 
 } // namespace FrameReceiver
 
