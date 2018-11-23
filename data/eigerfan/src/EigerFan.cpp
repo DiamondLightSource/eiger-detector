@@ -750,7 +750,7 @@ void EigerFan::HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_
 
   if (event == ZMQ_EVENT_ACCEPTED) {
     numConnectedForwardingSockets++;
-    LOG4CXX_INFO(log, "Forwarding socket connected ( " << numConnectedForwardingSockets << ")");
+    LOG4CXX_INFO(log, "Forwarding socket connected (" << numConnectedForwardingSockets << ")");
 
     if (WAITING_CONSUMERS != state) {
       LOG4CXX_ERROR(log, "Forwarding socket connected whilst in state: " << GetStateString(state));
@@ -758,7 +758,7 @@ void EigerFan::HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_
 
   } else if (event == ZMQ_EVENT_DISCONNECTED) {
     numConnectedForwardingSockets--;
-    LOG4CXX_WARN(log, "Forwarding socket disconnected ( " << numConnectedForwardingSockets << ")");
+    LOG4CXX_WARN(log, "Forwarding socket disconnected (" << numConnectedForwardingSockets << ")");
     if (WAITING_CONSUMERS != state) {
       LOG4CXX_ERROR(log, "Forwarding socket disconnected whilst in state: " << GetStateString(state));
     }
@@ -899,7 +899,7 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       oss << "{\"msg_type\":\"ack\",\"msg_val\":\"request_configuration\", \"params\": " << buffer.GetString() << "}";
       replyString.assign(oss.str());
 
-    } else if (command.compare("request_version") == 0) {
+    } else if (command.compare(CONTROL_REQ_VERSION) == 0) {
 
       rapidjson::Document document;
       document.SetObject();
