@@ -38,16 +38,11 @@ def get_requirements():
 setup(name='eiger-data',
       version=versioneer.get_version(),
       cmdclass=versioneer.get_cmdclass(),
-      description='Eiger Meta Data Filewriter',
+      description='Eiger Data',
       author='Matt Taylor',
       author_email='matthew.taylor@diamond.ac.uk',
       packages=find_packages(),
       install_requires=get_requirements(),
-      entry_points={
-        'console_scripts': [
-            'eigerMetaListener = metalistener.eigerMetaListener:main',
-         ]
-      },
       zip_safe=False,
       package_data={'': ['frameprocessorclient.cfg']}
 )
