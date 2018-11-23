@@ -9,12 +9,15 @@ using namespace log4cxx;
 using namespace log4cxx::helpers;
 
 #include <boost/shared_ptr.hpp>
+#include <boost/optional.hpp>
 #include <map>
 #include <string>
 #include <stdexcept>
 
 #include "ClassLoader.h"
 #include "FrameSimulatorPlugin.h"
+
+#include <zmq/zmq.hpp>
 
 namespace FrameSimulator {
 
@@ -40,6 +43,18 @@ namespace FrameSimulator {
 
         /** Pointer to logger **/
         LoggerPtr logger_;
+
+        void sendHeader(zmq::socket_t& sender, std::string acq_id);
+        void sendEndOfSeries(zmq::socket_t& sender);
+        void sendImageData(zmq::socket_t& sender, std::string file_pattern, int frames, int hertz);
+        void SendFileMessage(zmq::socket_t &socket, std::string filePath, bool more);
+        std::string getSingleLineFromFile(std::string file);
+
+        boost::optional<std::string> filepath;
+        std::string filepattern;
+        std::string acquisitionID;
+        int delay_adjustment;
+        std::vector<std::string> dest_ports;
 
     };
 
