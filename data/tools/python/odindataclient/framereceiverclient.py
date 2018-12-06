@@ -19,7 +19,7 @@ class FrameReceiverClient(IpcClient):
     def update_monitors(self):
         status = self.request_status()
         self.free_buffers = status["buffers"]["empty"]
-        self.frames_dropped = status["decoder"]["frames_dropped"]
+        self.frames_dropped = status["frames"]["dropped"]
 
     def configure_shared_memory(self, shared_memory, ready, release):
         config = {

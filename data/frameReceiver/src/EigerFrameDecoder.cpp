@@ -24,7 +24,6 @@ EigerFrameDecoder::EigerFrameDecoder() :
                         current_frame_buffer_(0),
                         dropping_frame_data_(false),
                         buffer_size(Eiger::frame_size_16M),
-                        frames_dropped_(0),
                         frames_allocated_(0),
                         currentMessagePart(1),
                         currentMessageType(Eiger::GLOBAL_HEADER_NONE),
@@ -144,8 +143,6 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_message(size_t bytes_
       if (htype.compare(Eiger::GLOBAL_HEADER_TYPE) == 0) {
         currentParentMessageType = Eiger::PARENT_MESSAGE_TYPE_GLOBAL;
         // Reset the dropped frame count to start fresh for this acquisition
-        frames_dropped_ = 0;
-        frames_timedout_ = 0; // TODO take out when base decoder has frames dropped variable
         frames_allocated_ = 0;
         // Get the series number from the message
         rapidjson::Value& seriesValue = jsonDocument[Eiger::SERIES_KEY.c_str()];
@@ -463,11 +460,9 @@ void EigerFrameDecoder::allocate_next_frame_buffer(void) {
         LOG4CXX_ERROR(logger_, "Frame data detected but no free buffers available. Dropping data for frame " << current_frame_number_);
         dropping_frame_data_ = true;
         frames_dropped_++;
-        frames_timedout_++; // TODO take out when base decoder has frames dropped variable
       } else {
         LOG4CXX_ERROR(logger_, "Frame data detected but still no free buffers available. Dropping data for frame " << current_frame_number_);
         frames_dropped_++;
-        frames_timedout_++; // TODO take out when base decoder has frames dropped variable
       }
     } else {
       current_frame_buffer_id_ = empty_buffer_queue_.front();
@@ -521,7 +516,6 @@ void EigerFrameDecoder::get_status(const std::string param_prefix,
     OdinData::IpcMessage& status_msg)
 {
   status_msg.set_param(param_prefix + "name", std::string("EigerFrameDecoder"));
-  status_msg.set_param(param_prefix + "frames_dropped", frames_dropped_);
 }
 
 void EigerFrameDecoder::request_configuration(const std::string param_prefix,

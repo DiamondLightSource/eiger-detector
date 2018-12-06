@@ -75,7 +75,6 @@ namespace FrameReceiver
     std::string detector_model_;
     size_t buffer_size;
 
-    unsigned int frames_dropped_;
     unsigned int frames_allocated_;
 
     Eiger::EigerMessageType currentMessageType;
