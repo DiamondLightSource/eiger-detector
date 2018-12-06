@@ -24,7 +24,7 @@ tests_require = [
 
 setup(
     name="eiger-control",
-    version=1.3,
+    version=1.3.1,
     description="Eiger plugins for the Odin control framework",
     url="https://github.com/dls-controls/eiger-detector",
     author="Gary Yendell",
