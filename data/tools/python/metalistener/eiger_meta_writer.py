@@ -382,6 +382,7 @@ class EigerMetaWriter(MetaWriter):
         if self._hdf5_file is not None:
             self._logger.info('Closing file ' + self.full_file_name)
             self._hdf5_file.close()
+            self._logger.info('Meta frames written: ' + str(self._current_frame_count) + ' of ' + str(self._num_frames_to_write))
             self._hdf5_file = None
 
         self.finished = True
