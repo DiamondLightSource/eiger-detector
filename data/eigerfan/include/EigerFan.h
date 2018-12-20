@@ -35,9 +35,9 @@ public:
   void SetNumberOfConsumers(int number);
 protected:
   void HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
-  void HandleGlobalHeaderMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
-  void HandleImageDataMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
-  void HandleEndOfSeriesMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
+  void HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket);
+  void HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket);
+  void HandleEndOfSeriesMessage(boost::shared_ptr<zmq::socket_t> socket);
   void HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank);
   void HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_t &socket);
   void HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage);
@@ -45,8 +45,7 @@ protected:
   void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
   void SendMessageToSingleConsumer(zmq::message_t &message, int flags = 0);
   void SendFabricatedEndMessage();
-  std::string AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messageAppendix);
-  std::string AddAcquisitionIDToPart1(std::string acquisitionID);
+  std::string AddAcquisitionIDToPart1();
   int GetNumberOfConnectedConsumers();
   bool ExpectedConsumersConnected();
 
@@ -63,6 +62,7 @@ private:
   Eiger::EigerFanState state;
   int currentSeries;
   int currentConsumerIndexToSendTo;
+  std::string configuredAcquisitionID;
   std::string currentAcquisitionID;
   uint64_t lastFrameSent;
   uint64_t num_frames_sent;

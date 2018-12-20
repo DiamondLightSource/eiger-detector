@@ -354,7 +354,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
   try {
     std::string smessage(static_cast<char*>(message.data()), message.size());
 
-    // Interpret the message as a JSON string
+    // Interpret the message as a JSON string and store in the global json document
     jsonDocument.Parse(smessage.c_str());
     if (jsonDocument.HasParseError()) {
       LOG4CXX_ERROR(log, "Error parsing stream message into json");
@@ -362,23 +362,25 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
       rapidjson::Value& headerTypeValue = jsonDocument[HEADER_TYPE_KEY.c_str()];
       std::string htype(headerTypeValue.GetString());
       if (htype.compare(GLOBAL_HEADER_TYPE) == 0) {
-        HandleGlobalHeaderMessage(message, socket);
         // At the start of an acquisition so set the current offset to any configured offset
         currentOffset = configuredOffset;
         configuredOffset = 0;
         lastFrameSent = 0;
         num_frames_sent = 0;
+        currentAcquisitionID = configuredAcquisitionID;
+        // Handle Message
+        HandleGlobalHeaderMessage(socket);
       } else if (htype.compare(IMAGE_HEADER_TYPE) == 0) {
         rapidjson::Value& frameValue = jsonDocument[FRAME_KEY.c_str()];
         int64_t frame(frameValue.GetInt64());
         currentConsumerIndexToSendTo = ((frame + currentOffset) / config.block_size) % config.num_consumers;
-        HandleImageDataMessage(message, socket);
+        HandleImageDataMessage(socket);
         if (frame > lastFrameSent) {
           lastFrameSent = frame;
         }
         num_frames_sent++;
       } else if (htype.compare(END_HEADER_TYPE) == 0) {
-        HandleEndOfSeriesMessage(message, socket);
+        HandleEndOfSeriesMessage(socket);
         state = WAITING_STREAM;
       } else {
         LOG4CXX_ERROR(log, std::string("Unknown header type ").append(htype));
@@ -409,176 +411,162 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
  *
  * This is a multipart message sent by the Eiger at the start of an acquisition and can contain different amounts of meta data
  *
- * \param[in] messagePart1 The first part of the message
  * \param[in] socket The socket that the message was received on
  */
-void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, boost::shared_ptr<zmq::socket_t> socket) {
+void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket) {
   std::vector<zmq::message_t*> messageList;
 
-  std::string part1json(static_cast<char*>(messagePart1.data()), messagePart1.size());
-  LOG4CXX_INFO(log, std::string("Received Global Header message: ").append(part1json));
+  // Add the Acquisition ID to part 1 for easier downstream processing
+  std::string part1WithAcquisitionID = AddAcquisitionIDToPart1();
+  zmq::message_t newPart1message(part1WithAcquisitionID.size());
+  memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
 
-  jsonDocument.Parse(part1json.c_str());
-  if (jsonDocument.HasParseError()) {
-    LOG4CXX_ERROR(log, "Error parsing Global Header message into json");
-  } else {
-    rapidjson::Value& seriesValue = jsonDocument[SERIES_KEY.c_str()];
-    currentSeries = seriesValue.GetInt();
+  LOG4CXX_INFO(log, std::string("Received Global Header message: ").append(part1WithAcquisitionID));
 
-    rapidjson::Value& headerDetailValue = jsonDocument[HEADER_DETAIL_KEY.c_str()];
-    std::string headerDetail(headerDetailValue.GetString());
+  rapidjson::Value& seriesValue = jsonDocument[SERIES_KEY.c_str()];
+  currentSeries = seriesValue.GetInt();
 
-    if (headerDetail.compare(HEADER_DETAIL_NONE) == 0) {
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more == MORE_MESSAGES) {
-        LOG4CXX_DEBUG(log, "Header has appendix");
-        zmq::message_t messageAppendix;
-        socket->recv(&messageAppendix);
-        // Add the Acquisition ID from the appendix to part 1 for easier downstream processing
-        std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
-        zmq::message_t newPart1message(part1WithAcquisitionID.size());
-        memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
-        messageList.push_back(&newPart1message);
-        messageList.push_back(&messageAppendix);
-        SendMessagesToAllConsumers(messageList);
-      } else {
-        SendMessageToAllConsumers(messagePart1);
-      }
+  rapidjson::Value& headerDetailValue = jsonDocument[HEADER_DETAIL_KEY.c_str()];
+  std::string headerDetail(headerDetailValue.GetString());
 
-    } else if (headerDetail.compare(HEADER_DETAIL_BASIC) == 0) {
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more != MORE_MESSAGES) {
-        LOG4CXX_ERROR(log, "Header only contained 1 part but expected 2 for 'basic' detail");
-        return;
-      }
-
-      zmq::message_t messagePart2;
-      socket->recv(&messagePart2);
-
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more == MORE_MESSAGES) {
-        LOG4CXX_DEBUG(log, "Header has appendix");
-        zmq::message_t messageAppendix;
-        socket->recv(&messageAppendix);
-        // Add the Acquisition ID from the appendix to part 1 for easier downstream processing
-        std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
-        zmq::message_t newPart1message(part1WithAcquisitionID.size());
-        memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
-        messageList.push_back(&newPart1message);
-        messageList.push_back(&messagePart2);
-        messageList.push_back(&messageAppendix);
-        SendMessagesToAllConsumers(messageList);
-      } else {
-        messageList.push_back(&messagePart1);
-        messageList.push_back(&messagePart2);
-        SendMessagesToAllConsumers(messageList);
-      }
-
-    } else if (headerDetail.compare(HEADER_DETAIL_ALL) == 0) {
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more != MORE_MESSAGES) {
-        LOG4CXX_ERROR(log, "Header only contained 1 part but expected 8 for 'all' detail");
-        return;
-      }
-
-      // Part 2
-      zmq::message_t messagePart2;
-      socket->recv(&messagePart2);
-
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more != MORE_MESSAGES) {
-        LOG4CXX_ERROR(log, "Header only contained 2 part but expected 8 for 'all' detail");
-        return;
-      }
-
-      // Part 3
-      zmq::message_t messagePart3;
-      socket->recv(&messagePart3);
-
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more != MORE_MESSAGES) {
-        LOG4CXX_ERROR(log, "Header only contained 3 part but expected 8 for 'all' detail");
-        return;
-      }
-
-      // Part 4
-      zmq::message_t messagePart4;
-      socket->recv(&messagePart4);
-
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more != MORE_MESSAGES) {
-        LOG4CXX_ERROR(log, "Header only contained 4 part but expected 8 for 'all' detail");
-        return;
-      }
-
-      // Part 5
-      zmq::message_t messagePart5;
-      socket->recv(&messagePart5);
-
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more != MORE_MESSAGES) {
-        LOG4CXX_ERROR(log, "Header only contained 5 part but expected 8 for 'all' detail");
-        return;
-      }
-
-      // Part 6
-      zmq::message_t messagePart6;
-      socket->recv(&messagePart6);
-
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more != MORE_MESSAGES) {
-        LOG4CXX_ERROR(log, "Header only contained 6 part but expected 8 for 'all' detail");
-        return;
-      }
-
-      // Part 7
-      zmq::message_t messagePart7;
-      socket->recv(&messagePart7);
-
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more != MORE_MESSAGES) {
-        LOG4CXX_ERROR(log, "Header only contained 7 part but expected 8 for 'all' detail");
-        return;
-      }
-
-      // Part 8
-      zmq::message_t messagePart8;
-      socket->recv(&messagePart8);
-
-      socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-      if (more == MORE_MESSAGES) {
-        LOG4CXX_DEBUG(log, "Header has appendix");
-        zmq::message_t messageAppendix;
-        socket->recv(&messageAppendix);
-        // Add the Acquisition ID from the appendix to part 1 for easier downstream processing
-        std::string part1WithAcquisitionID = AddAcquisitionIDToPart1FromAppendix(messageAppendix);
-        zmq::message_t newPart1message(part1WithAcquisitionID.size());
-        memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
-        messageList.push_back(&newPart1message);
-        messageList.push_back(&messagePart2);
-        messageList.push_back(&messagePart3);
-        messageList.push_back(&messagePart4);
-        messageList.push_back(&messagePart5);
-        messageList.push_back(&messagePart6);
-        messageList.push_back(&messagePart7);
-        messageList.push_back(&messagePart8);
-        messageList.push_back(&messageAppendix);
-        SendMessagesToAllConsumers(messageList);
-      } else {
-        messageList.push_back(&messagePart1);
-        messageList.push_back(&messagePart2);
-        messageList.push_back(&messagePart3);
-        messageList.push_back(&messagePart4);
-        messageList.push_back(&messagePart5);
-        messageList.push_back(&messagePart6);
-        messageList.push_back(&messagePart7);
-        messageList.push_back(&messagePart8);
-        SendMessagesToAllConsumers(messageList);
-      }
+  if (headerDetail.compare(HEADER_DETAIL_NONE) == 0) {
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more == MORE_MESSAGES) {
+      LOG4CXX_DEBUG(log, "Header has appendix");
+      zmq::message_t messageAppendix;
+      socket->recv(&messageAppendix);
+      messageList.push_back(&newPart1message);
+      messageList.push_back(&messageAppendix);
+      SendMessagesToAllConsumers(messageList);
+    } else {
+      SendMessageToAllConsumers(newPart1message);
     }
-    else {
-      LOG4CXX_ERROR(log, "Unexpected header detail type");
+
+  } else if (headerDetail.compare(HEADER_DETAIL_BASIC) == 0) {
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more != MORE_MESSAGES) {
+      LOG4CXX_ERROR(log, "Header only contained 1 part but expected 2 for 'basic' detail");
+      return;
     }
+
+    zmq::message_t messagePart2;
+    socket->recv(&messagePart2);
+
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more == MORE_MESSAGES) {
+      LOG4CXX_DEBUG(log, "Header has appendix");
+      zmq::message_t messageAppendix;
+      socket->recv(&messageAppendix);
+      messageList.push_back(&newPart1message);
+      messageList.push_back(&messagePart2);
+      messageList.push_back(&messageAppendix);
+      SendMessagesToAllConsumers(messageList);
+    } else {
+      messageList.push_back(&newPart1message);
+      messageList.push_back(&messagePart2);
+      SendMessagesToAllConsumers(messageList);
+    }
+
+  } else if (headerDetail.compare(HEADER_DETAIL_ALL) == 0) {
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more != MORE_MESSAGES) {
+      LOG4CXX_ERROR(log, "Header only contained 1 part but expected 8 for 'all' detail");
+      return;
+    }
+
+    // Part 2
+    zmq::message_t messagePart2;
+    socket->recv(&messagePart2);
+
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more != MORE_MESSAGES) {
+      LOG4CXX_ERROR(log, "Header only contained 2 part but expected 8 for 'all' detail");
+      return;
+    }
+
+    // Part 3
+    zmq::message_t messagePart3;
+    socket->recv(&messagePart3);
+
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more != MORE_MESSAGES) {
+      LOG4CXX_ERROR(log, "Header only contained 3 part but expected 8 for 'all' detail");
+      return;
+    }
+
+    // Part 4
+    zmq::message_t messagePart4;
+    socket->recv(&messagePart4);
+
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more != MORE_MESSAGES) {
+      LOG4CXX_ERROR(log, "Header only contained 4 part but expected 8 for 'all' detail");
+      return;
+    }
+
+    // Part 5
+    zmq::message_t messagePart5;
+    socket->recv(&messagePart5);
+
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more != MORE_MESSAGES) {
+      LOG4CXX_ERROR(log, "Header only contained 5 part but expected 8 for 'all' detail");
+      return;
+    }
+
+    // Part 6
+    zmq::message_t messagePart6;
+    socket->recv(&messagePart6);
+
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more != MORE_MESSAGES) {
+      LOG4CXX_ERROR(log, "Header only contained 6 part but expected 8 for 'all' detail");
+      return;
+    }
+
+    // Part 7
+    zmq::message_t messagePart7;
+    socket->recv(&messagePart7);
+
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more != MORE_MESSAGES) {
+      LOG4CXX_ERROR(log, "Header only contained 7 part but expected 8 for 'all' detail");
+      return;
+    }
+
+    // Part 8
+    zmq::message_t messagePart8;
+    socket->recv(&messagePart8);
+
+    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+    if (more == MORE_MESSAGES) {
+      LOG4CXX_DEBUG(log, "Header has appendix");
+      zmq::message_t messageAppendix;
+      socket->recv(&messageAppendix);
+      messageList.push_back(&newPart1message);
+      messageList.push_back(&messagePart2);
+      messageList.push_back(&messagePart3);
+      messageList.push_back(&messagePart4);
+      messageList.push_back(&messagePart5);
+      messageList.push_back(&messagePart6);
+      messageList.push_back(&messagePart7);
+      messageList.push_back(&messagePart8);
+      messageList.push_back(&messageAppendix);
+      SendMessagesToAllConsumers(messageList);
+    } else {
+      messageList.push_back(&newPart1message);
+      messageList.push_back(&messagePart2);
+      messageList.push_back(&messagePart3);
+      messageList.push_back(&messagePart4);
+      messageList.push_back(&messagePart5);
+      messageList.push_back(&messagePart6);
+      messageList.push_back(&messagePart7);
+      messageList.push_back(&messagePart8);
+      SendMessagesToAllConsumers(messageList);
+    }
+  }
+  else {
+    LOG4CXX_ERROR(log, "Unexpected header detail type");
   }
 
   if (state != WAITING_STREAM) {
@@ -593,10 +581,9 @@ void EigerFan::HandleGlobalHeaderMessage(zmq::message_t &messagePart1, boost::sh
  *
  * This is a a multipart message sent by the Eiger containing the image and associated meta data
  *
- * \param[in] messagePart1 The first part of the message
  * \param[in] socket The socket that the message was received on
  */
-void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, boost::shared_ptr<zmq::socket_t> socket) {
+void EigerFan::HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket) {
   LOG4CXX_DEBUG(log, "Handling Image Data Message");
 
   socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
@@ -606,7 +593,7 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, boost::share
   }
 
   // Add the current Acquisition ID to part 1 for easier downstream processing
-  std::string part1WithAcquisitionID = AddAcquisitionIDToPart1(currentAcquisitionID);
+  std::string part1WithAcquisitionID = AddAcquisitionIDToPart1();
   zmq::message_t newPart1message(part1WithAcquisitionID.size());
   memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
 
@@ -667,12 +654,11 @@ void EigerFan::HandleImageDataMessage(zmq::message_t &messagePart1, boost::share
  *
  * This is a single message sent by the Eiger at the end of an acquisition
  *
- * \param[in] message The zeromq message
  * \param[in] socket The socket that the message was received on
  */
-void EigerFan::HandleEndOfSeriesMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket) {
+void EigerFan::HandleEndOfSeriesMessage(boost::shared_ptr<zmq::socket_t> socket) {
   LOG4CXX_INFO(log, "Handling EndOfSeries Message");
-  std::string part1WithAcquisitionID = AddAcquisitionIDToPart1(currentAcquisitionID);
+  std::string part1WithAcquisitionID = AddAcquisitionIDToPart1();
   zmq::message_t newPart1message(part1WithAcquisitionID.size());
   memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
   SendMessageToAllConsumers(newPart1message);
@@ -963,6 +949,11 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
           configuredOffset = paramsValue[CONTROL_OFFSET.c_str()].GetInt();
           LOG4CXX_INFO(log, "Offset changed to " << configuredOffset);
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
+        } else if (paramsValue.HasMember(CONTROL_ACQ_ID.c_str())) {
+          // Change the acquisition ID
+          configuredAcquisitionID = paramsValue[CONTROL_ACQ_ID.c_str()].GetString();
+          LOG4CXX_INFO(log, "Acquisition ID changed to " << configuredAcquisitionID);
+          replyString.assign(CONTROL_RESPONSE_OK.c_str());
         } else {
           LOG4CXX_ERROR(log, "No recognised configure parameter");
           replyString.assign(CONTROL_RESPONSE_NOCFGPARAM);
@@ -1203,49 +1194,17 @@ void EigerFan::SetNumberOfConsumers(int number) {
 }
 
 /**
- * Parses the acquisition id from the zeromq message containing the appendix and
- * adds it to the first message part.
- *
- * This is to enable easier downstream processing
- *
- * \param[in] messageAppendix The message containing the appendix with the acquisition id in
- * \return The string of the first message part which now also contains the acquisition id
- */
-std::string EigerFan::AddAcquisitionIDToPart1FromAppendix(zmq::message_t& messageAppendix) {
-  std::string appendixjson(static_cast<char*>(messageAppendix.data()), messageAppendix.size());
-  rapidjson::Document appendixDocument;
-  appendixDocument.Parse(appendixjson.c_str());
-  std::string acquisitionID;
-
-  // Parse acquisitionID from appendix
-  if (appendixDocument.HasParseError()) {
-    LOG4CXX_ERROR(log, "Error parsing Global Header Appendix message into json");
-  } else {
-    if (appendixDocument.HasMember(Eiger::ACQUISITION_ID_KEY.c_str()) == true) {
-      rapidjson::Value& acquisitionIDValue = appendixDocument[ACQUISITION_ID_KEY.c_str()];
-      acquisitionID = acquisitionIDValue.GetString();
-      currentAcquisitionID = acquisitionID;
-      LOG4CXX_INFO(log, "Acquisition ID is [" << currentAcquisitionID << "]");
-    } else {
-      LOG4CXX_WARN(log, "No acquisition ID in global header appendix");
-    }
-  }
-  return AddAcquisitionIDToPart1(acquisitionID);
-}
-
-/**
- * Adds the specified acquisiton ID to the first message part.
+ * Adds the current acquisition ID to the first message part.
  *
  * This is to enable easier downstream processing.
  * This relies on the class variable jsonDocument still containing the
  * first message part.
  *
- * \param[in] acquisitionID The acquisition id
  * \return The string of the first message part which now also contains the acquisition id
  */
-std::string EigerFan::AddAcquisitionIDToPart1(std::string acquisitionID) {
+std::string EigerFan::AddAcquisitionIDToPart1() {
   rapidjson::Value keyAcquisitionID(Eiger::ACQUISITION_ID_KEY.c_str(), jsonDocument.GetAllocator());
-  rapidjson::Value valueAcquisitionID(acquisitionID, jsonDocument.GetAllocator());
+  rapidjson::Value valueAcquisitionID(currentAcquisitionID, jsonDocument.GetAllocator());
   jsonDocument.AddMember(keyAcquisitionID, valueAcquisitionID, jsonDocument.GetAllocator());
 
   rapidjson::StringBuffer buffer;
