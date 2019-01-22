@@ -27,12 +27,19 @@
 
 namespace FrameSimulator {
 
+    /** helper function to free memory in buffer
+     * We've allocated the buffer using malloc and
+     * At this point we deallocate it using free.
+     * @param data
+     * @param hint
+     */
     void my_free(void *data, void *hint) {
-        // We've allocated the buffer using malloc and
-        // at this point we deallocate it using free.
         free(data);
     }
 
+    /** Construct an ExcaliburFrameSimulatorPlugin
+     * setup an instance of the logger
+     */
     EigerFrameSimulatorPlugin::EigerFrameSimulatorPlugin() : FrameSimulatorPlugin() {
 
         // Setup logging for the class
@@ -41,6 +48,10 @@ namespace FrameSimulator {
 
     }
 
+    /** Populate boost program options with appropriate command line options for plugin
+     * /param[out] config - boost::program_options::options_description to populate with
+     * appropriate plugin command line options
+     */
     void EigerFrameSimulatorPlugin::populate_options(po::options_description &config) {
 
         FrameSimulatorPlugin::populate_options(config);
@@ -52,6 +63,14 @@ namespace FrameSimulator {
 
     }
 
+    /** Setup eiger frame simulator plugin class from store of command line options
+     *
+     * \param[in] vm - store of given command line options
+     * \return true (false) if required program options are (not) specified
+     * and the simulator plugin is not ready to use
+     *
+     * Derived plugins must additionally call the base method even if overridden
+     */
     bool EigerFrameSimulatorPlugin::setup(const po::variables_map &vm) {
 
         if (!FrameSimulatorPlugin::setup(vm))
@@ -98,6 +117,9 @@ namespace FrameSimulator {
 
     }
 
+    /** Simulate detector by replaying frames
+     *
+     */
     void EigerFrameSimulatorPlugin::simulate() {
 
         std::string bindAddress("tcp://*:");
@@ -131,6 +153,10 @@ namespace FrameSimulator {
         sleep(1);
     }
 
+    /** Send the header
+     * @param sender - 0MQ socket
+     * @param acq_id - acquisition id
+     */
     void EigerFrameSimulatorPlugin::sendHeader(zmq::socket_t &sender, std::string acq_id) {
 
         LOG4CXX_INFO(logger_, "Sending Header");
@@ -163,6 +189,10 @@ namespace FrameSimulator {
 
     }
 
+    /** Read single line from a file
+     * @param file - file name and path
+     * @return line as std::string
+     */
     std::string EigerFrameSimulatorPlugin::getSingleLineFromFile(std::string file) {
         std::string line;
         std::ifstream myfile(file.c_str());
@@ -177,6 +207,13 @@ namespace FrameSimulator {
         return line;
     }
 
+    /** send the image data
+     *
+     * @param sender - 0MQ socket
+     * @param file_pattern - data in files <file_pattern>_1, <file_pattern>_2, <file_pattern>_3, <file_pattern>_4
+     * @param frames - the number of times to send the image data
+     * @param hertz - frequency at which the frames are sent
+     */
     void
     EigerFrameSimulatorPlugin::sendImageData(zmq::socket_t &sender, std::string file_pattern, int frames, int hertz) {
 
@@ -301,6 +338,9 @@ namespace FrameSimulator {
         free(memblock);
     }
 
+    /** send of of series information
+     * @param sender - 0MQ socket
+     */
     void EigerFrameSimulatorPlugin::sendEndOfSeries(zmq::socket_t &sender) {
 
         LOG4CXX_DEBUG(logger_, "Sending End Of Series");
@@ -314,33 +354,11 @@ namespace FrameSimulator {
         LOG4CXX_DEBUG(logger_, "Sent End Of Series");
     }
 
-    void EigerFrameSimulatorPlugin::SendFileMessage(zmq::socket_t &socket, std::string filePath, bool more) {
-
-        std::streampos size;
-        char *memblock;
-
-        std::ifstream file(filePath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
-        if (file.is_open()) {
-            size = file.tellg();
-            memblock = (char *) malloc(
-                    sizeof(char) * size); // no need to free this. free is called by 'my_free' arg to message
-            file.seekg(0, std::ios::beg);
-            file.read(memblock, size);
-            file.close();
-
-            zmq::message_t message(memblock, size, my_free);
-            memcpy(message.data(), memblock, size);
-
-            if (more) {
-                socket.send(message, ZMQ_SNDMORE);
-            } else {
-                socket.send(message);
-            }
-        } else {
-            LOG4CXX_ERROR(logger_, "Unable to open file " + filePath);
-        }
-    }
-
+    /**
+     * Get the plugin major version number.
+     *
+     * \return minor version number as an integer
+     */
     int EigerFrameSimulatorPlugin::get_version_major() {
         return EIGER_DETECTOR_VERSION_MAJOR;
     }

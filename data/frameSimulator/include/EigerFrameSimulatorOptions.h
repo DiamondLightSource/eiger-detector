@@ -7,6 +7,9 @@
 
 namespace FrameSimulator {
 
+    /** EigerFrameSimulatorPlugin simulator options
+     * specific options for an eiger frame simulator
+     */
     static const FrameSimulatorOption<std::string> opt_path("path", "File path");
     static const FrameSimulatorOption<std::string> opt_acqid("acquisition-id", "Acquisition ID", "test");
     static const FrameSimulatorOption<std::string> opt_filepattern("file-pattern", "File pattern", "streamfile");

@@ -21,6 +21,14 @@ using namespace log4cxx::helpers;
 
 namespace FrameSimulator {
 
+    /** EigerFrameSimulatorPlugin
+     * Simulates an Eiger by sending a stream of data over 0MQ.
+     * Reads in frame data from 4 Eiger files that contain the
+     * 0MQ stream information, with the file name pattern being
+            * specified by a program argument. This one frame is then
+            * sent multiple times, incrementing the frame id each time.
+     *
+     */
     class EigerFrameSimulatorPlugin : public FrameSimulatorPlugin {
 
     public:
