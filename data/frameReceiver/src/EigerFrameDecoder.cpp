@@ -258,11 +258,15 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_global_header_message
     jsonDocument.Parse(temp_buffer);
     // Get the shape
     rapidjson::Value& shapeValue = jsonDocument[Eiger::SHAPE_KEY.c_str()];
-    if (shapeValue.IsArray()) {
+    if (shapeValue.IsArray() && shapeValue.Size() > 1) {
       rapidjson::Value& s0Value = shapeValue[0];
       rapidjson::Value& s1Value = shapeValue[1];
       currentHeader.shapeSizeX = s0Value.GetInt();
       currentHeader.shapeSizeY = s1Value.GetInt();
+      currentHeader.shapeSizeZ = 0;
+    } else {
+      currentHeader.shapeSizeX = 0;
+      currentHeader.shapeSizeY = 0;
       currentHeader.shapeSizeZ = 0;
     }
     // Get the data type
@@ -281,11 +285,15 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_global_header_message
     jsonDocument.Parse(temp_buffer);
     // Get the shape
     rapidjson::Value& shapeValue = jsonDocument[Eiger::SHAPE_KEY.c_str()];
-    if (shapeValue.IsArray()) {
+    if (shapeValue.IsArray() && shapeValue.Size() > 1) {
       rapidjson::Value& s0Value = shapeValue[0];
       rapidjson::Value& s1Value = shapeValue[1];
       currentHeader.shapeSizeX = s0Value.GetInt();
       currentHeader.shapeSizeY = s1Value.GetInt();
+      currentHeader.shapeSizeZ = 0;
+    } else {
+      currentHeader.shapeSizeX = 0;
+      currentHeader.shapeSizeY = 0;
       currentHeader.shapeSizeZ = 0;
     }
     // Get the data type
@@ -304,11 +312,15 @@ FrameDecoder::FrameReceiveState EigerFrameDecoder::process_global_header_message
     jsonDocument.Parse(temp_buffer);
     // Get the shape
     rapidjson::Value& shapeValue = jsonDocument[Eiger::SHAPE_KEY.c_str()];
-    if (shapeValue.IsArray()) {
+    if (shapeValue.IsArray() && shapeValue.Size() > 1) {
       rapidjson::Value& s0Value = shapeValue[0];
       rapidjson::Value& s1Value = shapeValue[1];
       currentHeader.shapeSizeX = s0Value.GetInt();
       currentHeader.shapeSizeY = s1Value.GetInt();
+      currentHeader.shapeSizeZ = 0;
+    } else {
+      currentHeader.shapeSizeX = 0;
+      currentHeader.shapeSizeY = 0;
       currentHeader.shapeSizeZ = 0;
     }
     // Get the data type
