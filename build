@@ -1,5 +1,5 @@
 PROGRAM=eiger-detector
-VERSION=1-4-2
+VERSION=1-4-3
 TAR_FILE=none
 
 build()
