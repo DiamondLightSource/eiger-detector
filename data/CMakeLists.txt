@@ -15,7 +15,7 @@ set(FRAMERECEIVER_DIR ${eigerdetector_SOURCE_DIR}/frameReceiver)
 # Set the frameProcessor directory
 set(FRAMEPROCESSOR_DIR ${eigerdetector_SOURCE_DIR}/frameProcessor)
 # Set the frameSimulator directory
-set(FRAMESIMULATOR_DIR ${eigerdetector_SOURCE_DIR}/frameSimulator)
+#set(FRAMESIMULATOR_DIR ${eigerdetector_SOURCE_DIR}/frameSimulator)
 # Set the tools directory
 set(TOOLS_DIR ${eigerdetector_SOURCE_DIR}/tools)
 # Set the common directory
@@ -62,7 +62,7 @@ add_subdirectory(${FRAMERECEIVER_DIR})
 # Add the frameProcessor subdirectory
 add_subdirectory(${FRAMEPROCESSOR_DIR})
 # Add the frameSimulator subdirectory
-add_subdirectory(${FRAMESIMULATOR_DIR})
+#add_subdirectory(${FRAMESIMULATOR_DIR})
 # Add the tools subdirectory
 add_subdirectory(${TOOLS_DIR})
 
