@@ -49,6 +49,7 @@ EigerFan::EigerFan()
   configuredOffset = 0;
   currentOffset = 0;
   numConnectedForwardingSockets = 0;
+  forwardStream = false;
 }
 
 /**
@@ -72,6 +73,7 @@ EigerFan::EigerFan(EigerFanConfig config_)
   configuredOffset = 0;
   currentOffset = 0;
   numConnectedForwardingSockets = 0;
+  forwardStream = false;
 }
 
 /**
@@ -876,6 +878,12 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       rapidjson::Value valueOffset(configuredOffset);
       document.AddMember(keyOffset, valueOffset, document.GetAllocator());
 
+      // Add forward stream value
+      rapidjson::Value keyForward(CONTROL_FWD_STREAM, document.GetAllocator());
+      rapidjson::Value valueForward;
+      valueForward.SetBool(forwardStream);
+      document.AddMember(keyForward, valueForward, document.GetAllocator());
+
       rapidjson::StringBuffer buffer;
       rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 
@@ -954,6 +962,11 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
           configuredAcquisitionID = paramsValue[CONTROL_ACQ_ID.c_str()].GetString();
           LOG4CXX_INFO(log, "Acquisition ID changed to " << configuredAcquisitionID);
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
+        } else if (paramsValue.HasMember(CONTROL_FWD_STREAM.c_str())) {
+          // Change whether to forward the stream or not
+          forwardStream = paramsValue[CONTROL_FWD_STREAM.c_str()].GetBool();
+          LOG4CXX_INFO(log, "Forward stream changed to " << forwardStream);
+          replyString.assign(CONTROL_RESPONSE_OK.c_str());
         } else {
           LOG4CXX_ERROR(log, "No recognised configure parameter");
           replyString.assign(CONTROL_RESPONSE_NOCFGPARAM);
@@ -1013,7 +1026,7 @@ void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
   int numConsumersToSendTo = config.num_consumers;
 
   //Send the message to the forwarding stream
-  if (numConnectedForwardingSockets > 0)
+  if (forwardStream && numConnectedForwardingSockets > 0)
   {
     zmq::message_t forwardingMessageCopy;
     forwardingMessageCopy.copy(&message);
@@ -1057,7 +1070,7 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
   int numConsumersToSendTo = config.num_consumers;
 
   //Send the message to the forwarding stream
-  if (numConnectedForwardingSockets > 0)
+  if (forwardStream && numConnectedForwardingSockets > 0)
   {
     for (int messageCount = 0; messageCount < messageListSize; messageCount++)
     {
@@ -1131,7 +1144,7 @@ void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags) {
   LOG4CXX_DEBUG(log, "Sending message to single consumers at index:" << currentConsumerIndexToSendTo);
 
   //Send the message to the forwarding stream
-  if (numConnectedForwardingSockets > 0)
+  if (forwardStream && numConnectedForwardingSockets > 0)
   {
     zmq::message_t forwardingMessageCopy;
     forwardingMessageCopy.copy(&message);

@@ -58,6 +58,7 @@ namespace Eiger {
   const std::string CONTROL_CLOSE = "close";
   const std::string CONTROL_OFFSET = "offset";
   const std::string CONTROL_ACQ_ID = "acqid";
+  const std::string CONTROL_FWD_STREAM = "forward_stream";
 
   const std::string CONTROL_RESPONSE_OK = "{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {}}";
   const std::string CONTROL_RESPONSE_UNABLE = "{\"msg_type\":\"nack\",\"msg_val\":\"configure\", \"params\": {\"error:\":\"Unable to process control command\"}}";

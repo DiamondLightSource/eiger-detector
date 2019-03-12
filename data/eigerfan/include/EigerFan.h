@@ -69,6 +69,7 @@ private:
   int configuredOffset;
   int currentOffset;
   int numConnectedForwardingSockets;
+  bool forwardStream;
 };
 
 
