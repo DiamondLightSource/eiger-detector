@@ -86,6 +86,7 @@ namespace FrameReceiver
     Eiger::FrameHeader currentHeader;
 
     static const std::string CONFIG_DETECTOR_MODEL;
+    static const std::string DETECTOR_MODEL_500K;
     static const std::string DETECTOR_MODEL_4M;
     static const std::string DETECTOR_MODEL_16M;
   };
