@@ -404,7 +404,7 @@ class EigerMetaWriter(MetaWriter):
                 self.close_file()
             else:
                 self._logger.info(
-                    'Not closing file as not all frames written (' + str(self._current_frame_count) + ' of ' + str(
+                    'Not closing file as not all frames written (' + str(self.write_count) + ' of ' + str(
                         self._num_frames_to_write) + ')')
         else:
             self._logger.info('Processor ended, but not the last for acqID ' + str(self._acquisition_id))
