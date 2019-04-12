@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 import versioneer
 
 # Define the required odin-control package version
-required_odin_version = "0.3.1"
+required_odin_version = "0.9.0"
 
 # Define installation requirements based on odin version 
 install_requires = [

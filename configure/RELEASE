@@ -1,12 +1,10 @@
-TOOLS_SUPPORT=/dls_sw/prod/tools/RHEL6-x86_64
-CMAKE = $(TOOLS_SUPPORT)/cmake/3-3-0
-LOG4CXX = $(TOOLS_SUPPORT)/log4cxx/0-10-0dls1
-ZEROMQ = $(TOOLS_SUPPORT)/zeromq/3-2-4
-ODINDATA = $(TOOLS_SUPPORT)/odin-data/1-1-0dls2
+TOOLS_SUPPORT=/dls_sw/prod/tools/RHEL7-x86_64
+CMAKE = $(TOOLS_SUPPORT)/cmake/3-9-6
+LOG4CXX = $(TOOLS_SUPPORT)/log4cxx/0-10-0dls2
+ODINDATA = $(TOOLS_SUPPORT)/odin-data/1-1-0dls3
 
-PYTHON = $(TOOLS_SUPPORT)/Python/2-7-3
-H5PY = $(TOOLS_SUPPORT)/h5py/2-8-0
-NUMPY  = $(TOOLS_SUPPORT)/numpy/1-11-1
-PYZMQ  = $(TOOLS_SUPPORT)/pyzmq/16-0-2dls2
-PYGELF  = $(TOOLS_SUPPORT)/pygelf/0-3-1dls1
-ODINCONTROL = $(TOOLS_SUPPORT)/../../common/python/RHEL6-x86_64/odin-control/0-3-0dls1
+PYTHON = $(TOOLS_SUPPORT)/Python/2-7-13
+H5PY = $(TOOLS_SUPPORT)/h5py/2-9-0
+NUMPY  = $(TOOLS_SUPPORT)/numpy/1-13-1
+PYZMQ  = $(TOOLS_SUPPORT)/pyzmq/17-1-0
+ODINCONTROL = $(TOOLS_SUPPORT)/../../common/python/RHEL7-x86_64/odin-control/0-9-0dls1

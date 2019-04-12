@@ -19,7 +19,7 @@ build()
     # Removing pesky dist dir just in case a previous build is left over
     rm -rf $BUILD_SCRIPT_DIR/tools/python/dist 
 
-    python_depends NUMPY PYZMQ PYGELF H5PY ODINCONTROL ODINDATA
+    python_depends NUMPY PYZMQ H5PY ODINCONTROL ODINDATA
     
     export SRC=$BUILD_SCRIPT_DIR/data/tools/python
     setuptools_build # Defined in Python/CONFIG
