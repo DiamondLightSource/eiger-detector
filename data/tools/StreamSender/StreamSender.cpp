@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <unistd.h>
 
 void my_free (void *data, void *hint)
 {
