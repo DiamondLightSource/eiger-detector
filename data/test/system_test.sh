@@ -1,31 +1,37 @@
 #!/bin/bash
 # System test to create the Eiger processing chain, and use a simulated Eiger to create a data and meta file
 # Arguments:
-# 1 - Odin-data build directory               (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/build)
-# 2 - Eiger build directory                   (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/build-dir)
-# 3 - Eiger test directory                    (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/test/)
-# 4 - Meta Listener directory                 (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/tools/python/)
-# 5 - Directory to write files to             (e.g. /tmp)
+# 1 - Odin-data build directory               (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/build-dir)
+# 2 - Eiger build directory                   (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/data/build-dir)
+# 3 - Odin root directory                     (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/)
+# 4 - Eiger root directory                    (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/eiger-detector/)
+# 5 - Meta Listener directory                 (e.g. /dls_sw/work/tools/RHEL6-x86_64/odin/odin-data/tools/python/odin_data/meta_writer/)
+# 6 - Directory to write files to             (e.g. /tmp)
 
-if [ "$#" -ne 5 ]; then
-    echo "Error: Expecting 5 arguments"
+if [ "$#" -ne 6 ]; then
+    echo "Error: Expecting 6 arguments"
     exit 1
 fi
 
 odinbuilddir=$1
 eigerbuilddir=$2
-eigertestdir=$3
-metalistenerdir=$4
-outputdir=$5
+odinrootdir=$3
+eigerrootdir=$4
+metalistenerdir=$5
+outputdir=$6
+
+
+eigertestdir=$eigerrootdir/data/test/
 
 echo 'Removing any pre-existing files'
 rm $outputdir/test_1_meta.hdf5
-rm $outputdir/sys_test.hdf5
+rm $outputdir/test_1_000001.hdf5
 
 echo 'Starting Meta Listener'
 
 cd $metalistenerdir
-dls-python eigerMetaListener.py -i tcp://127.0.0.1:5558 -d $outputdir &
+export PYTHONPATH=$eigerrootdir/data/tools/python/:$odinrootdir/tools/python/
+meta_writer -w metalistener.eiger_meta_writer.EigerMetaWriter -i tcp://127.0.0.1:5008 -d $outputdir &
 metalistener_pid=$!
 
 sleep 2
@@ -37,10 +43,16 @@ dls-python SendMetaControl.py -d $outputdir &
 
 sleep 2
 
+echo '[{"decoder_type": "Eiger", "decoder_path": "'$eigerbuilddir'/lib","rx_type": "zmq","rx_address": "127.0.0.1","rx_ports": "31600,","decoder_config": {"enable_packet_logging": false,"frame_timeout_ms": 1000,"detector_model": "4M"}}]' > $outputdir/fr1.json
+
+echo '[{"fr_setup":{"fr_ready_cnxn":"tcp://127.0.0.1:5001","fr_release_cnxn":"tcp://127.0.0.1:5002"},"meta_endpoint":"tcp://*:5008"},{"plugin":{"load":{"index":"hdf","name":"FileWriterPlugin","library":"'$odinbuilddir'/lib/libHdf5Plugin.so"}}},{"plugin":{"load":{"index":"eiger","name":"EigerProcessPlugin","library":"'$eigerbuilddir'/lib/libEigerProcessPlugin.so"}}},{"plugin":{"connect":{"index":"eiger","connection":"frame_receiver"}}},{"plugin":{"connect":{"index":"hdf","connection":"eiger"}}},{"hdf":{"dataset":"data"}},{"hdf":{"dataset":{"data":{"datatype":1,"dims":[2167,2070],"compression":2}},"file":{"path":"'$outputdir/'"},"frames":3,"acquisition_id":"test_1","write":true}}]' > $outputdir/fp1.json
+
 echo 'Starting Frame Receiver'
 
+sleep 2
+
 cd $odinbuilddir
-./bin/frameReceiver -t Eiger --path=$eigerbuilddir/lib -m 500000000 -d 3 -p 31600 --rxtype zmq &
+./bin/frameReceiver -m 500000000 --json_file=$outputdir/fr1.json &
 framereceiver_pid=$!
 
 sleep 2
@@ -49,7 +61,7 @@ echo 'Starting Frame Processor'
 
 cd $odinbuilddir
 export HDF5_PLUGIN_PATH=/dls_sw/work/tools/RHEL6-x86_64/hdf5filters/prefix/h5plugin
-./bin/frameProcessor -N --datasets data --dims 2167 2070 --dtype 1 --compression 2 --path $eigerbuilddir/lib --detector Eiger --rank 0 --output sys_test.hdf5 --output-dir $outputdir/ --acqid=test_1 --frames 3 &
+./bin/frameProcessor --json_file=$outputdir/fp1.json &
 frameprocessor_pid=$!
 
 echo 'Starting EigerFan'
@@ -57,6 +69,13 @@ echo 'Starting EigerFan'
 cd $eigerbuilddir/bin/
 ./eigerfan &
 eigerfan_pid=$!
+
+sleep 2
+
+echo 'Configuring Fan'
+
+cd $eigertestdir
+dls-python SendFanControl.py &
 
 sleep 2
 
@@ -87,7 +106,7 @@ alltestspassed=true
 echo ''
 echo '*** Checking files ***'
 
-datasize_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -Hp $outputdir/sys_test.hdf5 | grep DATASPACE)
+datasize_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -Hp $outputdir/test_1_000001.h5 | grep DATASPACE)
 datasize_test="SIMPLE { ( 3, 2167, 2070 ) /"
 
 if [[ "$datasize_output" = *"$datasize_test"* ]]
@@ -99,7 +118,7 @@ else
     alltestspassed=false
 fi 
 
-datafilter_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -Hp $outputdir/sys_test.hdf5 | grep FILTER_ID)
+datafilter_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -Hp $outputdir/test_1_000001.h5 | grep FILTER_ID)
 datafilter_test="FILTER_ID 32008"
 
 if [[ "$datafilter_output" = *"$datafilter_test"* ]]
@@ -111,7 +130,7 @@ else
     alltestspassed=false
 fi 
 
-fw_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d frame_written -p $outputdir/test_1_meta.hdf5 | grep "(0)")
+fw_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d frame_written -p $outputdir/test_1_meta.h5 | grep "(0)")
 
 fw_test="   (0): 0, 1, 2"
 
@@ -124,7 +143,7 @@ else
     alltestspassed=false
 fi 
     
-fr_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d frame -p $outputdir/test_1_meta.hdf5 | grep "(0)")
+fr_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d frame -p $outputdir/test_1_meta.h5 | grep "(0)")
 fr_test="   (0): 0, 1, 2"
 
 if [ "$fr_output" = "$fr_test" ]
@@ -136,7 +155,7 @@ else
     alltestspassed=false
 fi 
 
-ow_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d offset_written -p $outputdir/test_1_meta.hdf5 | grep "(0)")
+ow_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d offset_written -p $outputdir/test_1_meta.h5 | grep "(0)")
 
 ow_test="   (0): 0, 1, 2"
 
@@ -149,7 +168,7 @@ else
     alltestspassed=false
 fi 
 
-cr_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d countrate -Hp $outputdir/test_1_meta.hdf5 | grep "DATASPACE")
+cr_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d countrate -Hp $outputdir/test_1_meta.h5 | grep "DATASPACE")
 
 cr_test="SIMPLE { ( 4000, 2 ) / ( 4000, 2 ) }"
 
@@ -162,7 +181,7 @@ else
     alltestspassed=false
 fi 
 
-se_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d series -p $outputdir/test_1_meta.hdf5 | grep "(0)")
+se_output=$(/dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-1/prefix/bin/h5dump -d series -p $outputdir/test_1_meta.h5 | grep "(0)")
 
 se_test="   (0): 6"
 
