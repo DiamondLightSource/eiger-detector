@@ -49,10 +49,9 @@ namespace FrameProcessor
 
   private:
     void process_frame(boost::shared_ptr<Frame> frame);
-    void setFrameEncoding(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr);
-    void setFrameDataType(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr);
-    void setFrameDimensions(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr);
-
+    void setFrameEncoding(FrameMetaData &frame, const Eiger::FrameHeader* hdrPtr);
+    void setFrameDataType(FrameMetaData &frame, const Eiger::FrameHeader* hdrPtr);
+    void setFrameDimensions(FrameMetaData &frame, const Eiger::FrameHeader* hdrPtr);
     /** Pointer to logger */
     LoggerPtr logger_;
   };

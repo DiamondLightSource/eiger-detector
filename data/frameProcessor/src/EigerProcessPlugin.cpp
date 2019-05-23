@@ -35,7 +35,8 @@ namespace FrameProcessor
    */
   void EigerProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
   {
-    const Eiger::FrameHeader* hdrPtr = static_cast<const Eiger::FrameHeader*>(frame->get_data());
+    const Eiger::FrameHeader* hdrPtr = static_cast<const Eiger::FrameHeader*>(frame->get_image_ptr());
+
     LOG4CXX_TRACE(logger_, "FrameHeader frame currentMessageType: " << hdrPtr->messageType);
     LOG4CXX_TRACE(logger_, "FrameHeader frame series: " << hdrPtr->series);
     LOG4CXX_TRACE(logger_, "FrameHeader frame number: " << hdrPtr->frame_number);
@@ -62,21 +63,24 @@ namespace FrameProcessor
     document.AddMember(keyAcqID, valueAcqID, document.GetAllocator());
 
     if (hdrPtr->messageType == Eiger::IMAGE_DATA) {
+      frame->set_image_offset(sizeof(Eiger::FrameHeader));
+      frame->set_image_size(hdrPtr->data_size);
 
-      boost::shared_ptr<Frame> data_frame;
-      data_frame = boost::shared_ptr<Frame>(new Frame("data"));
-      data_frame->set_frame_number(hdrPtr->frame_number);
+      FrameMetaData frame_meta_data;
 
-      data_frame->copy_data((static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
+      frame_meta_data.set_dataset_name("data");
 
-      setFrameEncoding(data_frame, hdrPtr);
-      setFrameDataType(data_frame, hdrPtr);
-      setFrameDimensions(data_frame, hdrPtr);
-      data_frame->set_acquisition_id(hdrPtr->acquisitionID);
+      setFrameEncoding(frame_meta_data, hdrPtr);
+      setFrameDataType(frame_meta_data, hdrPtr);
+      setFrameDimensions(frame_meta_data, hdrPtr);
+      frame_meta_data.set_acquisition_ID(hdrPtr->acquisitionID);
 
       // Set the frame UID parameter to the frame number
       uint64_t uid = hdrPtr->frame_number;
-      data_frame->set_parameter("UID", uid);
+      frame_meta_data.set_parameter("UID", uid);
+
+      frame->set_meta_data(frame_meta_data);
+      frame->set_frame_number(hdrPtr->frame_number);
 
       // Add Frame number
       rapidjson::Value keyFrame("frame", document.GetAllocator());
@@ -143,9 +147,9 @@ namespace FrameProcessor
 
       publish_meta(get_name(), "eiger-imagedata", buffer.GetString(), buffer.GetString());
 
-      this->push(data_frame);
+      this->push(frame);
     } else if (hdrPtr->messageType == Eiger::IMAGE_APPENDIX) {
-      std::string dataString((static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
+      std::string dataString((static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
       // Add Frame number
       rapidjson::Value keyFrame("frame", document.GetAllocator());
@@ -169,7 +173,7 @@ namespace FrameProcessor
 
       publish_meta(get_name(), "eiger-globalnone", buffer.GetString(), buffer.GetString());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_CONFIG) {
-      std::string dataString((static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
+      std::string dataString((static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
       // Add Series number
       rapidjson::Value keySeries("series", document.GetAllocator());
@@ -199,7 +203,7 @@ namespace FrameProcessor
       rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
       document.Accept(writer);
 
-      publish_meta(get_name(), "eiger-globalflatfield", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
+      publish_meta(get_name(), "eiger-globalflatfield", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_MASK) {
       // Set shape
       rapidjson::Value keyShape("shape", document.GetAllocator());
@@ -218,7 +222,7 @@ namespace FrameProcessor
       rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
       document.Accept(writer);
 
-      publish_meta(get_name(), "eiger-globalmask", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
+      publish_meta(get_name(), "eiger-globalmask", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_COUNTRATE) {
       // Set shape
       rapidjson::Value keyShape("shape", document.GetAllocator());
@@ -237,9 +241,9 @@ namespace FrameProcessor
       rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
       document.Accept(writer);
 
-      publish_meta(get_name(), "eiger-globalcountrate", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
+      publish_meta(get_name(), "eiger-globalcountrate", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_APPENDIX) {
-      std::string dataString((static_cast<const char*>(frame->get_data())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
+      std::string dataString((static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
       rapidjson::StringBuffer buffer;
       rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -254,10 +258,10 @@ namespace FrameProcessor
   /**
    * Set the encoding on the frame
    *
-   * \param[out] frame The frame to set the encoding on
+   * \param[out] frame The frame Meta Data object to set the encoding on
    * \param[in] hdrPtr The header containing the encoding
    */
-  void EigerProcessPlugin::setFrameEncoding(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr) {
+  void EigerProcessPlugin::setFrameEncoding(FrameMetaData &frame, const Eiger::FrameHeader* hdrPtr) {
     std::string encoding(hdrPtr->encoding);
 
     // Parse out lz4
@@ -265,30 +269,30 @@ namespace FrameProcessor
     if (found != std::string::npos) {
       found = encoding.find("bs");
       if (found != std::string::npos) {
-        frame->set_compression(BSLZ4_COMPRESSION);
+        frame.set_compression_type(bslz4);
       } else {
-        frame->set_compression(LZ4_COMPRESSION);
+        frame.set_compression_type(lz4);
       }
     } else {
-      frame->set_compression(NO_COMPRESSION);
+      frame.set_compression_type(no_compression);
     }
   }
 
   /**
    * Set the data type on the frame
    *
-   * \param[out] frame The frame to set the encoding on
+   * \param[out] frame The frame Meta Data object to set the encoding on
    * \param[in] hdrPtr The header containing the encoding
    */
-  void EigerProcessPlugin::setFrameDataType(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr) {
+  void EigerProcessPlugin::setFrameDataType(FrameMetaData &frame, const Eiger::FrameHeader* hdrPtr) {
     std::string dataType(hdrPtr->dataType);
 
     if (dataType.compare("uint8") == 0) {
-      frame->set_data_type(UINT8_DATATYPE);
+      frame.set_data_type(raw_8bit);
     } else if (dataType.compare("uint16") == 0) {
-      frame->set_data_type(UINT16_DATATYPE);
+      frame.set_data_type(raw_16bit);
     } else if (dataType.compare("uint32") == 0) {
-      frame->set_data_type(UINT32_DATATYPE);
+      frame.set_data_type(raw_32bit);
     } else {
       LOG4CXX_ERROR(logger_, "Unknown frame data type :" << dataType);
     }
@@ -297,10 +301,10 @@ namespace FrameProcessor
   /**
    * Set the dimensions on the frame
    *
-   * \param[out] frame The frame to set the encoding on
+   * \param[out] frame The frame Meta Data object to set the encoding on
    * \param[in] hdrPtr The header containing the dimensions
    */
-  void EigerProcessPlugin::setFrameDimensions(boost::shared_ptr<Frame> frame, const Eiger::FrameHeader* hdrPtr) {
+  void EigerProcessPlugin::setFrameDimensions(FrameMetaData &frame, const Eiger::FrameHeader* hdrPtr) {
     dimensions_t dims;
     if (hdrPtr->shapeSizeZ > 0) {
       dims.push_back(hdrPtr->shapeSizeZ);
@@ -308,7 +312,7 @@ namespace FrameProcessor
     dims.push_back(hdrPtr->shapeSizeY);
     dims.push_back(hdrPtr->shapeSizeX);
 
-    frame->set_dimensions(dims);
+    frame.set_dimensions(dims);
   }
 
   int EigerProcessPlugin::get_version_major()
