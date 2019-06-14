@@ -75,10 +75,6 @@ namespace FrameProcessor
       setFrameDimensions(frame_meta_data, hdrPtr);
       frame_meta_data.set_acquisition_ID(hdrPtr->acquisitionID);
 
-      // Set the frame UID parameter to the frame number
-      uint64_t uid = hdrPtr->frame_number;
-      frame_meta_data.set_parameter("UID", uid);
-
       frame->set_meta_data(frame_meta_data);
       frame->set_frame_number(hdrPtr->frame_number);
 
