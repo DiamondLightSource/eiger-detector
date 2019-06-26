@@ -685,6 +685,15 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 
   // Get the event code from the message, which is a number contained in the first 16 bits
   uint16_t event = *(uint16_t *) (message.data());
+  
+  // Get the second message part which contains the endpoint
+  socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
+  if (more != MORE_MESSAGES) {
+    LOG4CXX_ERROR(log, "Monitor Message only contained 1 part");
+  } else {
+    zmq::message_t messagePart2;
+    socket->recv(&messagePart2);
+  }
 
   if (event == ZMQ_EVENT_ACCEPTED) {
     std::ostringstream logMessage;
@@ -740,14 +749,14 @@ void EigerFan::HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_
     numConnectedForwardingSockets++;
     LOG4CXX_INFO(log, "Forwarding socket connected (" << numConnectedForwardingSockets << ")");
 
-    if (WAITING_CONSUMERS != state) {
+    if (WAITING_CONSUMERS != state && WAITING_STREAM != state) {
       LOG4CXX_ERROR(log, "Forwarding socket connected whilst in state: " << GetStateString(state));
     }
 
   } else if (event == ZMQ_EVENT_DISCONNECTED) {
     numConnectedForwardingSockets--;
     LOG4CXX_WARN(log, "Forwarding socket disconnected (" << numConnectedForwardingSockets << ")");
-    if (WAITING_CONSUMERS != state) {
+    if (WAITING_CONSUMERS != state && WAITING_STREAM != state) {
       LOG4CXX_ERROR(log, "Forwarding socket disconnected whilst in state: " << GetStateString(state));
     }
   }
