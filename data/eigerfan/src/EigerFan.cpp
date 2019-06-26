@@ -744,6 +744,15 @@ void EigerFan::HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_
 
   // Get the event code from the message, which is a number contained in the first 16 bits
   uint16_t event = *(uint16_t *) (message.data());
+  
+  // Get the second message part which contains the endpoint
+  socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+  if (more != MORE_MESSAGES) {
+    LOG4CXX_ERROR(log, "Forward Monitor Message only contained 1 part");
+  } else {
+    zmq::message_t messagePart2;
+    socket.recv(&messagePart2);
+  }
 
   if (event == ZMQ_EVENT_ACCEPTED) {
     numConnectedForwardingSockets++;
