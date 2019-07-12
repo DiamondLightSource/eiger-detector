@@ -887,7 +887,7 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       document.AddMember(keyFanPort, valueFanPort, document.GetAllocator());
 
       // Add block size
-      rapidjson::Value keyBlockSize("block_size", document.GetAllocator());
+      rapidjson::Value keyBlockSize(CONTROL_BLOCK_SIZE, document.GetAllocator());
       rapidjson::Value valueBlockSize(config.block_size);
       document.AddMember(keyBlockSize, valueBlockSize, document.GetAllocator());
 
@@ -960,6 +960,7 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
 
       if (ctrlDocument.HasMember(CONTROL_PARAM_KEY.c_str())) {
         rapidjson::Value& paramsValue = ctrlDocument[CONTROL_PARAM_KEY.c_str()];
+        replyString.assign(CONTROL_RESPONSE_NOCFGPARAM);
         if (paramsValue.HasMember(CONTROL_KILL.c_str())) {
           Stop();
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
@@ -970,24 +971,30 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
           }
           Stop();
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
-        } else if (paramsValue.HasMember(CONTROL_OFFSET.c_str())) {
+        }
+        if (paramsValue.HasMember(CONTROL_OFFSET.c_str())) {
           // Change the consumer to send to based on an offset value
           configuredOffset = paramsValue[CONTROL_OFFSET.c_str()].GetInt();
           LOG4CXX_INFO(log, "Offset changed to " << configuredOffset);
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
-        } else if (paramsValue.HasMember(CONTROL_ACQ_ID.c_str())) {
+        }
+        if (paramsValue.HasMember(CONTROL_ACQ_ID.c_str())) {
           // Change the acquisition ID
           configuredAcquisitionID = paramsValue[CONTROL_ACQ_ID.c_str()].GetString();
           LOG4CXX_INFO(log, "Acquisition ID changed to " << configuredAcquisitionID);
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
-        } else if (paramsValue.HasMember(CONTROL_FWD_STREAM.c_str())) {
+        }
+        if (paramsValue.HasMember(CONTROL_FWD_STREAM.c_str())) {
           // Change whether to forward the stream or not
           forwardStream = paramsValue[CONTROL_FWD_STREAM.c_str()].GetBool();
           LOG4CXX_INFO(log, "Forward stream changed to " << forwardStream);
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
-        } else {
-          LOG4CXX_ERROR(log, "No recognised configure parameter");
-          replyString.assign(CONTROL_RESPONSE_NOCFGPARAM);
+        }
+        if (paramsValue.HasMember(CONTROL_BLOCK_SIZE.c_str())) {
+          // Change the block size
+          config.block_size = paramsValue[CONTROL_BLOCK_SIZE.c_str()].GetInt();
+          LOG4CXX_INFO(log, "Block size changed to " << config.block_size);
+          replyString.assign(CONTROL_RESPONSE_OK.c_str());
         }
       } else {
         LOG4CXX_ERROR(log, "No parameter on configure command");
