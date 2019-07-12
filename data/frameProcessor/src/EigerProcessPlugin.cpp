@@ -75,6 +75,9 @@ namespace FrameProcessor
       setFrameDimensions(frame_meta_data, hdrPtr);
       frame_meta_data.set_acquisition_ID(hdrPtr->acquisitionID);
 
+      // Set the compressed_size parameter to the frame size
+      frame_meta_data.set_parameter("compressed_size", hdrPtr->data_size);
+
       frame->set_meta_data(frame_meta_data);
       frame->set_frame_number(hdrPtr->frame_number);
 
