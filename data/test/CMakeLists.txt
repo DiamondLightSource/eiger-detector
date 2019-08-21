@@ -1,3 +1,4 @@
+add_subdirectory(integrationTest)
 
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK)

@@ -1,0 +1,62 @@
+{
+  "Main": {
+    "receiver": {
+      "process" : true,
+      "command": "${ODIN_PREFIX}\/bin\/frameReceiver",
+      "pos-args": "",
+      "sleep": "1"
+    },
+    "processor": {
+      "process" : true,
+      "command": "${ODIN_PREFIX}\/bin\/frameProcessor",
+      "pos-args": "",
+      "sleep": "1"
+    },
+    "eigerfan": {
+      "process" : true,
+      "command": "${INSTALL_PREFIX}\/bin\/eigerfan",
+      "pos-args": "",
+      "sleep": "1"
+    },
+    "metalistener": {
+      "process" : true,
+      "command": "meta_writer",
+      "pos-args": "",
+      "sleep": "1"
+    },
+    "simulator": {
+      "process" : false,
+      "command": "${ODIN_PREFIX}\/bin\/frameSimulator",
+      "pos-args": "Eiger",
+      "sleep": "60"
+    },
+    "test": {
+      "process" : false,
+      "command": "${ODIN_PREFIX}\/bin\/frameTests",
+      "pos-args": "",
+      "sleep": "1"
+    }
+  },
+  "eigerfan": {
+  },
+  "metalistener": {
+    "w": "metalistener.eiger_meta_writer.EigerMetaWriter",
+    "i": "tcp://127.0.0.1:5008",
+    "d": "/scratch"
+  },
+  "receiver": {
+    "json_file": "${INSTALL_PREFIX}\/test_config\/eiger-fr.json",
+    "m": "500000000"
+  },
+  "processor": {
+    "json_file": "${INSTALL_PREFIX}\/test_config\/eiger-fp.json"
+  },
+  "simulator": {
+    "lib-path": "${INSTALL_PREFIX}\/lib",
+    "path": "${INSTALL_PREFIX}\/..\/data\/test\/testdata\/"
+  },
+  "test": {
+    "json": "${INSTALL_PREFIX}\/test_config\/test.json",
+    "log_level": "ALL"
+  }
+}
