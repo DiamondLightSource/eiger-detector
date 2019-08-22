@@ -138,8 +138,6 @@ namespace FrameSimulator {
       zmq::socket_t socket(context, ZMQ_PUSH);
       socket.bind(bindAddress.c_str());
 
-      long messageIndex = 1;
-
       LOG4CXX_INFO(logger_, "Sending messages...");
 
       if(!stream) {
