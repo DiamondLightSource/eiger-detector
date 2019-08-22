@@ -61,6 +61,7 @@ namespace FrameSimulator {
       opt_acqid.add_option_to(config);
       opt_filepattern.add_option_to(config);
       opt_delay.add_option_to(config);
+      opt_stream.add_option_to(config);
 
     }
 
@@ -102,6 +103,7 @@ namespace FrameSimulator {
         return false;
       }
 
+      stream = opt_stream.get_val(vm);
       filepattern = opt_filepattern.get_val(vm);
       acquisitionID = opt_acqid.get_val(vm);
       delay_adjustment = opt_delay.get_val(vm);
@@ -140,34 +142,53 @@ namespace FrameSimulator {
 
       LOG4CXX_INFO(logger_, "Sending messages...");
 
-      // Example use for system test data. Replace with the path to actual files.
-      SendFileMessage(socket, "streamfile_1", true);  // Global Header
-      SendFileMessage(socket, "streamfile_2", true);  // Global Header Config.
-      SendFileMessage(socket, "streamfile_3", true);  // Flatfield Header
-      SendFileMessage(socket, "streamfile_4", true);  // Flatfield data blob
-      SendFileMessage(socket, "streamfile_5", true);  // Pixelmask header
-      SendFileMessage(socket, "streamfile_6", true);  // Pixelmask data blob
-      SendFileMessage(socket, "streamfile_7", true);  // Countrate header
-      SendFileMessage(socket, "streamfile_8", true);  // Countrate data blob
-      SendFileMessage(socket, "streamfile_9",
-                      false); // Global Header Appendix. 'more' set to false as is the last message in a multipart message
+      if(!stream) {
 
-      SendFileMessage(socket, "streamfile_10", true);  // Image data header
-      SendFileMessage(socket, "streamfile_11", true);  // Image data dimensions
-      SendFileMessage(socket, "streamfile_12", true);  // Image data blob
-      SendFileMessage(socket, "streamfile_13", false); // Image data times.
+        std::cout << "Socket bound, press enter to send header..." << std::endl;
+        getchar();
+        sendHeader(socket, acquisitionID);
 
-      SendFileMessage(socket, "streamfile_14", true);  // Image data header
-      SendFileMessage(socket, "streamfile_15", true);  // Image data dimensions
-      SendFileMessage(socket, "streamfile_16", true);  // Image data blob
-      SendFileMessage(socket, "streamfile_17", false); // Image data times.
+        std::cout << "Press enter to send data..." << std::endl;
+        getchar();
+        double hertz = 1 / replay_interval.get();
+        sendImageData(socket, filepattern, replay_numframes.get(), hertz);
 
-      SendFileMessage(socket, "streamfile_18", true);  // Image data header
-      SendFileMessage(socket, "streamfile_19", true);  // Image data dimensions
-      SendFileMessage(socket, "streamfile_20", true);  // Image data blob
-      SendFileMessage(socket, "streamfile_21", false); // Image data times.
+        sendEndOfSeries(socket);
 
-      SendFileMessage(socket, "streamfile_22", false); // End message
+      }
+
+      else {
+
+        // Example use for system test data. Replace with the path to actual files.
+        SendFileMessage(socket, "streamfile_1", true);  // Global Header
+        SendFileMessage(socket, "streamfile_2", true);  // Global Header Config.
+        SendFileMessage(socket, "streamfile_3", true);  // Flatfield Header
+        SendFileMessage(socket, "streamfile_4", true);  // Flatfield data blob
+        SendFileMessage(socket, "streamfile_5", true);  // Pixelmask header
+        SendFileMessage(socket, "streamfile_6", true);  // Pixelmask data blob
+        SendFileMessage(socket, "streamfile_7", true);  // Countrate header
+        SendFileMessage(socket, "streamfile_8", true);  // Countrate data blob
+        SendFileMessage(socket, "streamfile_9",
+                        false); // Global Header Appendix. 'more' set to false as is the last message in a multipart message
+
+        SendFileMessage(socket, "streamfile_10", true);  // Image data header
+        SendFileMessage(socket, "streamfile_11", true);  // Image data dimensions
+        SendFileMessage(socket, "streamfile_12", true);  // Image data blob
+        SendFileMessage(socket, "streamfile_13", false); // Image data times.
+
+        SendFileMessage(socket, "streamfile_14", true);  // Image data header
+        SendFileMessage(socket, "streamfile_15", true);  // Image data dimensions
+        SendFileMessage(socket, "streamfile_16", true);  // Image data blob
+        SendFileMessage(socket, "streamfile_17", false); // Image data times.
+
+        SendFileMessage(socket, "streamfile_18", true);  // Image data header
+        SendFileMessage(socket, "streamfile_19", true);  // Image data dimensions
+        SendFileMessage(socket, "streamfile_20", true);  // Image data blob
+        SendFileMessage(socket, "streamfile_21", false); // Image data times.
+
+        SendFileMessage(socket, "streamfile_22", false); // End message
+
+      }
 
       LOG4CXX_INFO(logger_, "Finished Sending messages");
 
@@ -386,8 +407,9 @@ namespace FrameSimulator {
       LOG4CXX_INFO(logger_, "Sending took: " + boost::lexical_cast<std::string>(timeDiff) + " seconds");
 
       // Give the messages time to send before freeing the memory by getting input from user
-      std::cout << "Press any key to continue..." << std::endl;
+      std::cout << "Press any key to continue ..." << std::endl;
       getchar();
+
       free(memblock);
     }
 

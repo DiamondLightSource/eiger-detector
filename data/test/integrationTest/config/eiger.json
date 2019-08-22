@@ -53,7 +53,8 @@
   },
   "simulator": {
     "lib-path": "${INSTALL_PREFIX}\/lib",
-    "path": "${INSTALL_PREFIX}\/..\/data\/test\/testdata\/"
+    "path": "${INSTALL_PREFIX}\/..\/data\/test\/testdata\/",
+    "stream": 1
   },
   "test": {
     "json": "${INSTALL_PREFIX}\/test_config\/test.json",
