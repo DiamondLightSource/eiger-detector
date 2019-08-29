@@ -21,4 +21,6 @@ build:
     - cmake -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DBoost_NO_BOOST_CMAKE=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DODINDATA_ROOT_DIR=$ODIN_PREFIX -DLOG4CXX_ROOT_DIR=$LOG4CXX_ROOT ../data
     - cmake --build . --target install
     - cd ..
+    - set +e
     - $ODIN_PREFIX/bin/odinDataTest --json=$INSTALL_PREFIX/test_config/eiger.json
+    - set -e
