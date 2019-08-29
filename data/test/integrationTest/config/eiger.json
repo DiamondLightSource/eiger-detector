@@ -1,5 +1,11 @@
 {
   "Main": {
+    "eigerfan": {
+      "process" : true,
+      "command": "${INSTALL_PREFIX}\/bin\/eigerfan",
+      "pos-args": "",
+      "sleep": "1"
+    },
     "receiver": {
       "process" : true,
       "command": "${ODIN_PREFIX}\/bin\/frameReceiver",
@@ -9,12 +15,6 @@
     "processor": {
       "process" : true,
       "command": "${ODIN_PREFIX}\/bin\/frameProcessor",
-      "pos-args": "",
-      "sleep": "1"
-    },
-    "eigerfan": {
-      "process" : true,
-      "command": "${INSTALL_PREFIX}\/bin\/eigerfan",
       "pos-args": "",
       "sleep": "1"
     },
