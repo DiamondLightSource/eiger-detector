@@ -18,12 +18,6 @@
       "pos-args": "",
       "sleep": "1"
     },
-    "metalistener": {
-      "process" : true,
-      "command": "meta_writer",
-      "pos-args": "",
-      "sleep": "1"
-    },
     "simulator": {
       "process" : false,
       "command": "${ODIN_PREFIX}\/bin\/frameSimulator",
