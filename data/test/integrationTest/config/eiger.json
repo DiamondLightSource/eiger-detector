@@ -4,7 +4,9 @@
       "process" : true,
       "command": "${INSTALL_PREFIX}\/bin\/eigerfan",
       "pos-args": "",
-      "sleep": "1"
+      "sleep": "1",
+      "socket": "tcp://localhost:5559",
+      "kill": "{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"kill\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}"
     },
     "receiver": {
       "process" : true,
