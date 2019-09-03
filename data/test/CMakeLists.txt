@@ -27,4 +27,9 @@ endif()
 target_link_libraries(eigerfan-test
 		${Boost_LIBRARIES}
 		${LOG4CXX_LIBRARIES}
-		${ZEROMQ_LIBRARIES}) 
+		${ZEROMQ_LIBRARIES})
+
+install(TARGETS eigerfan-test
+		RUNTIME DESTINATION bin
+		LIBRARY DESTINATION lib
+		ARCHIVE DESTINATION lib)
