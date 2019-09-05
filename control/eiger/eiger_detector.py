@@ -81,7 +81,7 @@ class EigerDetector(object):
     DETECTOR_BUILD_STATUS = [
         'dcu_buffer_free'
     ]
-    
+
     def __init__(self, endpoint, api_version):
         # Record the connection endpoint
         self._endpoint = endpoint
@@ -114,8 +114,21 @@ class EigerDetector(object):
 
         # Initialise configuration parameters and populate the parameter tree
         for cfg in self.DETECTOR_CONFIG:
-            setattr(self, cfg, self.read_detector_config(cfg))
-            param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=getattr(self, cfg): self.get_value(x), self.get_meta(getattr(self, cfg)))
+            param =  self.read_detector_config(cfg)
+            setattr(self, cfg, param)
+            # Check if the config item is read/write
+            writeable = False
+            if 'access_mode' in param:
+                if param['access_mode'] == 'rw':
+                    writeable = True
+
+            if writeable is True:
+                param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
+                                                                                                        lambda value, x=cfg: self.set_value(x, value), 
+                                                                                                        self.get_meta(getattr(self, cfg)))
+            else:
+                param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
+                                                                                                        self.get_meta(getattr(self, cfg)))
 
         # Initialise status parameters and populate the parameter tree
         for status in self.DETECTOR_STATUS:
@@ -128,18 +141,63 @@ class EigerDetector(object):
             setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status)))
             param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BUILDER][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
 
+        # Initialise additional ADOdin configuration items
+        param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG]['ccc_cutoff'] = (lambda: self.get_value(getattr(self, 'countrate_correction_count_cutoff')), self.get_meta(getattr(self, 'countrate_correction_count_cutoff')))
+        param_tree['status'] = {
+            'manufacturer': (lambda: 'Dectris', {}),
+            'model': (lambda: 'Odin [Eiger {}]'.format(self._api_version), {}),
+            'state': (self.get_state, {}),
+            'sensor': {
+                'width': (lambda: self.get_value(getattr(self, 'x_pixels_in_detector')), self.get_meta(getattr(self, 'x_pixels_in_detector'))),
+                'height': (lambda: self.get_value(getattr(self, 'y_pixels_in_detector')), self.get_meta(getattr(self, 'y_pixels_in_detector')))
+            }
+        }
+        param_tree['config'] = {
+            'exposure_time': (lambda: self.get_value(getattr(self, 'count_time')),
+                              lambda value: self.set_value('count_time', value), 
+                              self.get_meta(getattr(self, 'count_time')))
+        }
+
         self._params = ParameterTree(param_tree)
 
         # Run the status update thread
 
+    def get_state(self):
+        odin_states = {
+            'idle': 0,
+            'acquire': 1
+        }
+        # Get the detector state and map to an ADOdin state
+        if 'value' in self.state:
+            if self.state['value'] in odin_states:
+                return odin_states[self.state['value']]
+        return 0
+
     def get(self, path):
         return self._params.get(path, with_metadata=True)
+
+    def set(self, path, value):
+        return self._params.set(path, value)
 
     def get_value(self, item):
         # Check if the item has a value field. If it does then return it
         if 'value' in item:
             return item['value']
         return None
+
+    def set_value(self, item, value):
+        logging.info("Setting {} to {}".format(item, value))
+        # First write the value to the hardware
+        response = self.write_detector_config(item, value)
+        logging.info("Changed items response: {}".format(response))
+        # Now check the response to see if we need to update any config items
+        if response is not None:
+            if isinstance(response, list):
+                # Loop over items and read them in
+                for cfg in response:
+                    param =  self.read_detector_config(cfg)
+                    logging.info("Read from detector [{}]: {}".format(cfg, param))
+                    setattr(self, cfg, param)
 
     def get_meta(self, item):
         # Populate any meta data items and return the dict

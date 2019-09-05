@@ -1,10 +1,12 @@
 import logging
 
-from odin_data.odin_data_adapter import OdinDataAdapter
+import re
+from tornado.escape import json_decode
+from odin.adapters.adapter import ApiAdapter, ApiAdapterResponse, request_types, response_types
 from eiger_detector import EigerDetector
 
 
-class EigerAdapter(OdinDataAdapter):
+class EigerAdapter(ApiAdapter):
 
     """An OdinControl adapter for an Eiger detector"""
 
@@ -35,7 +37,6 @@ class EigerAdapter(OdinDataAdapter):
 
     @request_types('application/json', "application/vnd.odin-native")
     @response_types('application/json', default='application/json')
-    @require_valid_detector
     def get(self, path, request):
         """Handle an HTTP GET request.
 
@@ -48,7 +49,7 @@ class EigerAdapter(OdinDataAdapter):
         logging.debug("Eiger 'get' adapter path: %s", path)
         logging.debug("Eiger 'get' adapter request.body: %s", request.body)
         try:
-            response = self._detector.get(path)
+            response = self._detector.get(path)[path.split("/")[-1]]
             status_code = 200
         except Exception as e:
             response = {'error': str(e)}
@@ -59,7 +60,6 @@ class EigerAdapter(OdinDataAdapter):
 
     @request_types('application/json', "application/vnd.odin-native")
     @response_types('application/json', default='application/json')
-    @require_valid_detector
     def put(self, path, request):
         """Handle an HTTP PUT request.
 
@@ -76,14 +76,14 @@ class EigerAdapter(OdinDataAdapter):
             self._detector.set(path, data)
             response = self._detector.get(path)
             status_code = 200
-        except Exception as e:
-            response = {'error': str(e)}
-            status_code = 400
-            logging.error(e)
         except (TypeError, ValueError) as e:
             response = {'error': 'Failed to decode PUT request body: {}'.format(str(e))}
             logging.error(e)
             status_code = 400
+        except Exception as e:
+            response = {'error': str(e)}
+            status_code = 400
+            logging.error(e)
             
         return ApiAdapterResponse(response, status_code=status_code)
 
