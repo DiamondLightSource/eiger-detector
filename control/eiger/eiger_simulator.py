@@ -96,13 +96,14 @@ class EigerSimulator(BaseHTTPRequestHandler, object):
         content_length = int(self.headers['Content-Length'])
         body = json.loads(self.rfile.read(content_length))
         print(body)
+        changed_items = ['compression', 'x_pixel_size']
         if self.path in EigerSimulator.PARAMS:
             EigerSimulator.PARAMS[self.path]['value'] = body['value']
+            changed_items.append(self.path.split('/')[-1])
         self.send_response(200)
         self.send_header('Content-type','application/json')
         self.end_headers()
         # Send the html message
-        changed_items = ['compression', 'x_pixel_size']
         self.wfile.write(json.dumps(changed_items))
         return
 
