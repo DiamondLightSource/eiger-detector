@@ -43,7 +43,7 @@
   },
   "metalistener": {
     "w": "metalistener.eiger_meta_writer.EigerMetaWriter",
-    "i": "tcp://127.0.0.1:5659"
+    "i": "tcp://127.0.0.1:5008"
   },
   "receiver": {
     "json_file": "${INSTALL_PREFIX}\/test_config\/eiger-fr.json",
