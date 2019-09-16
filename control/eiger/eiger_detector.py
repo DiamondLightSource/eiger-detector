@@ -7,18 +7,24 @@ from pkg_resources import require
 require("requests")
 require("odin-control")
 
+import zmq
+
 import requests
 import json
 import logging
 import struct
+import threading
+import time
 from odin.adapters.parameter_tree import ParameterAccessor, ParameterTree
 
 class EigerDetector(object):
     STR_API = 'api'
     STR_DETECTOR = 'detector'
     STR_MONITOR = 'monitor'
+    STR_STREAM = 'stream'
     STR_CONFIG = 'config'
     STR_STATUS = 'status'
+    STR_COMMAND = 'command'
     STR_BOARD_000 = 'board_000'
     STR_BUILDER = 'builder'
 
@@ -81,16 +87,51 @@ class EigerDetector(object):
     DETECTOR_BUILD_STATUS = [
         'dcu_buffer_free'
     ]
+    STREAM_CONFIG = [
+        'mode',
+        'header_detail',
+        'header_appendix',
+        'image_appendix'
+    ]
+
+    TIFF_ID_IMAGEWIDTH = 256
+    TIFF_ID_IMAGEHEIGHT = 257
+    TIFF_ID_BITDEPTH = 258
+    TIFF_ID_STRIPOFFSETS = 273
+    TIFF_ID_ROWSPERSTRIP = 278
 
     def __init__(self, endpoint, api_version):
         # Record the connection endpoint
         self._endpoint = endpoint
         self._api_version = api_version
+        self._executing = True
         self._connected = False
+        self._sequence_id = 0
+        self._initializing = False
+        self._error = ''
+        self._acquisition_complete = False
+        self._live_view_frame_number = 0
+
+        self.trigger_exposure = 0.0
+        self.manual_trigger = False
+
+        self._trigger_event = threading.Event()
+        self._acquisition_event = threading.Event()
+        self._initialize_event = threading.Event()
 
         self._detector_config_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_CONFIG)
         self._detector_status_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_STATUS)
         self._detector_monitor_uri = '{}/{}/{}/images/next'.format(self.STR_MONITOR, self.STR_API, api_version)
+        self._detector_command_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_COMMAND)
+        self._stream_config_uri = '{}/{}/{}/{}'.format(self.STR_STREAM, self.STR_API, api_version, self.STR_CONFIG)
+
+        # Check if we need to initialize
+        param = self.read_detector_status('state')
+        if 'value' in param:
+            if param['value'] == 'na':
+                # We should re-init the detector immediately
+                logging.error("Detector found in uninitialized state at startup, initializing...")
+                self.write_detector_command('initialize')
 
         # Initialise the parameter tree structure
         param_tree = {
@@ -109,6 +150,14 @@ class EigerDetector(object):
                         }
                     }
                 }
+            },
+            self.STR_STREAM: {
+                self.STR_API: {
+                    self._api_version: {
+                        self.STR_CONFIG: {
+                        },
+                    },
+                },
             }
         }
 
@@ -141,6 +190,15 @@ class EigerDetector(object):
             setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status)))
             param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BUILDER][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
 
+        # Initialise stream cofig items
+        for cfg in self.STREAM_CONFIG:
+            setattr(self, cfg, self.read_stream_config(cfg))
+            param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
+                                                                                                  lambda value, x=cfg: self.set_value(x, value), 
+                                                                                                  self.get_meta(getattr(self, cfg)))
+
+            param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+
         # Initialise additional ADOdin configuration items
         param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG]['ccc_cutoff'] = (lambda: self.get_value(getattr(self, 'countrate_correction_count_cutoff')), self.get_meta(getattr(self, 'countrate_correction_count_cutoff')))
         param_tree['status'] = {
@@ -149,18 +207,66 @@ class EigerDetector(object):
             'state': (self.get_state, {}),
             'sensor': {
                 'width': (lambda: self.get_value(getattr(self, 'x_pixels_in_detector')), self.get_meta(getattr(self, 'x_pixels_in_detector'))),
-                'height': (lambda: self.get_value(getattr(self, 'y_pixels_in_detector')), self.get_meta(getattr(self, 'y_pixels_in_detector')))
-            }
+                'height': (lambda: self.get_value(getattr(self, 'y_pixels_in_detector')), self.get_meta(getattr(self, 'y_pixels_in_detector'))),
+                'bytes': (lambda: self.get_value(getattr(self, 'x_pixels_in_detector')) *
+                         self.get_value(getattr(self, 'y_pixels_in_detector')) *
+                         self.get_value(getattr(self, 'bit_depth_image')) / 8, {})
+            },
+            'sequence_id': (lambda: self._sequence_id, {}),
+            'error': (lambda: self._error, {}),
+            'acquisition_complete': (lambda: self._acquisition_complete, {})
         }
         param_tree['config'] = {
+            'trigger_exposure': (lambda: self.trigger_exposure,
+                                 lambda value: setattr(self, 'trigger_exposure', value), 
+                                 {}),
+            'manual_trigger': (lambda: self.manual_trigger,
+                               lambda value: setattr(self, 'manual_trigger', value), 
+                               {}),
+            'num_images': (lambda: self.get_value(getattr(self, 'nimages')),
+                              lambda value: self.set_value('nimages', value), 
+                              self.get_meta(getattr(self, 'nimages'))),
             'exposure_time': (lambda: self.get_value(getattr(self, 'count_time')),
                               lambda value: self.set_value('count_time', value), 
                               self.get_meta(getattr(self, 'count_time')))
         }
+        param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_COMMAND] = {
+            'initialize': (lambda: 0, lambda value: self.write_detector_command('initialize')),
+            'arm': (lambda: 0, lambda value: self.write_detector_command('arm')),
+            'trigger': (lambda: 0, lambda value: self.write_detector_command('trigger')),
+            'disarm': (lambda: 0, lambda value: self.write_detector_command('disarm')),
+            'cancel': (lambda: 0, lambda value: self.write_detector_command('cancel')),
+            'abort': (lambda: 0, lambda value: self.write_detector_command('abort')),
+            'wait': (lambda: 0, lambda value: self.write_detector_command('wait'))
+        }
 
         self._params = ParameterTree(param_tree)
 
-        # Run the status update thread
+
+        self._lv_context = zmq.Context()
+        self._lv_publisher = self._lv_context.socket(zmq.PUB)
+        self._lv_publisher.bind("tcp://*:5555")
+
+        # Run the live view update thread
+        self._lv_thread = threading.Thread(target=self.lv_loop)
+        self._lv_thread.start()
+
+        # Run the acquisition thread
+        self._acq_thread = threading.Thread(target=self.do_acquisition)
+        self._acq_thread.start()
+
+        # Run the initialize thread
+        self._init_thread = threading.Thread(target=self.do_initialize)
+        self._init_thread.start()
+
+        # Run the initialize thread
+        self._status_thread = threading.Thread(target=self.do_check_status)
+        self._status_thread.start()
+
+    def read_all_config(self):
+        for cfg in self.DETECTOR_CONFIG:
+            param =  self.read_detector_config(cfg)
+            setattr(self, cfg, param)
 
     def get_state(self):
         odin_states = {
@@ -174,10 +280,31 @@ class EigerDetector(object):
         return 0
 
     def get(self, path):
-        return self._params.get(path, with_metadata=True)
+        # Check for ODIN specific commands
+        if path == 'command/start_acquisition':
+            return {'value': 0}
+        elif path == 'command/stop_acquisition':
+            return {'value': 0}
+        elif path == 'command/send_trigger':
+            return {'send_trigger': {'value': 0}}
+        elif path == 'command/initialize':
+            return {'initialize': {'value': self._initializing}}
+        else:
+            return self._params.get(path, with_metadata=True)
 
     def set(self, path, value):
-        return self._params.set(path, value)
+        print("{}  {}".format(path, value))
+        # Check for ODIN specific commands
+        if path == 'command/start_acquisition':
+            return self.start_acquisition()
+        elif path == 'command/stop_acquisition':
+            return self.stop_acquisition()
+        elif path == 'command/send_trigger':
+            return self.send_trigger()
+        elif path == 'command/initialize':
+            return self.initialize_detector()
+        else:
+            return self._params.set(path, value)
 
     def get_value(self, item):
         # Check if the item has a value field. If it does then return it
@@ -188,14 +315,21 @@ class EigerDetector(object):
     def set_value(self, item, value):
         logging.info("Setting {} to {}".format(item, value))
         # First write the value to the hardware
-        response = self.write_detector_config(item, value)
+        if item in self.DETECTOR_CONFIG:
+            response = self.write_detector_config(item, value)
+        elif item in self.STREAM_CONFIG:
+            response = self.write_stream_config(item, value)
+
         logging.info("Changed items response: {}".format(response))
         # Now check the response to see if we need to update any config items
         if response is not None:
             if isinstance(response, list):
                 # Loop over items and read them in
                 for cfg in response:
-                    param =  self.read_detector_config(cfg)
+                    if cfg in self.DETECTOR_CONFIG:
+                        param = self.read_detector_config(cfg)
+                    elif cfg in self.STREAM_CONFIG:
+                        param = self.read_stream_config(cfg)
                     logging.info("Read from detector [{}]: {}".format(cfg, param))
                     setattr(self, cfg, param)
 
@@ -227,19 +361,211 @@ class EigerDetector(object):
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_status_uri, item))
         return json.loads(r.text)
 
+    def write_detector_command(self, command, value=None):
+        # Write a detector specific command to the detector
+        reply = None
+        data = None
+        if value is not None:
+            data=json.dumps({'value': value})
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_command_uri, command), data=data)
+        if len(r.text) > 0:
+            reply = json.loads(r.text)
+        return reply
+
+    def read_stream_config(self, item):
+        # Read a specifc detector config item from the hardware
+        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item))
+        return json.loads(r.text)
+
+    def write_stream_config(self, item, value):
+        # Read a specifc detector config item from the hardware
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item), data=json.dumps({'value': value}))
+        return json.loads(r.text)
+
     def read_detector_live_image(self):
         # Read the relevant monitor stream
         r = requests.get('http://{}/{}'.format(self._endpoint, self._detector_monitor_uri))
-        tiff = r.content
-        # Read the header information from the image
-        logging.info("Size of raw input: {}".format(len(tiff)))
-        hdr = tiff[:4]
-        logging.info("{}".format(struct.unpack("<L", hdr)))
-        nentries = tiff[4:6]
-        logging.info("{}".format(struct.unpack("<h", nentries)))
+        if r.content == 'Image not available':
+            # There is no live image so we can just pass through
+            return
+        else:
+            tiff = r.content
+            # Read the header information from the image
+            logging.error("Size of raw stream input: {}".format(len(tiff)))
+            hdr = tiff[4:8]
+            index_offset = struct.unpack("=i", hdr)[0]
+            hdr = tiff[index_offset:index_offset+2]
+            logging.debug("Number of tags: {}".format(struct.unpack("=h", hdr)[0]))
+            number_of_tags = struct.unpack("=h", hdr)[0]
+
+            image_width = -1
+            image_height = -1
+            image_bitdepth = -1
+            image_rows_per_strip = -1
+            image_strip_offset = -1
+
+            for tag_index in range(number_of_tags):
+                tag_offset = index_offset+2+(tag_index*12)
+                logging.debug("Tag number {}: entry offset: {}".format(tag_index, tag_offset))
+                hdr = tiff[tag_offset:tag_offset+2]
+                tag_id = struct.unpack("=h", hdr)[0]
+                hdr = tiff[tag_offset+2:tag_offset+4]
+                tag_data_type = struct.unpack("=h", hdr)[0]
+                hdr = tiff[tag_offset+4:tag_offset+8]
+                tag_data_count = struct.unpack("=i", hdr)[0]
+                hdr = tiff[tag_offset+8:tag_offset+12]
+                tag_data_offset = struct.unpack("=i", hdr)[0]
+
+                logging.debug("   Tag ID: {}".format(tag_id))
+                logging.debug("   Tag Data Type: {}".format(tag_data_type))
+                logging.debug("   Tag Data Count: {}".format(tag_data_count))
+                logging.debug("   Tag Data Offset: {}".format(tag_data_offset))
+
+                # Now check for the width, hieght, bitdepth, rows per strip, and strip offsets
+                if tag_id == self.TIFF_ID_IMAGEWIDTH:
+                    image_width = tag_data_offset
+                elif tag_id == self.TIFF_ID_IMAGEHEIGHT:
+                    image_height = tag_data_offset
+                elif tag_id == self.TIFF_ID_BITDEPTH:
+                    image_bitdepth = tag_data_offset
+                elif tag_id == self.TIFF_ID_ROWSPERSTRIP:
+                    image_rows_per_strip = tag_data_offset
+                elif tag_id == self.TIFF_ID_STRIPOFFSETS:
+                    image_strip_offset = tag_data_offset
+
+            if image_width > -1 and image_height > -1 and image_bitdepth > -1 and image_rows_per_strip == image_height and image_strip_offset > -1:
+                # We have a valid image so construct the required object and publish it
+                frame_header = {
+                    'frame_num': self._live_view_frame_number,
+                    'acquisition_id': '',
+                    'dtype': 'uint{}'.format(image_bitdepth),
+                    'dsize': image_bitdepth/8,
+                    'dataset': 'data',
+                    'compression': 0,
+                    'shape': ["{}".format(image_height), "{}".format(image_width)]
+                }
+                logging.info("Frame object created: {}".format(frame_header))
+
+                frame_data = tiff[image_strip_offset:image_strip_offset+(image_width * image_height * image_bitdepth / 8)]
+
+                self._lv_publisher.send_json(frame_header, flags=zmq.SNDMORE)
+                self._lv_publisher.send(frame_data, 0)
+                self._live_view_frame_number += 1
+
+    def arm_detector(self):
+        # Write a detector specific command to the detector
+        logging.error("Arming the detector")
+        s_obj = self.write_detector_command('arm')
+        # We are looking for the sequence ID
+        self._sequence_id = s_obj['sequence id']
+        logging.error("Arm complete, returned sequence ID: {}".format(self._sequence_id))
+
+    def initialize_detector(self):
+        self._initializing = True
+        # Write a detector specific command to the detector
+        logging.error("Initializing the detector")
+        self._initialize_event.set()
+
+    def start_acquisition(self):
+        # Perform the start sequence
+        logging.error("Start acquisition called")
+
+        # Set the acquisition complete to false
+        self._acquisition_complete = False
+
+        # Check the trigger mode
+        logging.error("trigger_mode: {}".format(self.trigger_mode))
+        if self.get_value(self.trigger_mode) == "inte" or self.get_value(self.trigger_mode) == "exte":
+            self.set('{}/nimages'.format(self._detector_config_uri), 1)
+
+        # Now arm the detector
+        self.arm_detector()
+
+        # Finally start the acquisition thread
+        if self.get_value(self.trigger_mode) == "ints" or self.get_value(self.trigger_mode) == "inte":
+            self._acquisition_event.set()
+
+    def do_acquisition(self):
+        while self._executing:
+            if self._acquisition_event.wait(0.5):
+                # Clear the acquisition event
+                self._acquisition_event.clear()
+
+                # Set the number of triggers to zero
+                triggers = 0
+                # Clear the trigger event
+                self._trigger_event.clear()
+                while self._acquisition_complete == False and triggers < self.get_value(self.ntrigger):
+                    do_trigger = True
+
+                    if self.manual_trigger:
+                        do_trigger = self._trigger_event.wait(0.1)
+
+                    if do_trigger:
+                        # Send the trigger to the detector
+                        logging.error("Sending trigger to the detector")
+                        
+                        if self.get_value(self.trigger_mode) == "inte":
+                            self.write_detector_command('trigger', self.trigger_exposure)
+                            time.sleep(self._trigger_exposure)
+                        else:
+                            self.write_detector_command('trigger')
+
+                        # Increment the trigger count
+                        triggers += 1
+                        # Clear the trigger event
+                        self._trigger_event.clear()
+
+                self._acquisition_complete = True
+                self.write_detector_command('disarm')
+
+    def do_initialize(self):
+        while self._executing:
+            if self._initialize_event.wait(1.0):
+                self.write_detector_command('initialize')
+                # We are looking for the sequence ID
+                logging.error("Initializing complete")
+                self._initializing = False
+                self._initialize_event.clear()
+                self.read_all_config()
+
+    def do_check_status(self):
+        while self._executing:
+            for status in self.DETECTOR_STATUS:
+                try:
+                    setattr(self, status, self.read_detector_status(status))
+                except:
+                    pass
+            for status in self.DETECTOR_BOARD_STATUS:
+                try:
+                    setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BOARD_000, status)))
+                except:
+                    pass
+            for status in self.DETECTOR_BUILD_STATUS:
+                try:
+                    setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status)))
+                except:
+                    pass
+            time.sleep(0.5)
+
+    def stop_acquisition(self):
+        # Perform an abort sequence
+        logging.error("Stop acquisition called")
+        self.write_detector_command('disarm')
+        self._acquisition_complete = True
+
+    def send_trigger(self):
+        # Send a manual trigger
+        logging.error("Initiating a manual trigger")
+        self._trigger_event.set()
+
+    def lv_loop(self):
+        while self._executing:
+            self.read_detector_live_image()
+            time.sleep(0.1)
 
     def shutdown(self):
-        pass
+        self._executing = False
 
 
 def main():
@@ -247,16 +573,16 @@ def main():
 
     test = EigerDetector('127.0.0.1:8080', '1.6.0')
     #test = EigerDetector('i13-1-eiger01', '1.6.0')
-    logging.info(test.get('detector/api/1.6.0/config/x_pixel_size'))
-    logging.info(test.get('detector/api/1.6.0/config/y_pixel_size'))
-    logging.info(test.get('detector/api/1.6.0/config/software_version'))
-    logging.info(test.get('detector/api/1.6.0/status/state'))
-    logging.info(test.get('detector/api/1.6.0/status/error'))
-    logging.info(test.get('detector/api/1.6.0/status/time'))
-    logging.info(test.get('detector/api/1.6.0/status/builder/dcu_buffer_free'))
-    logging.info(test.get('detector/api/1.6.0/config/count_time'))
+#    logging.info(test.get('detector/api/1.6.0/config/x_pixel_size'))
+#    logging.info(test.get('detector/api/1.6.0/config/y_pixel_size'))
+#    logging.info(test.get('detector/api/1.6.0/config/software_version'))
+#    logging.info(test.get('detector/api/1.6.0/status/state'))
+#    logging.info(test.get('detector/api/1.6.0/status/error'))
+#    logging.info(test.get('detector/api/1.6.0/status/time'))
+#    logging.info(test.get('detector/api/1.6.0/status/builder/dcu_buffer_free'))
+#    logging.info(test.get('detector/api/1.6.0/config/count_time'))
 
-#    test.read_detector_live_image()
+    test.read_detector_live_image()
 #    logging.info(test.write_detector_config('count_time', 250))
 
 if __name__ == "__main__":
