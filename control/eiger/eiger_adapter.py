@@ -29,7 +29,7 @@ class EigerAdapter(ApiAdapter):
                     self._detector = EigerDetector(self._endpoint, self._api)
 
                 except Exception as e:
-                    logging.error('EigerAdapter failed to initialise detector: %s', e)
+                    logging.error('EigerAdapter failed to create detector object: %s', e)
             else:
                 logging.warning('No detector api option specified in configuration')
         else:
