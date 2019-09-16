@@ -6,6 +6,7 @@ Alan Greer, Diamond Light Source
 
 import logging
 import json
+import time
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 
 PORT_NUMBER = 8080
@@ -66,16 +67,20 @@ class EigerSimulator(BaseHTTPRequestHandler, object):
         '/detector/api/1.6.0/status/time': {"value_type": "string", "value": "2019-07-30T14:18:57+01:00"},
         '/detector/api/1.6.0/status/board_000/th0_temp': {"value": 24.879453125000005, "state": "normal", "value_type": "float", "critical_limits": [15.0, 37.5], "time": "2019-07-30T14:18:56.831952", "unit": "", "critical_values": []},
         '/detector/api/1.6.0/status/board_000/th0_humidity': {"value": 3.552001953125, "state": "normal", "value_type": "float", "critical_limits": [0.0, 35], "time": "2019-07-30T14:18:56.831958", "unit": "", "critical_values": []},
-        '/detector/api/1.6.0/status/builder/dcu_buffer_free': {"value": 100.0, "state": "normal", "value_type": "float", "critical_limits": [2.0, None], "time": "2019-07-30T14:18:56.831456", "unit": "", "critical_values": []}
+        '/detector/api/1.6.0/status/builder/dcu_buffer_free': {"value": 100.0, "state": "normal", "value_type": "float", "critical_limits": [2.0, None], "time": "2019-07-30T14:18:56.831456", "unit": "", "critical_values": []},
+        '/stream/api/1.6.0/config/mode':  {"access_mode": "rw", "value_type": "string", "value": "enabled", "allowed_values": ["enabled", "disabled"]},
+        '/stream/api/1.6.0/config/header_detail':  {"access_mode": "rw", "value_type": "string", "value": "basic", "allowed_values": ["all", "basic", "none"]},
+        '/stream/api/1.6.0/config/header_appendix':  {"access_mode": "rw", "value_type": "string", "value": ""},
+        '/stream/api/1.6.0/config/image_appendix':  {"access_mode": "rw", "value_type": "string", "value": ""}
     }
 
     LIVE_IMAGE = None
+    SEQUENCE_ID = 1
 
     def __init__(self, *args, **kwargs):
         with open('test.tif', 'rb') as f:
             EigerSimulator.LIVE_IMAGE = f.read()
         super(EigerSimulator, self).__init__(*args, **kwargs)
-
 
     def do_GET(self):
         print(self.path)
@@ -93,19 +98,40 @@ class EigerSimulator(BaseHTTPRequestHandler, object):
 
     def do_PUT(self):
         print(self.path)
-        content_length = int(self.headers['Content-Length'])
-        body = json.loads(self.rfile.read(content_length))
-        print(body)
-        changed_items = ['compression', 'x_pixel_size']
-        if self.path in EigerSimulator.PARAMS:
-            EigerSimulator.PARAMS[self.path]['value'] = body['value']
-            changed_items.append(self.path.split('/')[-1])
+        # Check for commands
+        path_arrary = self.path.split('/')
+        if path_arrary[-2] == 'command':
+            self.execute_command(path_arrary[-1])
+        else:
+            content_length = int(self.headers['Content-Length'])
+            body = None
+            if content_length > 0:
+                body = json.loads(self.rfile.read(content_length))
+                print(body)
+            changed_items = ['compression', 'x_pixel_size']
+            if self.path in EigerSimulator.PARAMS:
+                EigerSimulator.PARAMS[self.path]['value'] = body['value']
+                changed_items.append(self.path.split('/')[-1])
+            self.send_response(200)
+            self.send_header('Content-type','application/json')
+            self.end_headers()
+            # Send the html message
+            self.wfile.write(json.dumps(changed_items))
+        return
+
+    def execute_command(self, command):
+        print("Executing {}...".format(command))
+        response = {}
+        if command == 'initialize':
+            time.sleep(10.0)
+        elif command == 'arm':
+            response['sequence id'] = EigerSimulator.SEQUENCE_ID
+            EigerSimulator.SEQUENCE_ID += 1
         self.send_response(200)
         self.send_header('Content-type','application/json')
         self.end_headers()
         # Send the html message
-        self.wfile.write(json.dumps(changed_items))
-        return
+        self.wfile.write(json.dumps(response))
 
 def main():
     try:
