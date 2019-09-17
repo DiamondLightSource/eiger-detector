@@ -14,7 +14,7 @@ build:
     LOG4CXX_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/log4cxx/0-10-0dls2/prefix
     HDF5_PLUGIN_PATH: /dls_sw/work/tools/RHEL6-x86_64/hdf5filters/prefix/h5plugin
     META_LISTENER_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/defaults/bin
-    PYTHONPATH: $INSTALL_PREFIX/../data/tools/python/:$ODIN_PREFIX/../tools/python
+    PYTHONPATH: $CI_PROJECT_DIR/data/tools/python/:$CI_PROJECT_DIR/odin-data/tools/python
   script:
     - bash .install-odin.sh
     - mkdir -p buildfolder
