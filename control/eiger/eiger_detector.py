@@ -78,7 +78,11 @@ class EigerDetector(object):
     DETECTOR_STATUS = [
         'state',
         'error',
-        'time'
+        'time',
+        'link_0',
+        'link_1',
+        'link_1',
+        'link_2'
     ]
     DETECTOR_BOARD_STATUS = [
         'th0_temp',
@@ -86,6 +90,9 @@ class EigerDetector(object):
     ]
     DETECTOR_BUILD_STATUS = [
         'dcu_buffer_free'
+    ]
+    MONITOR_CONFIG = [
+        'mode'
     ]
     STREAM_CONFIG = [
         'mode',
@@ -110,6 +117,7 @@ class EigerDetector(object):
         self._initializing = False
         self._error = ''
         self._acquisition_complete = False
+        self._armed = False
         self._live_view_frame_number = 0
 
         self.trigger_exposure = 0.0
@@ -124,6 +132,7 @@ class EigerDetector(object):
         self._detector_monitor_uri = '{}/{}/{}/images/next'.format(self.STR_MONITOR, self.STR_API, api_version)
         self._detector_command_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_COMMAND)
         self._stream_config_uri = '{}/{}/{}/{}'.format(self.STR_STREAM, self.STR_API, api_version, self.STR_CONFIG)
+        self._monitor_config_uri = '{}/{}/{}/{}'.format(self.STR_MONITOR, self.STR_API, api_version, self.STR_CONFIG)
 
         # Check if we need to initialize
         param = self.read_detector_status('state')
@@ -158,6 +167,14 @@ class EigerDetector(object):
                         },
                     },
                 },
+            },
+            self.STR_MONITOR: {
+                self.STR_API: {
+                    self._api_version: {
+                        self.STR_CONFIG: {
+                        },
+                    },
+                },
             }
         }
 
@@ -181,8 +198,16 @@ class EigerDetector(object):
 
         # Initialise status parameters and populate the parameter tree
         for status in self.DETECTOR_STATUS:
-            setattr(self, status, self.read_detector_status(status))
-            param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+            try:
+                reply = self.read_detector_status(status)
+                # Test for special cases link_x.  These are enums but do not have the allowed values set in the hardware
+                if 'link_' in status:
+                    reply['allowed_values'] = ['down', 'up']
+                setattr(self, status, reply)
+                param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+            except:
+                # We might not get all link status items returned, which is OK
+                pass
         for status in self.DETECTOR_BOARD_STATUS:
             setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BOARD_000, status)))
             param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BOARD_000][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
@@ -190,7 +215,7 @@ class EigerDetector(object):
             setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status)))
             param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BUILDER][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
 
-        # Initialise stream cofig items
+        # Initialise stream config items
         for cfg in self.STREAM_CONFIG:
             setattr(self, cfg, self.read_stream_config(cfg))
             param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
@@ -198,6 +223,12 @@ class EigerDetector(object):
                                                                                                   self.get_meta(getattr(self, cfg)))
 
             param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+
+        # Initialise monitor mode
+        setattr(self, 'monitor_mode', self.read_monitor_config('mode'))
+        param_tree[self.STR_MONITOR][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='monitor_mode': self.get_value(getattr(self, x)), 
+                                                                                                  lambda value: self.set_mode(self.STR_MONITOR, value), 
+                                                                                                  self.get_meta(getattr(self, 'monitor_mode')))
 
         # Initialise additional ADOdin configuration items
         param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG]['ccc_cutoff'] = (lambda: self.get_value(getattr(self, 'countrate_correction_count_cutoff')), self.get_meta(getattr(self, 'countrate_correction_count_cutoff')))
@@ -214,7 +245,8 @@ class EigerDetector(object):
             },
             'sequence_id': (lambda: self._sequence_id, {}),
             'error': (lambda: self._error, {}),
-            'acquisition_complete': (lambda: self._acquisition_complete, {})
+            'acquisition_complete': (lambda: self._acquisition_complete, {}),
+            'armed': (lambda: self._armed, {})
         }
         param_tree['config'] = {
             'trigger_exposure': (lambda: self.trigger_exposure,
@@ -312,6 +344,19 @@ class EigerDetector(object):
             return item['value']
         return None
 
+    def set_mode(self, mode_type, value):
+        logging.error("Setting {} mode to {}".format(mode_type, value))
+        dmd = 'disabled'
+        if value == 'Yes':
+            dmd = 'enabled'
+        elif value == 'No':
+            dmd = 'disabled'
+        # First write the value to the hardware
+        if mode_type == self.STR_STREAM:
+            response = self.write_stream_config('mode', dmd)
+        elif mode_type == self.STR_MONITOR:
+            response = self.write_monitor_config('mode', dmd)
+
     def set_value(self, item, value):
         logging.info("Setting {} to {}".format(item, value))
         # First write the value to the hardware
@@ -380,6 +425,11 @@ class EigerDetector(object):
     def write_stream_config(self, item, value):
         # Read a specifc detector config item from the hardware
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item), data=json.dumps({'value': value}))
+        return json.loads(r.text)
+
+    def read_monitor_config(self, item):
+        # Read a specifc monitor config item from the hardware
+        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item))
         return json.loads(r.text)
 
     def read_detector_live_image(self):
@@ -481,9 +531,12 @@ class EigerDetector(object):
         # Now arm the detector
         self.arm_detector()
 
-        # Finally start the acquisition thread
+        # Start the acquisition thread
         if self.get_value(self.trigger_mode) == "ints" or self.get_value(self.trigger_mode) == "inte":
             self._acquisition_event.set()
+
+        # Set the detector armed state to true
+        self._armed = True
 
     def do_acquisition(self):
         while self._executing:
@@ -518,6 +571,7 @@ class EigerDetector(object):
 
                 self._acquisition_complete = True
                 self.write_detector_command('disarm')
+                self._armed = False
 
     def do_initialize(self):
         while self._executing:
@@ -533,7 +587,11 @@ class EigerDetector(object):
         while self._executing:
             for status in self.DETECTOR_STATUS:
                 try:
-                    setattr(self, status, self.read_detector_status(status))
+                    if status == 'link_2' or status == 'link_3':
+                        if '500K' not in self.get_value(getattr(self, 'description')):
+                            setattr(self, status, self.read_detector_status(status))
+                    else:
+                        setattr(self, status, self.read_detector_status(status))
                 except:
                     pass
             for status in self.DETECTOR_BOARD_STATUS:
@@ -553,6 +611,7 @@ class EigerDetector(object):
         logging.error("Stop acquisition called")
         self.write_detector_command('disarm')
         self._acquisition_complete = True
+        self._armed = False
 
     def send_trigger(self):
         # Send a manual trigger
