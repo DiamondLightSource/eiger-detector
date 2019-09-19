@@ -95,8 +95,12 @@ class EigerSimulator(BaseHTTPRequestHandler, object):
         else:
             self.send_header('Content-type','application/json')
             self.end_headers()
-            # Send the html message
-            self.wfile.write(json.dumps(EigerSimulator.PARAMS[self.path]))
+            try:
+                # Send the html message
+                self.wfile.write(json.dumps(EigerSimulator.PARAMS[self.path]))
+            except:
+                # Send the html message
+                self.wfile.write('Error forwarding http request to detector api')
         return
 
     def do_PUT(self):
