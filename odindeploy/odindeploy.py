@@ -2,7 +2,7 @@ import os
 import json
 import uuid
 from string import Template
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawTextHelpFormatter
 
 
 _SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -17,37 +17,64 @@ class OdinPaths(object):
     HDF5_FILTERS = ""
 
     @classmethod
-    def configure_paths(cls, config_file):
-        with open(config_file) as json_file:
-            config = json.load(json_file)
-            cls.ODIN_DATA_ROOT = config["ODIN_DATA_ROOT"]
-            cls.EIGER_ROOT = config["EIGER_ROOT"]
-            cls.HDF5_FILTERS = config["HDF5_FILTERS"]
+    def configure_paths(cls, config):
+        cls.ODIN_DATA_ROOT = config["ODIN_DATA_ROOT"]
+        cls.EIGER_ROOT = config["EIGER_ROOT"]
+        cls.HDF5_FILTERS = config["HDF5_FILTERS"]
 
 
 SERVERS = 1
 PROCESSES = 4
 
 
+description = """A script to generate an Odin deployment
+
+Provide JSON file defining a single dictionary with the following parameters:
+
+    * ODIN_DATA_ROOT - Path to odin-data directory
+    * EIGER_ROOT - Path to eiger-detector directory
+    * HDF5_FILTERS - Path to directory containing HDF5 dynamic compression libraries
+    * DETECTOR_IP - IP Address of Detector
+
+The following parameters are optional and have defaults:
+
+    * DETECTOR_CTRL_PORT - Port for detector control endpoint [80]
+
+"""
+
+
 def main():
 
-    parser = ArgumentParser(description="A script to generate Odin deployment")
+    parser = ArgumentParser(
+        description=description, formatter_class=RawTextHelpFormatter
+    )
     parser.add_argument("config_file")
     args = parser.parse_args()
 
-    OdinPaths.configure_paths(args.config_file)
+    with open(args.config_file) as json_file:
+        config = json.load(json_file)
+
+    OdinPaths.configure_paths(config)
 
     if not os.path.isdir(OUTPUT_DIR):
         os.mkdir(OUTPUT_DIR)
 
-    fan = EigerFan(ip="127.0.0.1", detector_ip="127.0.0.1",
+    if "DETECTOR_CTRL_PORT" not in config:
+        config["DETECTOR_CTRL_PORT"] = 80
+    detector_ctrl_endpoint = "{}:{}".format(
+        config["DETECTOR_IP"], config["DETECTOR_CTRL_PORT"]
+    )
+
+    fan = EigerFan(ip="127.0.0.1", detector_ip=config["DETECTOR_IP"],
                    processes=PROCESSES, sockets=4, sensor="4M")
     data_server = EigerOdinDataServer(ip="127.0.0.1", source=fan,
                                       shared_mem_size=160000000, io_threads=2)
     meta = EigerMetaListener(ip="127.0.0.1", odin_data_server_1=data_server)
     control_server = EigerOdinControlServer(ip="127.0.0.1", eiger_fan=fan,
                                             meta_listener=meta,
-                                            odin_data_server_1=data_server)
+                                            odin_data_server_1=data_server,
+                                            detector_api="1.6.0",
+                                            detector_endpoint=detector_ctrl_endpoint)
     log_config = OdinLogConfig()
 
     data_server.configure_processes(server_rank=0, total_servers=1)
@@ -626,12 +653,14 @@ class EigerOdinControlServer(_OdinControlServer):
     def ODIN_SERVER(self):
         return os.path.join(OdinPaths.EIGER_ROOT, "prefix/bin/eiger_odin")
 
-    def __init__(self, ip, eiger_fan, meta_listener, port=8888,
+    def __init__(self, ip, eiger_fan, meta_listener, detector_endpoint, detector_api,
+                 port=8888,
                  odin_data_server_1=None, odin_data_server_2=None,
                  odin_data_server_3=None, odin_data_server_4=None):
-        self.__dict__.update(locals())
         self.ADAPTERS.extend(["eiger_fan", "meta_listener"])
 
+        self.detector_api = detector_api
+        self.detector_endpoint = detector_endpoint
         self.eiger_fan = eiger_fan
         self.meta_listener = meta_listener
 
@@ -642,10 +671,19 @@ class EigerOdinControlServer(_OdinControlServer):
 
     def create_odin_server_config_entries(self):
         return [
+            self._create_control_config_entry(),
             self._create_odin_data_config_entry(),
             self._create_eiger_fan_config_entry(),
             self._create_meta_listener_config_entry()
         ]
+
+    def _create_control_config_entry(self):
+        return """
+[adapter.eiger]
+module = eiger.eiger_adapter.EigerAdapter
+endpoint = {}
+api = {}
+""".format(self.detector_endpoint, self.detector_api)
 
     def _create_eiger_fan_config_entry(self):
         return """
