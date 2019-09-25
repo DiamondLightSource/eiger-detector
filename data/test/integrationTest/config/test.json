@@ -3,7 +3,7 @@
     {
         "output_file": "test_1_000001.h5",
         "frames": "3",
-        "dimensions": "4",
+        "dimensions": "3",
         "width": "2167",
         "height": "2070",
         "dataset": "data",
