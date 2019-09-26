@@ -19,7 +19,7 @@ dependency_links = [
 tests_require = [
     "nose",
     "coverage",
-    "mock"
+    "mock" 
 ]
 
 setup(
@@ -37,6 +37,7 @@ setup(
     entry_points={
         "console_scripts": [
             "eiger_odin  = odin.server:main",
+            "eiger_simulator = eiger.eiger_simulator:main"
         ]
     },
 )
