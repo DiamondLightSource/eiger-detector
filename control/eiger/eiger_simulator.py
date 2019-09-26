@@ -74,7 +74,10 @@ class EigerSimulator(BaseHTTPRequestHandler, object):
         '/stream/api/1.6.0/config/mode':  {"access_mode": "rw", "value_type": "string", "value": "enabled", "allowed_values": ["enabled", "disabled"]},
         '/stream/api/1.6.0/config/header_detail':  {"access_mode": "rw", "value_type": "string", "value": "basic", "allowed_values": ["all", "basic", "none"]},
         '/stream/api/1.6.0/config/header_appendix':  {"access_mode": "rw", "value_type": "string", "value": ""},
-        '/stream/api/1.6.0/config/image_appendix':  {"access_mode": "rw", "value_type": "string", "value": ""}
+        '/stream/api/1.6.0/config/image_appendix':  {"access_mode": "rw", "value_type": "string", "value": ""},
+        '/stream/api/1.6.0/status/dropped': {"access_mode": "r", "value_type": "int", "value": 17},
+        '/filewriter/api/1.6.0/config/mode':  {"access_mode": "rw", "value_type": "string", "value": "enabled", "allowed_values": ["enabled", "disabled"]},
+        '/filewriter/api/1.6.0/config/compression_enabled':  {"access_mode": "rw", "value_type": "bool", "value": True}
     }
 
     LIVE_IMAGE = None

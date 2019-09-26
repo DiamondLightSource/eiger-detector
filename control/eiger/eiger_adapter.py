@@ -53,6 +53,7 @@ class EigerAdapter(ApiAdapter):
             status_code = 200
         except Exception as e:
             response = {'error': str(e)}
+            logging.error("Error for path: {}".format(path))
             logging.error(e)
             status_code = 400
             

@@ -22,6 +22,7 @@ class EigerDetector(object):
     STR_DETECTOR = 'detector'
     STR_MONITOR = 'monitor'
     STR_STREAM = 'stream'
+    STR_FW = 'filewriter'
     STR_CONFIG = 'config'
     STR_STATUS = 'status'
     STR_COMMAND = 'command'
@@ -81,8 +82,8 @@ class EigerDetector(object):
         'time',
         'link_0',
         'link_1',
-        'link_1',
-        'link_2'
+        'link_2',
+        'link_3'
     ]
     DETECTOR_BOARD_STATUS = [
         'th0_temp',
@@ -99,6 +100,13 @@ class EigerDetector(object):
         'header_detail',
         'header_appendix',
         'image_appendix'
+    ]
+    STREAM_STATUS = [
+        'dropped'
+    ]
+    FW_CONFIG = [
+        'mode',
+        'compression_enabled'
     ]
 
     TIFF_ID_IMAGEWIDTH = 256
@@ -118,6 +126,7 @@ class EigerDetector(object):
         self._error = ''
         self._acquisition_complete = False
         self._armed = False
+        self._live_view_enabled = False
         self._live_view_frame_number = 0
 
         self.trigger_exposure = 0.0
@@ -132,7 +141,9 @@ class EigerDetector(object):
         self._detector_monitor_uri = '{}/{}/{}/images/next'.format(self.STR_MONITOR, self.STR_API, api_version)
         self._detector_command_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_COMMAND)
         self._stream_config_uri = '{}/{}/{}/{}'.format(self.STR_STREAM, self.STR_API, api_version, self.STR_CONFIG)
+        self._stream_status_uri = '{}/{}/{}/{}'.format(self.STR_STREAM, self.STR_API, api_version, self.STR_STATUS)
         self._monitor_config_uri = '{}/{}/{}/{}'.format(self.STR_MONITOR, self.STR_API, api_version, self.STR_CONFIG)
+        self._filewriter_config_uri = '{}/{}/{}/{}'.format(self.STR_FW, self.STR_API, api_version, self.STR_CONFIG)
 
         # Check if we need to initialize
         param = self.read_detector_status('state')
@@ -165,10 +176,20 @@ class EigerDetector(object):
                     self._api_version: {
                         self.STR_CONFIG: {
                         },
+                        self.STR_STATUS: {
+                        },
                     },
                 },
             },
             self.STR_MONITOR: {
+                self.STR_API: {
+                    self._api_version: {
+                        self.STR_CONFIG: {
+                        },
+                    },
+                },
+            },
+            self.STR_FW: {
                 self.STR_API: {
                     self._api_version: {
                         self.STR_CONFIG: {
@@ -206,29 +227,57 @@ class EigerDetector(object):
                 setattr(self, status, reply)
                 param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
             except:
-                # We might not get all link status items returned, which is OK
-                pass
+                # For a 500K link_2 and link_3 status will fail and return exceptions here, which is OK
+                if status == 'link_2' or status == 'link_3':
+                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda: 'down', {'allowed_values': ['down', 'up']})
+                else:
+                    raise
         for status in self.DETECTOR_BOARD_STATUS:
             setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BOARD_000, status)))
             param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BOARD_000][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
         for status in self.DETECTOR_BUILD_STATUS:
             setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status)))
             param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BUILDER][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+        for status in self.STREAM_STATUS:
+            setattr(self, status, self.read_stream_status(status))
+            param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
 
         # Initialise stream config items
         for cfg in self.STREAM_CONFIG:
-            setattr(self, cfg, self.read_stream_config(cfg))
-            param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
-                                                                                                  lambda value, x=cfg: self.set_value(x, value), 
-                                                                                                  self.get_meta(getattr(self, cfg)))
+            if cfg == 'mode':
+                setattr(self, 'stream_mode', self.read_stream_config('mode'))
+                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='stream_mode': self.get_value(getattr(self, x)), 
+                                                                                                         lambda value: self.set_mode(self.STR_STREAM, value), 
+                                                                                                         self.get_meta(getattr(self, 'stream_mode')))
 
-            param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+            else:
+                setattr(self, cfg, self.read_stream_config(cfg))
+                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
+                                                                                                    lambda value, x=cfg: self.set_value(x, value), 
+                                                                                                    self.get_meta(getattr(self, cfg)))
+
+#param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
 
         # Initialise monitor mode
         setattr(self, 'monitor_mode', self.read_monitor_config('mode'))
         param_tree[self.STR_MONITOR][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='monitor_mode': self.get_value(getattr(self, x)), 
                                                                                                   lambda value: self.set_mode(self.STR_MONITOR, value), 
                                                                                                   self.get_meta(getattr(self, 'monitor_mode')))
+
+        # Initialise filewriter config items
+        for cfg in self.FW_CONFIG:
+            if cfg == 'mode':
+                # Initialise filewriter mode
+                setattr(self, 'fw_mode', self.read_filewriter_config('mode'))
+                param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='fw_mode': self.get_value(getattr(self, x)), 
+                                                                                                    lambda value: self.set_mode(self.STR_FW, value), 
+                                                                                                    self.get_meta(getattr(self, 'fw_mode')))
+            else:
+                setattr(self, cfg, self.read_filewriter_config(cfg))
+                param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
+                                                                                                  lambda value, x=cfg: self.set_value(x, value), 
+                                                                                                  self.get_meta(getattr(self, cfg)))
+
 
         # Initialise additional ADOdin configuration items
         param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG]['ccc_cutoff'] = (lambda: self.get_value(getattr(self, 'countrate_correction_count_cutoff')), self.get_meta(getattr(self, 'countrate_correction_count_cutoff')))
@@ -260,7 +309,10 @@ class EigerDetector(object):
                               self.get_meta(getattr(self, 'nimages'))),
             'exposure_time': (lambda: self.get_value(getattr(self, 'count_time')),
                               lambda value: self.set_value('count_time', value), 
-                              self.get_meta(getattr(self, 'count_time')))
+                              self.get_meta(getattr(self, 'count_time'))),
+            'live_view': (lambda: self._live_view_enabled,
+                          lambda value: setattr(self, '_live_view_enabled', value),
+                          {})
         }
         param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_COMMAND] = {
             'initialize': (lambda: 0, lambda value: self.write_detector_command('initialize')),
@@ -346,26 +398,31 @@ class EigerDetector(object):
 
     def set_mode(self, mode_type, value):
         logging.error("Setting {} mode to {}".format(mode_type, value))
-        dmd = 'disabled'
-        if value == 'Yes':
-            dmd = 'enabled'
-        elif value == 'No':
-            dmd = 'disabled'
         # First write the value to the hardware
         if mode_type == self.STR_STREAM:
-            response = self.write_stream_config('mode', dmd)
+            response = self.write_stream_config('mode', value)
+            param = self.read_stream_config('mode')
+            setattr(self, 'stream_mode', param)
         elif mode_type == self.STR_MONITOR:
-            response = self.write_monitor_config('mode', dmd)
+            response = self.write_monitor_config('mode', value)
+            param = self.read_monitor_config('mode')
+            setattr(self, 'monitor_mode', param)
+        elif mode_type == self.STR_FW:
+            response = self.write_filewriter_config('mode', value)
+            param = self.read_filewriter_config('mode')
+            setattr(self, 'fw_mode', param)
 
     def set_value(self, item, value):
-        logging.info("Setting {} to {}".format(item, value))
+        logging.error("Setting {} to {}".format(item, value))
         # First write the value to the hardware
         if item in self.DETECTOR_CONFIG:
             response = self.write_detector_config(item, value)
         elif item in self.STREAM_CONFIG:
             response = self.write_stream_config(item, value)
+        elif item in self.FW_CONFIG:
+            response = self.write_filewriter_config(item, value)
 
-        logging.info("Changed items response: {}".format(response))
+        logging.error("Changed items response: {}".format(response))
         # Now check the response to see if we need to update any config items
         if response is not None:
             if isinstance(response, list):
@@ -375,8 +432,26 @@ class EigerDetector(object):
                         param = self.read_detector_config(cfg)
                     elif cfg in self.STREAM_CONFIG:
                         param = self.read_stream_config(cfg)
-                    logging.info("Read from detector [{}]: {}".format(cfg, param))
+                    logging.error("Read from detector [{}]: {}".format(cfg, param))
                     setattr(self, cfg, param)
+        else:
+            if item in self.DETECTOR_CONFIG:
+                param = self.read_detector_config(item)
+            elif item in self.STREAM_CONFIG:
+                param = self.read_stream_config(item)
+            elif item in self.FW_CONFIG:
+                param = self.read_filewriter_config(item)
+            logging.error("Read from detector [{}]: {}".format(item, param))
+            setattr(self, item, param)
+
+    def parse_response(self, response):
+        reply = None
+        try:
+            reply = json.loads(response.text)
+        except:
+            # Unable to parse the json response, so simply log this
+            logging.debug("Failed to parse a JSON response: {}".format(response.text))
+        return reply
 
     def get_meta(self, item):
         # Populate any meta data items and return the dict
@@ -394,17 +469,17 @@ class EigerDetector(object):
     def read_detector_config(self, item):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item))
-        return json.loads(r.text)
+        return self.parse_response(r)
 
     def write_detector_config(self, item, value):
         # Read a specifc detector config item from the hardware
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item), data=json.dumps({'value': value}))
-        return json.loads(r.text)
+        return self.parse_response(r)
 
     def read_detector_status(self, item):
         # Read a specifc detector status item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_status_uri, item))
-        return json.loads(r.text)
+        return self.parse_response(r)
 
     def write_detector_command(self, command, value=None):
         # Write a detector specific command to the detector
@@ -414,23 +489,43 @@ class EigerDetector(object):
             data=json.dumps({'value': value})
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_command_uri, command), data=data)
         if len(r.text) > 0:
-            reply = json.loads(r.text)
+            reply = self.parse_response(r)
         return reply
 
     def read_stream_config(self, item):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item))
-        return json.loads(r.text)
+        return self.parse_response(r)
 
     def write_stream_config(self, item, value):
         # Read a specifc detector config item from the hardware
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item), data=json.dumps({'value': value}))
-        return json.loads(r.text)
+        return self.parse_response(r)
+
+    def read_stream_status(self, item):
+        # Read a specifc stream status item from the hardware
+        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_status_uri, item))
+        return self.parse_response(r)
 
     def read_monitor_config(self, item):
         # Read a specifc monitor config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item))
-        return json.loads(r.text)
+        return self.parse_response(r)
+
+    def write_monitor_config(self, item, value):
+        # Read a specifc detector config item from the hardware
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item), data=json.dumps({'value': value}))
+        return self.parse_response(r)
+
+    def read_filewriter_config(self, item):
+        # Read a specifc filewriter config item from the hardware
+        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item))
+        return self.parse_response(r)
+
+    def write_filewriter_config(self, item, value):
+        # Write a specifc filewriter config item to the hardware
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item), data=json.dumps({'value': value}))
+        return self.parse_response(r)
 
     def read_detector_live_image(self):
         # Read the relevant monitor stream
@@ -441,7 +536,7 @@ class EigerDetector(object):
         else:
             tiff = r.content
             # Read the header information from the image
-            logging.error("Size of raw stream input: {}".format(len(tiff)))
+            logging.debug("Size of raw stream input: {}".format(len(tiff)))
             hdr = tiff[4:8]
             index_offset = struct.unpack("=i", hdr)[0]
             hdr = tiff[index_offset:index_offset+2]
@@ -620,7 +715,8 @@ class EigerDetector(object):
 
     def lv_loop(self):
         while self._executing:
-            self.read_detector_live_image()
+            if self._live_view_enabled:
+                self.read_detector_live_image()
             time.sleep(0.1)
 
     def shutdown(self):
