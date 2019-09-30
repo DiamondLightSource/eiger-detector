@@ -30,6 +30,7 @@ class EigerAdapter(ApiAdapter):
 
                 except Exception as e:
                     logging.error('EigerAdapter failed to create detector object: %s', e)
+                    logging.exception(e)
             else:
                 logging.warning('No detector api option specified in configuration')
         else:
@@ -54,7 +55,7 @@ class EigerAdapter(ApiAdapter):
         except Exception as e:
             response = {'error': str(e)}
             logging.error("Error for path: {}".format(path))
-            logging.error(e)
+            logging.exception(e)
             status_code = 400
             
         return ApiAdapterResponse(response, status_code=status_code)
@@ -84,7 +85,8 @@ class EigerAdapter(ApiAdapter):
         except Exception as e:
             response = {'error': str(e)}
             status_code = 400
-            logging.error(e)
+            logging.error("Error for path: {}".format(path))
+            logging.exception(e)
             
         return ApiAdapterResponse(response, status_code=status_code)
 
