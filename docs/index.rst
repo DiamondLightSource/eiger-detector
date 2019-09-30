@@ -16,7 +16,7 @@ A web based GUI is supplied with the module as a default client to allow immedia
 once the software has been built.
 
 There is also a separate software repository `ADOdin`_ that contains an EPICS client application 
-which controls this software module.
+which can be used to control this software stack.
 
 
 Documentation
