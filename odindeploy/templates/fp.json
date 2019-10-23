@@ -1,0 +1,12 @@
+[
+  {
+    "fr_setup": {
+      "fr_ready_cnxn": "tcp://127.0.0.1:$RD_PORT",
+      "fr_release_cnxn": "tcp://127.0.0.1:$RL_PORT"
+    },
+    "meta_endpoint": "tcp://*:$META_PORT"
+  },
+  $LOAD_ENTRIES,
+  $CONNECT_ENTRIES,
+  $CONFIG_ENTRIES
+]
