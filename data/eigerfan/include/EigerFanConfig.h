@@ -2,7 +2,7 @@
  * EigerFanConfig.h
  *
  *  Created on: 6 Apr 2017
- *      Author: vtu42223
+ *      Author: Matt Taylor
  */
 
 #ifndef EIGERFAN_INCLUDE_EIGERFANCONFIG_H_

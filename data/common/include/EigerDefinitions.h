@@ -2,7 +2,7 @@
  * EigerDefinitions.h
  *
  *  Created on: 6 Apr 2017
- *      Author: vtu42223
+ *      Author: Matt Taylor
  */
 
 #ifndef INCLUDE_EIGERDEFINITIONS_H_

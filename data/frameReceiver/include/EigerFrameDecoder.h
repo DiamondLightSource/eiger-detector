@@ -2,7 +2,7 @@
  * EigerFrameDecoder.h
  *
  *  Created on: 23 Feb 2017
- *      Author: gnx91527
+ *      Author: Alan Greer
  */
 
 #ifndef SRC_EIGERFRAMEDECODER_H_

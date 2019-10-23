@@ -2,7 +2,7 @@
  * EIGERFrameDecoderLib.cpp
  *
  *  Created on: 8 Mar 2017
- *      Author: gnx91527
+ *      Author: Alan Greer
  */
 
 

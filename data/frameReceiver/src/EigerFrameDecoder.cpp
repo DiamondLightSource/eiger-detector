@@ -2,7 +2,7 @@
  * EigerFrameDecoder.cpp
  *
  *  Created on: 23 Feb 2017
- *      Author: gnx91527
+ *      Author: Alan Greer
  */
 
 #include "EigerFrameDecoder.h"
