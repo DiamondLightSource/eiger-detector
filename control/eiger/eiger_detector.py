@@ -496,7 +496,7 @@ class EigerDetector(object):
 
     def write_detector_config(self, item, value):
         # Read a specifc detector config item from the hardware
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item), data=json.dumps({'value': value}))
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
         return self.parse_response(r)
 
     def read_detector_status(self, item):
@@ -510,7 +510,7 @@ class EigerDetector(object):
         data = None
         if value is not None:
             data=json.dumps({'value': value})
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_command_uri, command), data=data)
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_command_uri, command), data=data, headers={"Content-Type": "application/json"})
         if len(r.text) > 0:
             reply = self.parse_response(r)
         return reply
@@ -522,7 +522,7 @@ class EigerDetector(object):
 
     def write_stream_config(self, item, value):
         # Read a specifc detector config item from the hardware
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item), data=json.dumps({'value': value}))
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
         return self.parse_response(r)
 
     def read_stream_status(self, item):
@@ -537,7 +537,7 @@ class EigerDetector(object):
 
     def write_monitor_config(self, item, value):
         # Read a specifc detector config item from the hardware
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item), data=json.dumps({'value': value}))
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
         return self.parse_response(r)
 
     def read_filewriter_config(self, item):
@@ -547,7 +547,7 @@ class EigerDetector(object):
 
     def write_filewriter_config(self, item, value):
         # Write a specifc filewriter config item to the hardware
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item), data=json.dumps({'value': value}))
+        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
         return self.parse_response(r)
 
     def read_detector_live_image(self):
