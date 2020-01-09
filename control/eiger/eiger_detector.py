@@ -217,8 +217,7 @@ class EigerDetector(object):
                                                                                                             lambda value, x=cfg: self.set_value(x, value), 
                                                                                                             self.get_meta(getattr(self, cfg)))
                 else:
-                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
-                                                                                                            self.get_meta(getattr(self, cfg)))
+                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), self.get_meta(getattr(self, cfg)))
             else:
                 logging.error("Parameter {} has not been implemented for API {}".format(cfg, self._api_version))
 
@@ -555,7 +554,7 @@ class EigerDetector(object):
     def read_detector_live_image(self):
         # Read the relevant monitor stream
         r = requests.get('http://{}/{}'.format(self._endpoint, self._detector_monitor_uri))
-        if r.content == 'Image not available':
+        if r.content == 'Image not available' or r.content == "data not available":
             # There is no live image so we can just pass through
             return
         else:
@@ -669,6 +668,7 @@ class EigerDetector(object):
                 # Clear the trigger event
                 self._trigger_event.clear()
                 while self._acquisition_complete == False and triggers < self.get_value(self.ntrigger):
+
                     do_trigger = True
 
                     if self.manual_trigger:
