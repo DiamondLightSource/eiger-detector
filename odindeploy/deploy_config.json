@@ -1,7 +1,0 @@
-{
-  "ODIN_DATA_ROOT": "/dls_sw/work/tools/RHEL7-x86_64/odin-data",
-  "EIGER_ROOT": "/dls_sw/work/tools/RHEL7-x86_64/eiger-detector",
-  "HDF5_FILTERS": "/dls_sw/prod/tools/RHEL7-x86_64/hdf5filters/0-6-1/prefix/hdf5_1.10/h5plugin",
-  "DETECTOR_IP": "127.0.0.2",
-  "DETECTOR_CTRL_PORT": "8080"
-}
