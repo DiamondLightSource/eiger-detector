@@ -555,7 +555,7 @@ class EigerDetector(object):
         # Read the relevant monitor stream
         r = requests.get('http://{}/{}'.format(self._endpoint, self._detector_monitor_uri))
         if r.content == 'Image not available' or r.content == "data not available":
-            # There is no live image so we can just pass through
+            # There is no live image (1.6.0 or 1.8.0) so we can just pass through
             return
         else:
             tiff = r.content
