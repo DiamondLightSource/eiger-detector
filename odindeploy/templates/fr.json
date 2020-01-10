@@ -1,0 +1,14 @@
+[
+  {
+    "decoder_type": "Eiger",
+    "decoder_path": "$DETECTOR_ROOT/prefix/lib",
+    "rx_type": "zmq",
+    "rx_address": "$IP",
+    "rx_ports": "3160$RX_PORT_SUFFIX,",
+    "decoder_config": {
+      "enable_packet_logging": false,
+      "frame_timeout_ms": 1000,
+      "detector_model": "$SENSOR"
+    }
+  }
+]
