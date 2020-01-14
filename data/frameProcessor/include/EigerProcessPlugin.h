@@ -2,7 +2,7 @@
  * EigerProcessPlugin.h
  *
  *  Created on: 8 May 2017
- *      Author: vtu42223
+ *      Author: Matt Taylor
  */
 
 #ifndef TOOLS_FILEWRITER_EIGERPROCESSPLUGIN_H_

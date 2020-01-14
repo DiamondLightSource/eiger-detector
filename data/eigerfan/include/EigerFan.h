@@ -1,5 +1,5 @@
 //
-// Created by up45 on 23/03/17.
+// Created by Ulrik Pedersen on 23/03/17.
 //
 
 #ifndef EIGERDAQ_EIGERFAN_H

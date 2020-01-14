@@ -1,6 +1,8 @@
-/*!
+/*
  * eigerfan_main.cpp
  *
+ *  Created on: 17 March 2017
+ *      Author: Ulrik Pedersen
  */
 
 #include <iostream>

@@ -1,6 +1,10 @@
-//
-// Created by up45 on 23/03/17.
-//
+/*
+ * EigerProcessPlugin.cpp
+ *
+ *  Created on: 23 March 2017
+ *      Author: Ulrik Pedersen
+ */
+
 #include <iostream>
 #include <string>
 #include <sstream>
