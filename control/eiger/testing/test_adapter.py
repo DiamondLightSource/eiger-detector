@@ -21,7 +21,6 @@ class EigerAdapterFixture(object):
         cls.adapter = EigerAdapter(**adapter_params)
         cls.request = Mock()
         cls.request.headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        cls.path = 'command/initialize'
 
 
 class TestEigerAdapter(EigerAdapterFixture):
@@ -38,20 +37,40 @@ class TestEigerAdapter(EigerAdapterFixture):
     def test_adapter_name(self):
         assert_equal(self.adapter.name, 'EigerAdapter')
 
-    def test_adapter_get_initialise(self):
-        response = self.adapter.get(self.path, self.request)
+    def test_adapter_initialise(self):
+        response = self.adapter.get('command/initialize', self.request)
         assert_true(isinstance(response.data, dict))
         assert_equal(response.status_code, 200)
         self.adapter.cleanup()
 
     def test_adapter_get_beamcenter(self):
-        response = self.adapter.get("detector/api/1.6.0/config/beam_center_x", self.request)
+        response = self.adapter.get("detector/api/1.6.0/config/beam_center_x",
+                                    self.request)
         expected_response = {"writeable": True,
                              "min": -3.4028234663852886e+38,
                              "max": 3.4028234663852886e+38,
                              "value": 0.0,
                              "type": "float",
-                             "units": u'pixel'}
+                             "units": "pixel"}
         assert_equal(response.data, expected_response)
         assert_equal(response.status_code, 200)
         self.adapter.cleanup()
+
+    def test_adapter_bad_path(self):
+        response = self.adapter.put('bad_path', self.request)
+        assert_equal(response.status_code, 400)
+
+    def test_adapter_put_beamcenter(self):
+        self.request.body = json.dumps(10)
+        response = self.adapter.put("detector/api/1.6.0/config/beam_center_x",
+                                    self.request)
+        assert_equal(response.status_code, 200)
+
+    def test_adapter_delete(self):
+        expected_response = 'DELETE method not implemented by {}'.\
+                format(self.adapter.name)
+        response = self.adapter.delete("detector/api/1.6.0/config/beam_center_x",
+                                       self.request)
+        assert_equal(response.data, expected_response)
+        assert_equal(response.status_code, 400)
+
