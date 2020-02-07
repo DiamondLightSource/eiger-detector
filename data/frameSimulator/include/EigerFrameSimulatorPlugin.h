@@ -63,6 +63,7 @@ namespace FrameSimulator {
         std::string acquisitionID;
         int delay_adjustment;
         std::vector<std::string> dest_ports;
+        bool stream;
 
     };
 
