@@ -7,6 +7,7 @@ Matt Taylor, Diamond Light Source
 import numpy as np
 import time
 import re
+import ast
 
 from odin_data.meta_writer.meta_writer import MetaWriter
 import _version as versioneer
@@ -129,7 +130,10 @@ class EigerMetaWriter(MetaWriter):
             self._logger.debug('config already created')
         else:
             nps = np.str(config)
+            config_data = ast.literal_eval(np.str(config).decode("utf-8"))
             self.create_dataset_with_data("config", data=nps)
+            for k in sorted(config_data):
+                self.create_dataset_with_data("config_dectris/%s" %k, config_data[k])
             self._config_created = True
 
         if self._series_created:

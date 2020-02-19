@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 2.8)
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_CONFIG_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test_config)
 
 # Set the Eiger Fan directory
 set(EIGERFAN_DIR ${eigerdetector_SOURCE_DIR}/eigerfan)
@@ -20,6 +21,8 @@ set(FRAMESIMULATOR_DIR ${eigerdetector_SOURCE_DIR}/frameSimulator)
 set(TOOLS_DIR ${eigerdetector_SOURCE_DIR}/tools)
 # Set the common directory
 set(COMMON_DIR ${eigerdetector_SOURCE_DIR}/common)
+# Set the integrationTest directory
+set(TEST_DIR ${eigerdetector_SOURCE_DIR}/test)
 
 # Appends the cmake/modules path inside the MAKE_MODULE_PATH variable which stores the
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):

@@ -14,6 +14,7 @@ namespace FrameSimulator {
     static const FrameSimulatorOption<std::string> opt_acqid("acquisition-id", "Acquisition ID", "test");
     static const FrameSimulatorOption<std::string> opt_filepattern("file-pattern", "File pattern", "streamfile");
     static const FrameSimulatorOption<int> opt_delay("delay-adjustment", "Delay adjustment", 70000);
+    static const FrameSimulatorOption<bool> opt_stream("stream", "Stream mode", false);
 
 }
 
