@@ -32,7 +32,7 @@
     "simulator": {
       "process" : false,
       "command": "${ODIN_PREFIX}\/bin\/frameSimulator",
-      "pos-args": "Eiger"
+      "pos-args": "Eiger",
       "sleep": "60"
     },
     "test": {
