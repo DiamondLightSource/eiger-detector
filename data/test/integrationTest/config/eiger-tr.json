@@ -32,7 +32,7 @@
     "simulator": {
       "process" : false,
       "command": "${ODIN_PREFIX}\/bin\/frameSimulator",
-      "pos-args": "Eiger"
+      "pos-args": "Eiger",
       "sleep": "60"
     },
     "test": {
@@ -64,7 +64,7 @@
   },
   "simulator": {
     "lib-path": "${INSTALL_PREFIX}\/lib",
-    "path": "${INSTALL_PREFIX}\/..\/data\/test\/testdata\/",
+    "path": "${HOME}\/build\/dls-controls\/eiger-detector\/data\/test\/testdata\/",
     "stream": 1
   },
   "test": {

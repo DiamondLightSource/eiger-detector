@@ -18,12 +18,13 @@ matrix:
         - libzmq3-dev
         - libpcap-dev
         - libboost-regex-dev
-    env: HDF5_ROOT=$HOME/hdf5-1.10.1 INSTALL_PREFIX=$HOME/install_prefix ODIN_PREFIX=$HOME/odin-data BLOSC_ROOT=$HOME/c-blosc-1.14.2 KAFKA_ROOT=$HOME/librdkafka-1.0.0 META_LISTENER_ROOT=$ODIN_PREFIX/bin PYTHONPATH=$HOME/data/tools/python:$HOME/odin-data/tools/python
+    env: HDF5_ROOT=$HOME/hdf5-1.10.1 INSTALL_PREFIX=$HOME/install_prefix ODIN_PREFIX=$HOME/odin-data BLOSC_ROOT=$HOME/c-blosc-1.14.2 KAFKA_ROOT=$HOME/librdkafka-1.0.0 PYTHONPATH=$HOME/build/dls-controls/eiger-detector/data/tools/python:$HOME/odin-data/tools/python META_LISTENER_ROOT=$HOME/.local/bin HDF5_PLUGIN_PATH=$HOME/hdf5filters/h5plugin
     before_install:
     - bash .travis-install-blosc.sh
     - bash .travis-install-librdkafka.sh
     - bash .travis-install-hdf5.sh
     - bash .travis-install-odin.sh
+    - bash .travis-install-hdf5filters.sh
 install:
 - git fetch --depth=500
 - mkdir -p build
@@ -33,6 +34,6 @@ install:
 - cmake --build . --target install;
 - cd ..
 script:
-- ${ODIN_PREFIX}/bin/odinDataTest --json=${INSTALL_PREFIX}/test_config/eiger.json
+- ${ODIN_PREFIX}/bin/odinDataTest --json=${INSTALL_PREFIX}/test_config/eiger-tr.json
 after_success:
 - coveralls
