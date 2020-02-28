@@ -115,7 +115,7 @@ namespace FrameSimulator {
 
       if (opt_path.is_specified(vm)) {
         filepath = opt_path.get_val(vm);
-        LOG4CXX_INFO(logger_, "Setting file path " << filepath);
+        LOG4CXX_INFO(logger_, "Setting file path " + filepath.get());
       }
 
       return true;

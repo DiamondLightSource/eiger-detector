@@ -1,0 +1,45 @@
+language: cpp
+sudo: false
+matrix:
+  include:
+  - os: linux
+    compiler: gcc
+    addons:
+      apt:
+        packages:
+        - liblog4cxx10-dev
+        - libboost-program-options-dev
+        - libboost-filesystem-dev
+        - libboost-date-time-dev
+        - libboost-dev
+        - libboost-system-dev
+        - libboost-test-dev
+        - libboost-thread-dev
+        - libzmq3-dev
+        - libpcap-dev
+        - libboost-regex-dev
+    env: HDF5_ROOT=$HOME/hdf5-1.10.1 INSTALL_PREFIX=$HOME/install_prefix ODIN_PREFIX=$HOME/odin-data BLOSC_ROOT=$HOME/c-blosc-1.14.2 KAFKA_ROOT=$HOME/librdkafka-1.0.0 PYTHONPATH=$HOME/build/dls-controls/eiger-detector/data/tools/python:$HOME/odin-data/tools/python META_LISTENER_ROOT=$HOME/.local/bin HDF5_PLUGIN_PATH=$HOME/hdf5filters/h5plugin
+    before_install:
+    - bash .travis-install-blosc.sh
+    - bash .travis-install-librdkafka.sh
+    - bash .travis-install-hdf5.sh
+    - bash .travis-install-odin.sh
+    - bash .travis-install-hdf5filters.sh
+install:
+- git fetch --depth=500
+- mkdir -p build
+- mkdir -p $INSTALL_PREFIX
+- cd build;
+- cmake -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DBoost_NO_BOOST_CMAKE=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DODINDATA_ROOT_DIR=$ODIN_PREFIX ../data;
+- cmake --build . --target install;
+- cd ..
+script:
+- $INSTALL_PREFIX/bin/eigerfan-test
+- ${ODIN_PREFIX}/bin/odinDataTest --json=${INSTALL_PREFIX}/test_config/eiger-tr.json
+after_success:
+- coveralls
+notifications:
+  slack:
+    secure: a/WWpfSTM2Ui2ovXNT7XkPRWXaO6ODkfjh+amqTjvJw+yIwi0hNvBQTJuA3dXgxiEQC+ZrRjhCPx4I5xWpEnzUd36wOMjp/xE3J5O1F5Hcx9K2crLnJTz0vorO1VveJrTeoJHv5iPYM+nI3cfFdKInRZFjslMQbmS5Msd5Sg6hHxMVwcK4PG+Jn9P3TOqEcRVgJd0LWKL5br8wvAQLLHeNspNvLl0MUKZaLWCYO+uR/CBAO7o0f7fttdLsXpiWaGItz03e1ukUOnTk2ObSA9j+tghCOGLySi2e4Qhc1wTocgPEf5OMss2U6nMCNcIbBzE5BkjfdkMR2DcH6/D+bMrZtSdR2xXjpq/IFZLZhVu1/RBERoVPQxqDwdNOhQgZCwVTqG98C8jxlwlkgaYPoPjW7GnJ+Jo1wHDgeepphzXGr7QJnXtW08oovFus/+9wsz+ByrIZgkAll871IFlTjkGcinRz1tTe+7zmguOb1FmgzaPD4q9D2gUL+aICgrXwMmiTwrEhu0q6xJATbTET9+36uWUWIy6shKoPItldr9++lqeroRqaLWK2ocBYQ2uyoUCXjQ0jJTWfYzhMyed+DXViGC6FqqSwGLMuccLYjatmUs8QKDWwaBPXXR+i69s78eJn7aVw1mNU2SnEhBTA57TlsWt2CGoIS6WoNUpJuCUo0=
+
+

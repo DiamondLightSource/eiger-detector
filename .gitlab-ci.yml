@@ -10,7 +10,7 @@ build:
     HDF5_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/hdf5/1-10-4/prefix
     BLOSC_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/c-blosc/1-14-2/prefix
     INSTALL_PREFIX: $CI_PROJECT_DIR/install_prefix
-    ODIN_PREFIX: $CI_PROJECT_DIR/odin-data-integration-test
+    ODIN_PREFIX: $CI_PROJECT_DIR/odin-data
     LOG4CXX_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/log4cxx/0-10-0dls2/prefix
     HDF5_PLUGIN_PATH: /dls_sw/work/tools/RHEL6-x86_64/hdf5filters/prefix/h5plugin
     META_LISTENER_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/defaults/bin

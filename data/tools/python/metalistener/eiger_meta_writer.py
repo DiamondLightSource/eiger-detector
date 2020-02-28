@@ -133,7 +133,7 @@ class EigerMetaWriter(MetaWriter):
             config_data = ast.literal_eval(np.str(config).decode("utf-8"))
             self.create_dataset_with_data("config", data=nps)
             for k in sorted(config_data):
-                self.create_dataset_with_data("config_dectris/%s" %k, config_data[k])
+                self.create_dataset_with_data("_dectris/%s" %k, config_data[k])
             self._config_created = True
 
         if self._series_created:
