@@ -15,3 +15,6 @@ cd ../
 cd tools/python
 python setup.py install --user
 cd ../../../
+git clone https://github.com/odin-detector/odin-control.git
+cd odin-control
+python setup.py install --user
