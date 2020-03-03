@@ -25,3 +25,8 @@ build:
     - cd ..
     - $ODIN_PREFIX/bin/odinDataTest --json=$INSTALL_PREFIX/test_config/eiger.json
     - $INSTALL_PREFIX/bin/eigerfan-test
+    - cd control/eiger
+    - python eiger_simulator.py &
+    - cd ..
+    - dls-python setup.py test
+    - pid=`pgrep -f eiger_simulator`; kill $pid

@@ -51,8 +51,9 @@ dependency_links = [
 tests_require = [
     "nose",
     "coverage",
-    "mock",
-    "configparser"
+    "mock==3.0.5",
+    "configparser",
+    "tornado==5.1.1"
 ]
 
 setup(
@@ -64,7 +65,7 @@ setup(
     author="Gary Yendell",
     author_email="gary.yendell@diamond.ac.uk",
     packages=find_packages(),
-    install_requires=["odin-control", "odin-data", "configparser"],
+    install_requires=["odin", "odin-data", "configparser"],
     tests_require=tests_require,
     extras_require={"test": ["nose", "coverage", "mock"]},
     entry_points={
