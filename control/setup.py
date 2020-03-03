@@ -51,9 +51,9 @@ dependency_links = [
 tests_require = [
     "nose",
     "coverage",
-    "mock==3.0.5",
+    "mock",
     "configparser",
-    "tornado==5.1.1"
+    "tornado"
 ]
 
 setup(
