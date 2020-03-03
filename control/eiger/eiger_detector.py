@@ -5,7 +5,7 @@ Alan Greer, DLS
 """
 from pkg_resources import require
 require("requests")
-require("odin")
+require("odin-control")
 
 import zmq
 
