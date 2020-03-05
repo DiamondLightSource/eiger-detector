@@ -680,7 +680,7 @@ class EigerDetector(object):
                         
                         if self.get_value(self.trigger_mode) == "inte":
                             self.write_detector_command('trigger', self.trigger_exposure)
-                            time.sleep(self._trigger_exposure)
+                            time.sleep(self.trigger_exposure)
                         else:
                             self.write_detector_command('trigger')
 
