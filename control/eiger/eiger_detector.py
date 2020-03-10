@@ -554,7 +554,7 @@ class EigerDetector(object):
     def read_detector_live_image(self):
         # Read the relevant monitor stream
         r = requests.get('http://{}/{}'.format(self._endpoint, self._detector_monitor_uri))
-        if r.content == 'Image not available' or r.content == "data not available":
+        if r.content == 'Image not available' or r.content == "no data available":
             # There is no live image (1.6.0 or 1.8.0) so we can just pass through
             return
         else:
@@ -680,7 +680,7 @@ class EigerDetector(object):
                         
                         if self.get_value(self.trigger_mode) == "inte":
                             self.write_detector_command('trigger', self.trigger_exposure)
-                            time.sleep(self._trigger_exposure)
+                            time.sleep(self.trigger_exposure)
                         else:
                             self.write_detector_command('trigger')
 
