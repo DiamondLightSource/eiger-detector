@@ -119,6 +119,7 @@ void EigerFan::run() {
     consumer.connected = false;
     consumer.sendSocket = sendSocket;
     consumers.push_back(consumer);
+    num_frames_consumed.push_back(0);
   }
 
   std::vector<boost::shared_ptr<zmq::socket_t> > monitorSockets;
@@ -373,6 +374,8 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
         configuredOffset = 0;
         lastFrameSent = 0;
         num_frames_sent = 0;
+        for(int j=0; j<num_frames_consumed.size(); j++)
+          num_frames_consumed[j] = 0;
         currentAcquisitionID = configuredAcquisitionID;
         // Handle Message
         HandleGlobalHeaderMessage(socket);
@@ -385,11 +388,15 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
           lastFrameSent = frame;
         }
         num_frames_sent++;
+        num_frames_consumed[currentConsumerIndexToSendTo]++;
       } else if (htype.compare(END_HEADER_TYPE) == 0) {
-        HandleEndOfSeriesMessage(socket);
-        state = WAITING_STREAM;
         LOG4CXX_INFO(log, "End of series message received after " + boost::lexical_cast<std::string>(num_frames_sent) \
                 + " frames sent");
+        for(int j=0; j<num_frames_consumed.size(); j++)
+          LOG4CXX_INFO(log, "Consumer index " + boost::lexical_cast<std::string>(currentConsumerIndexToSendTo) \
+                + " to consume " + boost::lexical_cast<std::string>(num_frames_consumed[j]) + " frames");
+        HandleEndOfSeriesMessage(socket);
+        state = WAITING_STREAM;
       } else {
         LOG4CXX_ERROR(log, std::string("Unknown header type ").append(htype));
       }
