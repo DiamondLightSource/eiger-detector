@@ -152,7 +152,7 @@ class EigerDetector(object):
         if 'value' in param:
             if param['value'] == 'na':
                 # We should re-init the detector immediately
-                logging.error("Detector found in uninitialized state at startup, initializing...")
+                logging.warning("Detector found in uninitialized state at startup, initializing...")
                 self.write_detector_command('initialize')
 
         # Initialise the parameter tree structure
@@ -421,7 +421,7 @@ class EigerDetector(object):
         return None
 
     def set_mode(self, mode_type, value):
-        logging.error("Setting {} mode to {}".format(mode_type, value))
+        logging.info("Setting {} mode to {}".format(mode_type, value))
         # First write the value to the hardware
         if mode_type == self.STR_STREAM:
             response = self.write_stream_config('mode', value)
@@ -437,7 +437,7 @@ class EigerDetector(object):
             setattr(self, 'fw_mode', param)
 
     def set_value(self, item, value):
-        logging.error("Setting {} to {}".format(item, value))
+        logging.info("Setting {} to {}".format(item, value))
         # First write the value to the hardware
         if item in self.DETECTOR_CONFIG:
             response = self.write_detector_config(item, value)
@@ -446,7 +446,7 @@ class EigerDetector(object):
         elif item in self.FW_CONFIG:
             response = self.write_filewriter_config(item, value)
 
-        logging.error("Changed items response: {}".format(response))
+        logging.info("Changed items response: {}".format(response))
         # Now check the response to see if we need to update any config items
         if response is not None:
             if isinstance(response, list):
@@ -456,7 +456,7 @@ class EigerDetector(object):
                         param = self.read_detector_config(cfg)
                     elif cfg in self.STREAM_CONFIG:
                         param = self.read_stream_config(cfg)
-                    logging.error("Read from detector [{}]: {}".format(cfg, param))
+                    logging.info("Read from detector [{}]: {}".format(cfg, param))
                     setattr(self, cfg, param)
         else:
             if item in self.DETECTOR_CONFIG:
@@ -465,7 +465,7 @@ class EigerDetector(object):
                 param = self.read_stream_config(item)
             elif item in self.FW_CONFIG:
                 param = self.read_filewriter_config(item)
-            logging.error("Read from detector [{}]: {}".format(item, param))
+            logging.info("Read from detector [{}]: {}".format(item, param))
             setattr(self, item, param)
 
     def parse_response(self, response):
@@ -474,7 +474,7 @@ class EigerDetector(object):
             reply = json.loads(response.text)
         except:
             # Unable to parse the json response, so simply log this
-            logging.debug("Failed to parse a JSON response: {}".format(response.text))
+            logging.error("Failed to parse a JSON response: {}".format(response.text))
         return reply
 
     def get_meta(self, item):
@@ -623,27 +623,27 @@ class EigerDetector(object):
 
     def arm_detector(self):
         # Write a detector specific command to the detector
-        logging.error("Arming the detector")
+        logging.info("Arming the detector")
         s_obj = self.write_detector_command('arm')
         # We are looking for the sequence ID
         self._sequence_id = s_obj['sequence id']
-        logging.error("Arm complete, returned sequence ID: {}".format(self._sequence_id))
+        logging.info("Arm complete, returned sequence ID: {}".format(self._sequence_id))
 
     def initialize_detector(self):
         self._initializing = True
         # Write a detector specific command to the detector
-        logging.error("Initializing the detector")
+        logging.info("Initializing the detector")
         self._initialize_event.set()
 
     def start_acquisition(self):
         # Perform the start sequence
-        logging.error("Start acquisition called")
+        logging.info("Start acquisition called")
 
         # Set the acquisition complete to false
         self._acquisition_complete = False
 
         # Check the trigger mode
-        logging.error("trigger_mode: {}".format(self.trigger_mode))
+        logging.info("trigger_mode: {}".format(self.trigger_mode))
         if self.get_value(self.trigger_mode) == "inte" or self.get_value(self.trigger_mode) == "exte":
             self.set('{}/nimages'.format(self._detector_config_uri), 1)
 
@@ -676,7 +676,7 @@ class EigerDetector(object):
 
                     if do_trigger:
                         # Send the trigger to the detector
-                        logging.error("Sending trigger to the detector")
+                        logging.info("Sending trigger to the detector")
                         
                         if self.get_value(self.trigger_mode) == "inte":
                             self.write_detector_command('trigger', self.trigger_exposure)
@@ -698,7 +698,7 @@ class EigerDetector(object):
             if self._initialize_event.wait(1.0):
                 self.write_detector_command('initialize')
                 # We are looking for the sequence ID
-                logging.error("Initializing complete")
+                logging.info("Initializing complete")
                 self._initializing = False
                 self._initialize_event.clear()
                 self.read_all_config()
@@ -728,14 +728,14 @@ class EigerDetector(object):
 
     def stop_acquisition(self):
         # Perform an abort sequence
-        logging.error("Stop acquisition called")
+        logging.info("Stop acquisition called")
         self.write_detector_command('disarm')
         self._acquisition_complete = True
         self._armed = False
 
     def send_trigger(self):
         # Send a manual trigger
-        logging.error("Initiating a manual trigger")
+        logging.info("Initiating a manual trigger")
         self._trigger_event.set()
 
     def lv_loop(self):

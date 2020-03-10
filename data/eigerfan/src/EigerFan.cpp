@@ -760,7 +760,7 @@ void EigerFan::HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_
 
   if (event == ZMQ_EVENT_ACCEPTED) {
     numConnectedForwardingSockets++;
-    LOG4CXX_INFO(log, "Forwarding socket connected (" << numConnectedForwardingSockets << ")");
+    LOG4CXX_DEBUG(log, "Forwarding socket connected (" << numConnectedForwardingSockets << ")");
 
     if (WAITING_CONSUMERS != state && WAITING_STREAM != state) {
       LOG4CXX_ERROR(log, "Forwarding socket connected whilst in state: " << GetStateString(state));
@@ -768,7 +768,7 @@ void EigerFan::HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_
 
   } else if (event == ZMQ_EVENT_DISCONNECTED) {
     numConnectedForwardingSockets--;
-    LOG4CXX_WARN(log, "Forwarding socket disconnected (" << numConnectedForwardingSockets << ")");
+    LOG4CXX_DEBUG(log, "Forwarding socket disconnected (" << numConnectedForwardingSockets << ")");
     if (WAITING_CONSUMERS != state && WAITING_STREAM != state) {
       LOG4CXX_ERROR(log, "Forwarding socket disconnected whilst in state: " << GetStateString(state));
     }
