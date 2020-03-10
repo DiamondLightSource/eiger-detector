@@ -388,6 +388,8 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
       } else if (htype.compare(END_HEADER_TYPE) == 0) {
         HandleEndOfSeriesMessage(socket);
         state = WAITING_STREAM;
+        LOG4CXX_INFO(log, "End of series message received after " + boost::lexical_cast<std::string>(num_frames_sent) \
+                + " frames sent");
       } else {
         LOG4CXX_ERROR(log, std::string("Unknown header type ").append(htype));
       }
