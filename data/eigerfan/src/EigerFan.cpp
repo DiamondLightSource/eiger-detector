@@ -398,9 +398,13 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
       } else if (htype.compare(END_HEADER_TYPE) == 0) {
         LOG4CXX_INFO(log, "End of series message received after " + boost::lexical_cast<std::string>(num_frames_sent) \
                 + " frames sent");
-        for(int j=0; j<num_frames_consumed.size(); j++)
-          LOG4CXX_INFO(log, "Consumer index " + boost::lexical_cast<std::string>(j) \
-                + " to consume " + boost::lexical_cast<std::string>(num_frames_consumed[j]) + " frames");
+        std::string consumer_frames;
+        for(int j=0; j<num_frames_consumed.size(); j++) {
+          consumer_frames +=
+                  boost::lexical_cast<std::string>(j) + ": " + \
+                          boost::lexical_cast<std::string>(num_frames_consumed[j]) + " ";
+        }
+        LOG4CXX_INFO(log, "Consumer frame counts " + consumer_frames);
         HandleEndOfSeriesMessage(socket);
         state = WAITING_STREAM;
       } else {
