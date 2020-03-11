@@ -66,6 +66,7 @@ private:
   std::string currentAcquisitionID;
   uint64_t lastFrameSent;
   uint64_t num_frames_sent;
+  std::vector<uint64_t> num_frames_consumed;
   int configuredOffset;
   int currentOffset;
   int numConnectedForwardingSockets;
