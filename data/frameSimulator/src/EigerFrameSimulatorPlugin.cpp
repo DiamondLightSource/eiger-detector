@@ -148,8 +148,8 @@ namespace FrameSimulator {
 
         std::cout << "Press enter to send data..." << std::endl;
         getchar();
-        double hertz = 1 / replay_interval.get();
-        sendImageData(socket, filepattern, replay_numframes.get(), hertz);
+        double hertz = 1 / frame_gap_secs_.get();
+        sendImageData(socket, filepattern, replay_numframes_.get(), hertz);
 
         sendEndOfSeries(socket);
 
