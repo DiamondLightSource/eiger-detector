@@ -31,7 +31,7 @@ echo 'Starting Meta Listener'
 
 cd $metalistenerdir
 export PYTHONPATH=$eigerrootdir/data/tools/python/:$odinrootdir/tools/python/
-meta_writer -w metalistener.eiger_meta_writer.EigerMetaWriter -i tcp://127.0.0.1:5008 -d $outputdir &
+meta_writer -w metalistener.eiger_meta_writer.EigerMetaWriter --data-endpoints tcp://127.0.0.1:5008 &
 metalistener_pid=$!
 
 sleep 2
