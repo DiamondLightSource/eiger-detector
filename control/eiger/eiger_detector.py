@@ -732,6 +732,13 @@ class EigerDetector(object):
                         setattr(self, status, self.read_detector_status(status))
                 except:
                     pass
+            # Update bit depth if it needs updating
+            if self._stale_bitdepth:
+                try:
+                    setattr(self, status, self.read_detector_config(DETECTOR_BITDEPTH_PARAM))
+                    self._stale_bitdepth = False
+                except:
+                    pass
             for status in self.DETECTOR_BOARD_STATUS:
                 try:
                     setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BOARD_000, status)))
