@@ -85,7 +85,8 @@ class EigerDetector(object):
         'link_0',
         'link_1',
         'link_2',
-        'link_3'
+        'link_3',
+        'stale_bit_depth'
     ]
     DETECTOR_BOARD_STATUS = [
         'th0_temp',
@@ -117,6 +118,10 @@ class EigerDetector(object):
     TIFF_ID_STRIPOFFSETS = 273
     TIFF_ID_ROWSPERSTRIP = 278
 
+    # Parameters which trigger a (slow) re-calculation of the bit depth
+    DETECTOR_BITDEPTH_TRIGGERS = ['photon_energy', 'threshold_energy'] # unused, for information
+    DETECTOR_BITDEPTH_PARAM = 'bit_depth_image'
+
     def __init__(self, endpoint, api_version):
         # Record the connection endpoint
         self._endpoint = endpoint
@@ -130,6 +135,9 @@ class EigerDetector(object):
         self._armed = False
         self._live_view_enabled = False
         self._live_view_frame_number = 0
+
+        # Re-fetch of the bit depth required; last bit depth fetched stale
+        self._stale_bitdepth = False
 
         self.trigger_exposure = 0.0
         self.manual_trigger = False
@@ -453,7 +461,11 @@ class EigerDetector(object):
                 # Loop over items and read them in
                 for cfg in response:
                     if cfg in self.DETECTOR_CONFIG:
-                        param = self.read_detector_config(cfg)
+                        # If item is detector bit depth, do not read; instead set stale flag
+                        if cfg == DETECTOR_BITDEPTH_PARAM:
+                            self._stale_bitdepth = True
+                        else:
+                            param = self.read_detector_config(cfg)
                     elif cfg in self.STREAM_CONFIG:
                         param = self.read_stream_config(cfg)
                     logging.info("Read from detector [{}]: {}".format(cfg, param))
@@ -493,6 +505,9 @@ class EigerDetector(object):
     def read_detector_config(self, item):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item))
+        # Un-set stale bit-depth flag
+        if item == DETECTOR_BITDEPTH_PARAM:
+            self._stale_bitdepth = False
         return self.parse_response(r)
 
     def write_detector_config(self, item, value):
@@ -501,9 +516,12 @@ class EigerDetector(object):
         return self.parse_response(r)
 
     def read_detector_status(self, item):
-        # Read a specifc detector status item from the hardware
-        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_status_uri, item))
-        return self.parse_response(r)
+        if item == 'stale_bit_depth':
+            return {'value': self._stale_bitdepth}
+        else:
+            # Read a specifc detector status item from the hardware
+            r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_status_uri, item))
+            return self.parse_response(r)
 
     def write_detector_command(self, command, value=None):
         # Write a detector specific command to the detector
