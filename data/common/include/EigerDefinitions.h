@@ -102,6 +102,7 @@ namespace Eiger {
 
   static const size_t frame_size_500K    =  2117680 + sizeof(FrameHeader); // 529,420 pixels at 32 bit pixel depth
   static const size_t frame_size_4M      = 17942760 + sizeof(FrameHeader); // 4,485,690 pixels at 32 bit pixel depth
+  static const size_t frame_size_9M      = 40553184 + sizeof(FrameHeader); // 10,138,296 pixels at 32 bit pixel depth
   static const size_t frame_size_16M     = 72558600 + sizeof(FrameHeader); // 18,139,650 pixels at 32 bit pixel depth
 
   enum EigerMessageParentType { PARENT_MESSAGE_TYPE_GLOBAL, PARENT_MESSAGE_TYPE_IMAGE_DATA, PARENT_MESSAGE_TYPE_END};
