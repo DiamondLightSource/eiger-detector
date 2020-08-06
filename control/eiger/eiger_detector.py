@@ -659,7 +659,7 @@ class EigerDetector(object):
 
         # Update any stale bit depth
         if self._stale_bitdepth:
-            setattr(self, status, self.read_detector_config(DETECTOR_BITDEPTH_PARAM))
+            setattr(self, DETECTOR_BITDEPTH_PARAM, self.read_detector_config(DETECTOR_BITDEPTH_PARAM))
             self._stale_bitdepth = False
 
         # Set the acquisition complete to false
@@ -740,7 +740,7 @@ class EigerDetector(object):
             # Update bit depth if it needs updating
             if self._stale_bitdepth and self._acquisition_complete:
                 try:
-                    setattr(self, status, self.read_detector_config(DETECTOR_BITDEPTH_PARAM))
+                    setattr(self, DETECTOR_BITDEPTH_PARAM, self.read_detector_config(DETECTOR_BITDEPTH_PARAM))
                     self._stale_bitdepth = False
                 except:
                     pass
