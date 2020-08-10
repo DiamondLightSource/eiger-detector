@@ -663,7 +663,7 @@ class EigerDetector(object):
 
         # Update any stale bit depth
         if self._stale_bitdepth:
-            self.update_bitdepth();
+            self.update_bitdepth()
 
         # Set the acquisition complete to false
         self._acquisition_complete = False
