@@ -653,14 +653,17 @@ class EigerDetector(object):
         logging.info("Initializing the detector")
         self._initialize_event.set()
 
+    def update_bitdepth(self):
+        setattr(self, DETECTOR_BITDEPTH_PARAM, self.read_detector_config(DETECTOR_BITDEPTH_PARAM))
+        self._stale_bitdepth = False
+
     def start_acquisition(self):
         # Perform the start sequence
         logging.info("Start acquisition called")
 
         # Update any stale bit depth
         if self._stale_bitdepth:
-            setattr(self, DETECTOR_BITDEPTH_PARAM, self.read_detector_config(DETECTOR_BITDEPTH_PARAM))
-            self._stale_bitdepth = False
+            self.update_bitdepth();
 
         # Set the acquisition complete to false
         self._acquisition_complete = False
@@ -740,8 +743,7 @@ class EigerDetector(object):
             # Update bit depth if it needs updating
             if self._stale_bitdepth and self._acquisition_complete:
                 try:
-                    setattr(self, DETECTOR_BITDEPTH_PARAM, self.read_detector_config(DETECTOR_BITDEPTH_PARAM))
-                    self._stale_bitdepth = False
+                    self.update_bitdepth()
                 except:
                     pass
             for status in self.DETECTOR_BOARD_STATUS:
