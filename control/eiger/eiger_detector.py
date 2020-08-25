@@ -510,8 +510,22 @@ class EigerDetector(object):
             self._stale_bitdepth = False
         return self.parse_response(r)
 
+    def determine_trigger_mode(self, value):
+        # Intercept integer trigger modes and convert to unique string modes
+        # to remove ambiguity and handle different API mappings
+        trig_mode_dict = {'0': 'ints', '1': 'inte', '2': 'exts', '3': 'exte'}
+
+        if value in trig_mode_dict.values():
+            return value
+        elif value in trig_mode_dict.keys():
+            return trig_mode_dict[value]
+        return value
+
     def write_detector_config(self, item, value):
         # Read a specifc detector config item from the hardware
+        # Handle trigger mode
+        if item == 'trigger_mode':
+            value = self.determine_trigger_mode(value)
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
         return self.parse_response(r)
 
@@ -730,6 +744,7 @@ class EigerDetector(object):
                 self.read_all_config()
 
     def do_check_status(self):
+        return
         while self._executing:
             for status in self.DETECTOR_STATUS:
                 try:
