@@ -131,14 +131,14 @@ class EigerDetector(object):
         self._sequence_id = 0
         self._initializing = False
         self._error = ''
-        self._acquisition_complete = False
+        self._acquisition_complete = True
         self._armed = False
         self._live_view_enabled = False
         self._live_view_frame_number = 0
 
         # Re-fetch of the bit depth required; last bit depth fetched stale
         self._stale_bitdepth = False
-
+        
         self.trigger_exposure = 0.0
         self.manual_trigger = False
 
@@ -154,6 +154,8 @@ class EigerDetector(object):
         self._stream_status_uri = '{}/{}/{}/{}'.format(self.STR_STREAM, self.STR_API, api_version, self.STR_STATUS)
         self._monitor_config_uri = '{}/{}/{}/{}'.format(self.STR_MONITOR, self.STR_API, api_version, self.STR_CONFIG)
         self._filewriter_config_uri = '{}/{}/{}/{}'.format(self.STR_FW, self.STR_API, api_version, self.STR_CONFIG)
+
+        self.missing_parameters = []
 
         # Check if we need to initialize
         param = self.read_detector_status('state')
@@ -228,6 +230,7 @@ class EigerDetector(object):
                     param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), self.get_meta(getattr(self, cfg)))
             else:
                 logging.error("Parameter {} has not been implemented for API {}".format(cfg, self._api_version))
+                self.missing_parameters.append(cfg)
 
         # Initialise status parameters and populate the parameter tree
         for status in self.DETECTOR_STATUS:
@@ -241,7 +244,7 @@ class EigerDetector(object):
                     param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
                 else:
                     logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
-
+                    self.missing_parameters.append(status)
             except:
                 # For a 500K link_2 and link_3 status will fail and return exceptions here, which is OK
                 if status == 'link_2' or status == 'link_3':
@@ -256,7 +259,8 @@ class EigerDetector(object):
                 param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BOARD_000][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
             else:
                 logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
-
+                self.missing_parameters.append(status)
+                
         for status in self.DETECTOR_BUILD_STATUS:
             reply = self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status))
             if reply is not None:
@@ -264,6 +268,7 @@ class EigerDetector(object):
                 param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BUILDER][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
             else:
                 logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
+                self.missing_parameters.append(status)
 
         for status in self.STREAM_STATUS:
             reply = self.read_stream_status(status)
@@ -272,7 +277,8 @@ class EigerDetector(object):
                 param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
             else:
                 logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
-
+                self.missing_parameters.append(status)
+                
         # Initialise stream config items
         for cfg in self.STREAM_CONFIG:
             if cfg == 'mode':
@@ -420,6 +426,9 @@ class EigerDetector(object):
         elif path == 'command/initialize':
             return self.initialize_detector()
         else:
+            # mbbi record will send integers; change to string
+            if isinstance(value, int) and "trigger_mode" in path:
+                value = str(value)
             return self._params.set(path, value)
 
     def get_value(self, item):
@@ -454,7 +463,6 @@ class EigerDetector(object):
         elif item in self.FW_CONFIG:
             response = self.write_filewriter_config(item, value)
 
-        logging.info("Changed items response: {}".format(response))
         # Now check the response to see if we need to update any config items
         if response is not None:
             if isinstance(response, list):
@@ -463,7 +471,8 @@ class EigerDetector(object):
                     if cfg in self.DETECTOR_CONFIG:
                         # If item is detector bit depth, do not read; instead set stale flag
                         if cfg == self.DETECTOR_BITDEPTH_PARAM:
-                            self._stale_bitdepth = True
+                            self.update_stale_bitdepth(True)
+                            continue
                         else:
                             param = self.read_detector_config(cfg)
                     elif cfg in self.STREAM_CONFIG:
@@ -480,11 +489,15 @@ class EigerDetector(object):
             logging.info("Read from detector [{}]: {}".format(item, param))
             setattr(self, item, param)
 
-    def parse_response(self, response):
+    def parse_response(self, response, item):
         reply = None
         try:
             reply = json.loads(response.text)
         except:
+            # If parameter unavailable, do not repeat logging
+            for missing in self.missing_parameters:
+                if missing in item:
+                    return None
             # Unable to parse the json response, so simply log this
             logging.error("Failed to parse a JSON response: {}".format(response.text))
         return reply
@@ -507,8 +520,14 @@ class EigerDetector(object):
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item))
         # Un-set stale bit-depth flag
         if item == self.DETECTOR_BITDEPTH_PARAM:
-            self._stale_bitdepth = False
-        return self.parse_response(r)
+            self.update_stale_bitdepth(False)
+        parsed_reply = self.parse_response(r, item)
+        if item == 'trigger_mode':
+            # Inconsitency over mapping of index to string trigger mode;
+            # communication via integer, uniquely converted to mapping as defined in this code
+            parsed_reply[u'value'] = self.determine_trigger_index(parsed_reply[u'value'])
+            parsed_reply[u'allowed_values'] = [u'0', u'1', u'2', u'3']
+        return parsed_reply
 
     def determine_trigger_mode(self, value):
         # Intercept integer trigger modes and convert to unique string modes
@@ -521,21 +540,35 @@ class EigerDetector(object):
             return trig_mode_dict[value]
         return value
 
+    def determine_trigger_index(self, value):
+        # Intercept string trigger modes and convert to unique index
+        # to remove ambiguity and handle different API mappings
+        trig_mode_dict = {'0': 'ints', '1': 'inte', '2': 'exts', '3': 'exte'}
+
+        if value in trig_mode_dict.keys():
+            return value
+        elif value in trig_mode_dict.values():
+            for key, val in trig_mode_dict.items():
+                if val == value:
+                    return key
+        return value
+
     def write_detector_config(self, item, value):
         # Read a specifc detector config item from the hardware
         # Handle trigger mode
         if item == 'trigger_mode':
             value = self.determine_trigger_mode(value)
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
-        return self.parse_response(r)
+        return self.parse_response(r, item)
 
     def read_detector_status(self, item):
         if item == 'stale_bit_depth':
+            # Read stale bit depth flag
             return {'value': self._stale_bitdepth}
         else:
             # Read a specifc detector status item from the hardware
             r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_status_uri, item))
-            return self.parse_response(r)
+            return self.parse_response(r, item)
 
     def write_detector_command(self, command, value=None):
         # Write a detector specific command to the detector
@@ -545,43 +578,43 @@ class EigerDetector(object):
             data=json.dumps({'value': value})
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_command_uri, command), data=data, headers={"Content-Type": "application/json"})
         if len(r.text) > 0:
-            reply = self.parse_response(r)
+            reply = self.parse_response(r, command)
         return reply
 
     def read_stream_config(self, item):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item))
-        return self.parse_response(r)
+        return self.parse_response(r, item)
 
     def write_stream_config(self, item, value):
         # Read a specifc detector config item from the hardware
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
-        return self.parse_response(r)
+        return self.parse_response(r, item)
 
     def read_stream_status(self, item):
         # Read a specifc stream status item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_status_uri, item))
-        return self.parse_response(r)
+        return self.parse_response(r, item)
 
     def read_monitor_config(self, item):
         # Read a specifc monitor config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item))
-        return self.parse_response(r)
+        return self.parse_response(r, item)
 
     def write_monitor_config(self, item, value):
         # Read a specifc detector config item from the hardware
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
-        return self.parse_response(r)
+        return self.parse_response(r, item)
 
     def read_filewriter_config(self, item):
         # Read a specifc filewriter config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item))
-        return self.parse_response(r)
+        return self.parse_response(r, item)
 
     def write_filewriter_config(self, item, value):
         # Write a specifc filewriter config item to the hardware
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
-        return self.parse_response(r)
+        return self.parse_response(r, item)
 
     def read_detector_live_image(self):
         # Read the relevant monitor stream
@@ -667,10 +700,14 @@ class EigerDetector(object):
         logging.info("Initializing the detector")
         self._initialize_event.set()
 
+    def update_stale_bitdepth(self, state):
+        self._stale_bitdepth = state
+        setattr(self, 'stale_bit_depth', self.read_detector_status('stale_bit_depth'))
+        
     def update_bitdepth(self):
         setattr(self, self.DETECTOR_BITDEPTH_PARAM, self.read_detector_config(self.DETECTOR_BITDEPTH_PARAM))
-        self._stale_bitdepth = False
-
+        self.update_stale_bitdepth(False)
+        
     def start_acquisition(self):
         # Perform the start sequence
         logging.info("Start acquisition called")
@@ -744,7 +781,6 @@ class EigerDetector(object):
                 self.read_all_config()
 
     def do_check_status(self):
-        return
         while self._executing:
             for status in self.DETECTOR_STATUS:
                 try:
