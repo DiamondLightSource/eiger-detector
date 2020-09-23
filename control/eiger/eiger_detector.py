@@ -16,6 +16,7 @@ import struct
 import threading
 import time
 from odin.adapters.parameter_tree import ParameterAccessor, ParameterTree
+from eiger_options import trigger_options, compression_options, header_options, option_config_items
 
 class EigerDetector(object):
     STR_API = 'api'
@@ -432,7 +433,7 @@ class EigerDetector(object):
             return self.initialize_detector()
         else:
             # mbbi record will send integers; change to string
-            if isinstance(value, int) and "trigger_mode" in path:
+            if isinstance(value, int) and any(option in path for option in option_config_items):
                 value = str(value)
             return self._params.set(path, value)
 
@@ -534,33 +535,20 @@ class EigerDetector(object):
         if item == 'trigger_mode':
             # Inconsitency over mapping of index to string trigger mode;
             # communication via integer, uniquely converted to mapping as defined in this code
-            parsed_reply[u'value'] = self.determine_trigger_index(parsed_reply[u'value'])
-            parsed_reply[u'allowed_values'] = [u'0', u'1', u'2', u'3']
+            value = parsed_reply[u'value']
+            parsed_reply[u'value'] = trigger_options.get_index(value)
+            parsed_reply[u'allowed_values'] = trigger_options.get_allowed_values()
         return parsed_reply
 
     def determine_trigger_mode(self, value):
         # Intercept integer trigger modes and convert to unique string modes
         # to remove ambiguity and handle different API mappings
-        trig_mode_dict = {'0': 'ints', '1': 'inte', '2': 'exts', '3': 'exte'}
-
-        if value in trig_mode_dict.values():
-            return value
-        elif value in trig_mode_dict.keys():
-            return trig_mode_dict[value]
-        return value
-
+        return trigger_options.get_option(value)
+    
     def determine_trigger_index(self, value):
         # Intercept string trigger modes and convert to unique index
         # to remove ambiguity and handle different API mappings
-        trig_mode_dict = {'0': 'ints', '1': 'inte', '2': 'exts', '3': 'exte'}
-
-        if value in trig_mode_dict.keys():
-            return value
-        elif value in trig_mode_dict.values():
-            for key, val in trig_mode_dict.items():
-                if val == value:
-                    return key
-        return value
+        return trigger_options.get_index(value)
 
     def write_detector_config(self, item, value):
         # Read a specifc detector config item from the hardware
