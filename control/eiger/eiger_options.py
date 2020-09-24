@@ -21,3 +21,5 @@ compression_options = EigerOption(['lz4', 'bslz4'])
 header_options = EigerOption(['all', 'basic', 'none'])
 
 option_config_items = ['compression', 'trigger_mode', 'header_detail']
+
+option_config_options = {'compression': compression_options, 'trigger_mode': trigger_options, 'header_detail': header_options}

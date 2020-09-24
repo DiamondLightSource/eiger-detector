@@ -16,7 +16,7 @@ import struct
 import threading
 import time
 from odin.adapters.parameter_tree import ParameterAccessor, ParameterTree
-from eiger_options import trigger_options, compression_options, header_options, option_config_items
+from eiger_options import option_config_options, option_config_items
 
 class EigerDetector(object):
     STR_API = 'api'
@@ -462,6 +462,10 @@ class EigerDetector(object):
     def set_value(self, item, value):
         response = None
         logging.info("Setting {} to {}".format(item, value))
+        # Intercept integer values and convert to string values where
+        # option not index is expected
+        if any(option in item for option in option_config_items):
+            value = option_config_options[item].get_option(value)
         # First write the value to the hardware
         if item in self.DETECTOR_CONFIG:
             response = self.write_detector_config(item, value)
@@ -532,29 +536,18 @@ class EigerDetector(object):
         if item == self.DETECTOR_BITDEPTH_PARAM:
             self.update_stale_bitdepth(False)
         parsed_reply = self.parse_response(r, item)
-        if item == 'trigger_mode':
-            # Inconsitency over mapping of index to string trigger mode;
-            # communication via integer, uniquely converted to mapping as defined in this code
+        # Intercept detector config for options where we convert to index for
+        # unamabiguous definition and update config to allow these
+        if any(option in item for option in option_config_items):
+            # Inconsitency over mapping of index to string
+            # communication via integer, uniquely converted to mapping as defined in eiger_options
             value = parsed_reply[u'value']
-            parsed_reply[u'value'] = trigger_options.get_index(value)
-            parsed_reply[u'allowed_values'] = trigger_options.get_allowed_values()
+            parsed_reply[u'value'] = option_config_options[item].get_index(value)
+            parsed_reply[u'allowed_values'] = option_config_options[item].get_allowed_values()
         return parsed_reply
-
-    def determine_trigger_mode(self, value):
-        # Intercept integer trigger modes and convert to unique string modes
-        # to remove ambiguity and handle different API mappings
-        return trigger_options.get_option(value)
-    
-    def determine_trigger_index(self, value):
-        # Intercept string trigger modes and convert to unique index
-        # to remove ambiguity and handle different API mappings
-        return trigger_options.get_index(value)
 
     def write_detector_config(self, item, value):
         # Read a specifc detector config item from the hardware
-        # Handle trigger mode
-        if item == 'trigger_mode':
-            value = self.determine_trigger_mode(value)
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
         return self.parse_response(r, item)
 
@@ -582,7 +575,14 @@ class EigerDetector(object):
     def read_stream_config(self, item):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item))
-        return self.parse_response(r, item)
+        parsed_reply = self.parse_response(r, item)
+        if any(option in item for option in option_config_items):
+            # Inconsitency over mapping of index to string
+            # communication via integer, uniquely converted to mapping as defined in eiger_options
+            value = parsed_reply[u'value']
+            parsed_reply[u'value'] = option_config_options[item].get_index(value)
+            parsed_reply[u'allowed_values'] = option_config_options[item].get_allowed_values()
+        return parsed_reply
 
     def write_stream_config(self, item, value):
         # Read a specifc detector config item from the hardware
@@ -708,6 +708,10 @@ class EigerDetector(object):
         logging.debug("Updating bit depth")
         setattr(self, self.DETECTOR_BITDEPTH_PARAM, self.read_detector_config(self.DETECTOR_BITDEPTH_PARAM))
         self.update_stale_bitdepth(False)
+
+    def get_trigger_mode(self):
+        trigger_idx = self.get_value(self.trigger_mode)
+        return option_config_options['trigger_mode'].get_option(trigger_idx)
         
     def start_acquisition(self):
         # Perform the start sequence
@@ -721,15 +725,16 @@ class EigerDetector(object):
         self._acquisition_complete = False
 
         # Check the trigger mode
-        logging.info("trigger_mode: {}".format(self.trigger_mode))
-        if self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "inte" or self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "exte":
+        trigger_mode = self.get_trigger_mode()
+        logging.info("trigger_mode: {}".format(trigger_mode))
+        if trigger_mode == "inte" or trigger_mode == "exte":
             self.set('{}/nimages'.format(self._detector_config_uri), 1)
 
         # Now arm the detector
         self.arm_detector()
 
         # Start the acquisition thread
-        if self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "ints" or self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "inte":
+        if trigger_mode == "ints" or trigger_mode == "inte":
             self._acquisition_event.set()
 
         # Set the detector armed state to true
@@ -753,10 +758,12 @@ class EigerDetector(object):
                         do_trigger = self._trigger_event.wait(0.1)
 
                     if do_trigger:
+
                         # Send the trigger to the detector
-                        logging.info("Sending trigger to the detector")
-                        
-                        if self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "inte":
+                        trigger_mode = self.get_trigger_mode()
+                        logging.info("Sending trigger to the detector {}".format(trigger_mode))
+
+                        if trigger_mode == "inte":
                             self.write_detector_command('trigger', self.trigger_exposure)
                             time.sleep(self.trigger_exposure)
                         else:
