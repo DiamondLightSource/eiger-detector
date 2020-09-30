@@ -433,7 +433,7 @@ class EigerDetector(object):
             return self.initialize_detector()
         else:
             # mbbi record will send integers; change to string
-            if isinstance(value, int) and any(option in path for option in option_config_items):
+            if isinstance(value, int) and any(option == path for option in option_config_items):
                 value = str(value)
             return self._params.set(path, value)
 
@@ -464,7 +464,7 @@ class EigerDetector(object):
         logging.info("Setting {} to {}".format(item, value))
         # Intercept integer values and convert to string values where
         # option not index is expected
-        if any(option in item for option in option_config_items):
+        if any(option == item for option in option_config_items):
             value = option_config_options[item].get_option(value)
         # First write the value to the hardware
         if item in self.DETECTOR_CONFIG:
