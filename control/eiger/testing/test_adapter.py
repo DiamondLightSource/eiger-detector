@@ -69,7 +69,7 @@ class TestEigerAdapter(EigerAdapterFixture):
 
     def test_adapter_put_trigger_mode(self):
 
-        self.request.body = json.dumps(0)
+        self.request.body = json.dumps('0')
         response = self.adapter.put("detector/api/1.6.0/config/trigger_mode",
                                     self.request)
         assert_equal(response.status_code, 200)
