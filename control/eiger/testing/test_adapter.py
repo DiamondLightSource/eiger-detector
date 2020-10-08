@@ -67,13 +67,6 @@ class TestEigerAdapter(EigerAdapterFixture):
         assert_equal(response.status_code, 200)
         self.adapter.cleanup()
 
-    def test_adapter_put_trigger_mode(self):
-
-        self.request.body = json.dumps('0')
-        response = self.adapter.put("detector/api/1.6.0/config/trigger_mode",
-                                    self.request)
-        assert_equal(response.status_code, 200)
-
     def test_adapter_bad_path(self):
         response = self.adapter.put('bad_path', self.request)
         assert_equal(response.status_code, 400)
