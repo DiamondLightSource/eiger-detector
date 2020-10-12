@@ -16,6 +16,7 @@ import struct
 import threading
 import time
 from odin.adapters.parameter_tree import ParameterAccessor, ParameterTree
+from eiger_options import option_config_options, option_config_items
 
 class EigerDetector(object):
     STR_API = 'api'
@@ -86,7 +87,7 @@ class EigerDetector(object):
         'link_1',
         'link_2',
         'link_3',
-        'stale_bit_depth'
+        'stale_parameters'
     ]
     DETECTOR_BOARD_STATUS = [
         'th0_temp',
@@ -136,8 +137,8 @@ class EigerDetector(object):
         self._live_view_enabled = False
         self._live_view_frame_number = 0
 
-        # Re-fetch of the bit depth required; last bit depth fetched stale
-        self._stale_bitdepth = False
+        # Re-fetch of the parameters; last fetch of certain parameters stale
+        self._stale_parameters = []
         
         self.trigger_exposure = 0.0
         self.manual_trigger = False
@@ -241,7 +242,7 @@ class EigerDetector(object):
                     if 'link_' in status:
                         reply['allowed_values'] = ['down', 'up']
                     setattr(self, status, reply)
-                    if status == 'stale_bit_depth':
+                    if status == 'stale_parameters':
                         param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=status: self.get_value(getattr(self, x)),
                                                                                                     lambda value, x=status: self.set_value(x, value),
                                                                                                     self.get_meta(getattr(self, status)))
@@ -420,7 +421,6 @@ class EigerDetector(object):
             return self._params.get(path, with_metadata=True)
 
     def set(self, path, value):
-        print("{}  {}".format(path, value))
         # Check for ODIN specific commands
         if path == 'command/start_acquisition':
             return self.start_acquisition()
@@ -432,7 +432,7 @@ class EigerDetector(object):
             return self.initialize_detector()
         else:
             # mbbi record will send integers; change to string
-            if isinstance(value, int) and "trigger_mode" in path:
+            if isinstance(value, int) and any(option == path for option in option_config_items):
                 value = str(value)
             return self._params.set(path, value)
 
@@ -461,6 +461,10 @@ class EigerDetector(object):
     def set_value(self, item, value):
         response = None
         logging.info("Setting {} to {}".format(item, value))
+        # Intercept integer values and convert to string values where
+        # option not index is expected
+        if any(option == item for option in option_config_items):
+            value = option_config_options[item].get_option(value)
         # First write the value to the hardware
         if item in self.DETECTOR_CONFIG:
             response = self.write_detector_config(item, value)
@@ -472,20 +476,8 @@ class EigerDetector(object):
         # Now check the response to see if we need to update any config items
         if response is not None:
             if isinstance(response, list):
-                # Loop over items and read them in
-                for cfg in response:
-                    if cfg in self.DETECTOR_CONFIG:
-                        # If item is detector bit depth, do not read; instead set stale flag
-                        if cfg == self.DETECTOR_BITDEPTH_PARAM:
-                            logging.debug("Bit depth update required")
-                            self.update_stale_bitdepth(True)
-                            continue
-                        else:
-                            param = self.read_detector_config(cfg)
-                    elif cfg in self.STREAM_CONFIG:
-                        param = self.read_stream_config(cfg)
-                    logging.info("Read from detector [{}]: {}".format(cfg, param))
-                    setattr(self, cfg, param)
+                self._stale_parameters = response
+                self.update_stale_parameters()
         else:
             if item in self.DETECTOR_CONFIG:
                 param = self.read_detector_config(item)
@@ -527,53 +519,26 @@ class EigerDetector(object):
     def read_detector_config(self, item):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item))
-        # Un-set stale bit-depth flag
-        if item == self.DETECTOR_BITDEPTH_PARAM:
-            self.update_stale_bitdepth(False)
         parsed_reply = self.parse_response(r, item)
-        if item == 'trigger_mode':
-            # Inconsitency over mapping of index to string trigger mode;
-            # communication via integer, uniquely converted to mapping as defined in this code
-            parsed_reply[u'value'] = self.determine_trigger_index(parsed_reply[u'value'])
-            parsed_reply[u'allowed_values'] = [u'0', u'1', u'2', u'3']
+        # Intercept detector config for options where we convert to index for
+        # unamabiguous definition and update config to allow these
+        if any(option in item for option in option_config_items):
+            # Inconsitency over mapping of index to string
+            # communication via integer, uniquely converted to mapping as defined in eiger_options
+            value = parsed_reply[u'value']
+            parsed_reply[u'value'] = option_config_options[item].get_index(value)
+            parsed_reply[u'allowed_values'] = option_config_options[item].get_allowed_values()
         return parsed_reply
-
-    def determine_trigger_mode(self, value):
-        # Intercept integer trigger modes and convert to unique string modes
-        # to remove ambiguity and handle different API mappings
-        trig_mode_dict = {'0': 'ints', '1': 'inte', '2': 'exts', '3': 'exte'}
-
-        if value in trig_mode_dict.values():
-            return value
-        elif value in trig_mode_dict.keys():
-            return trig_mode_dict[value]
-        return value
-
-    def determine_trigger_index(self, value):
-        # Intercept string trigger modes and convert to unique index
-        # to remove ambiguity and handle different API mappings
-        trig_mode_dict = {'0': 'ints', '1': 'inte', '2': 'exts', '3': 'exte'}
-
-        if value in trig_mode_dict.keys():
-            return value
-        elif value in trig_mode_dict.values():
-            for key, val in trig_mode_dict.items():
-                if val == value:
-                    return key
-        return value
 
     def write_detector_config(self, item, value):
         # Read a specifc detector config item from the hardware
-        # Handle trigger mode
-        if item == 'trigger_mode':
-            value = self.determine_trigger_mode(value)
         r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
         return self.parse_response(r, item)
 
     def read_detector_status(self, item):
-        if item == 'stale_bit_depth':
-            # Read stale bit depth flag
-            response = {u'value': self._stale_bitdepth, u'access_mode': u'r', u'value_type': u'bool'}
+        if item == 'stale_parameters':
+            # Read stale parameters flag
+            response = {u'value': len(self._stale_parameters) != 0, u'access_mode': u'r', u'value_type': u'bool'}
             return response
         else:
             # Read a specifc detector status item from the hardware
@@ -594,7 +559,14 @@ class EigerDetector(object):
     def read_stream_config(self, item):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item))
-        return self.parse_response(r, item)
+        parsed_reply = self.parse_response(r, item)
+        if any(option in item for option in option_config_items):
+            # Inconsitency over mapping of index to string
+            # communication via integer, uniquely converted to mapping as defined in eiger_options
+            value = parsed_reply[u'value']
+            parsed_reply[u'value'] = option_config_options[item].get_index(value)
+            parsed_reply[u'allowed_values'] = option_config_options[item].get_allowed_values()
+        return parsed_reply
 
     def write_stream_config(self, item, value):
         # Read a specifc detector config item from the hardware
@@ -710,38 +682,47 @@ class EigerDetector(object):
         logging.info("Initializing the detector")
         self._initialize_event.set()
 
-    def update_stale_bitdepth(self, state):
-        self._stale_bitdepth = state
-        setattr(self, 'stale_bit_depth', self.read_detector_status('stale_bit_depth'))
+    def fetch_stale_parameters(self):
+        for cfg in self._stale_parameters:
+            if cfg in self.DETECTOR_CONFIG:
+                param = self.read_detector_config(cfg)
+            elif cfg in self.STREAM_CONFIG:
+                param = self.read_stream_config(cfg)
+            logging.info("Read from detector [{}]: {}".format(cfg, param))
+            setattr(self, cfg, param)
+        self._stale_parameters = []
+        self.update_stale_parameters()
+
+    def update_stale_parameters(self):
+        setattr(self, 'stale_parameters', self.read_detector_status('stale_parameters'))
         if hasattr(self, '_params'):
-            self.set('{}/stale_bit_depth'.format(self._detector_status_uri), self._stale_bitdepth)
+            self.set('{}/stale_parameters'.format(self._detector_status_uri), len(self._stale_parameters) != 0)
         
-    def update_bitdepth(self):
-        logging.debug("Updating bit depth")
-        setattr(self, self.DETECTOR_BITDEPTH_PARAM, self.read_detector_config(self.DETECTOR_BITDEPTH_PARAM))
-        self.update_stale_bitdepth(False)
+    def get_trigger_mode(self):
+        trigger_idx = self.get_value(self.trigger_mode)
+        return option_config_options['trigger_mode'].get_option(trigger_idx)
         
     def start_acquisition(self):
         # Perform the start sequence
         logging.info("Start acquisition called")
 
-        # Update any stale bit depth
-        if self._stale_bitdepth:
-            self.update_bitdepth()
+        # Fetch stale parameters
+        self.fetch_stale_parameters()
 
         # Set the acquisition complete to false
         self._acquisition_complete = False
 
         # Check the trigger mode
-        logging.info("trigger_mode: {}".format(self.trigger_mode))
-        if self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "inte" or self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "exte":
+        trigger_mode = self.get_trigger_mode()
+        logging.info("trigger_mode: {}".format(trigger_mode))
+        if trigger_mode == "inte" or trigger_mode == "exte":
             self.set('{}/nimages'.format(self._detector_config_uri), 1)
 
         # Now arm the detector
         self.arm_detector()
 
         # Start the acquisition thread
-        if self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "ints" or self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "inte":
+        if trigger_mode == "ints" or trigger_mode == "inte":
             self._acquisition_event.set()
 
         # Set the detector armed state to true
@@ -765,10 +746,12 @@ class EigerDetector(object):
                         do_trigger = self._trigger_event.wait(0.1)
 
                     if do_trigger:
+
                         # Send the trigger to the detector
-                        logging.info("Sending trigger to the detector")
-                        
-                        if self.determine_trigger_mode(self.get_value(self.trigger_mode)) == "inte":
+                        trigger_mode = self.get_trigger_mode()
+                        logging.info("Sending trigger to the detector {}".format(trigger_mode))
+
+                        if trigger_mode == "inte":
                             self.write_detector_command('trigger', self.trigger_exposure)
                             time.sleep(self.trigger_exposure)
                         else:
@@ -796,18 +779,19 @@ class EigerDetector(object):
     def do_check_status(self):
         while self._executing:
             for status in self.DETECTOR_STATUS:
-                try:
-                    if status == 'link_2' or status == 'link_3':
-                        if '500K' not in self.get_value(getattr(self, 'description')):
+                if status not in self.missing_parameters:
+                    try:
+                        if status == 'link_2' or status == 'link_3':
+                            if '500K' not in self.get_value(getattr(self, 'description')):
+                                setattr(self, status, self.read_detector_status(status))
+                        else:
                             setattr(self, status, self.read_detector_status(status))
-                    else:
-                        setattr(self, status, self.read_detector_status(status))
-                except:
-                    pass
+                    except:
+                        pass
             # Update bit depth if it needs updating
-            if self._stale_bitdepth and self._acquisition_complete:
+            if self._acquisition_complete:
                 try:
-                    self.update_bitdepth()
+                    self.fetch_stale_parameters()
                 except:
                     pass
             for status in self.DETECTOR_BOARD_STATUS:

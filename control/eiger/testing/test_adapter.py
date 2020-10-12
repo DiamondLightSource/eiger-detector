@@ -56,6 +56,17 @@ class TestEigerAdapter(EigerAdapterFixture):
         assert_equal(response.status_code, 200)
         self.adapter.cleanup()
 
+    def test_adapter_get_trigger_mode(self):
+        response = self.adapter.get("detector/api/1.6.0/config/trigger_mode",
+                                    self.request)
+        expected_response = {"writeable": True,
+                             "allowed_values": ['0','1','2','3'],
+                             "value": '2',
+                             "type": "str"}
+        assert_equal(response.data, expected_response)
+        assert_equal(response.status_code, 200)
+        self.adapter.cleanup()
+
     def test_adapter_bad_path(self):
         response = self.adapter.put('bad_path', self.request)
         assert_equal(response.status_code, 400)
