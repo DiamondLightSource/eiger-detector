@@ -51,7 +51,9 @@ class EigerMetaWriter(MetaWriter):
         DATATYPE,
     ]
 
-
+    def __init__(self, *args, **kwargs):
+        super(EigerMetaWriter, self).__init__(*args, **kwargs)
+        self._detector_finished = False  # Require base class to check we have finished
 
     @property
     def detector_message_handlers(self):
@@ -124,9 +126,9 @@ class EigerMetaWriter(MetaWriter):
         # Do nothing as can't write variable length dataset in swmr
 
     def handle_end(self, _header, _data):
-        """Handle end message"""
+        """Handle end message - register to stop when writers finished"""
         self._logger.debug("%s | Handling end message", self._name)
-        # Do nothing with end message
+        self.stop_when_writers_finished()
 
     @staticmethod
     def get_version():
