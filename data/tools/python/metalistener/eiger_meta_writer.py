@@ -51,13 +51,11 @@ class EigerMetaWriter(MetaWriter):
         DATATYPE,
     ]
 
-    def process_message(self, header, data):
-        """Process a message from a data socket
 
-        Check for Eiger-specific messages and pass anything else to base class
 
-        """
-        message_handlers = {
+    @property
+    def detector_message_handlers(self):
+        return {
             "eiger-globalnone": self.handle_global_header_none,
             "eiger-globalconfig": self.handle_global_header_config,
             "eiger-globalflatfield": self.handle_flatfield_header,
@@ -68,17 +66,6 @@ class EigerMetaWriter(MetaWriter):
             "eiger-imageappendix": self.handle_image_appendix,
             "eiger-end": self.handle_end,
         }
-
-        handler = message_handlers.get(header[MESSAGE_TYPE_ID], None)
-        if handler is not None:
-            handler(header["header"], data)
-        else:
-            self._logger.debug(
-                "%s | Passing message %s to base class",
-                self._name,
-                header[MESSAGE_TYPE_ID],
-            )
-            super(EigerMetaWriter, self).process_message(header, data)
 
     def handle_global_header_none(self, _header, data):
         """Handle global header message (header_detail = none)"""
