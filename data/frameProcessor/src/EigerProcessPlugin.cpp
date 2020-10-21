@@ -250,7 +250,16 @@ namespace FrameProcessor
 
       publish_meta(get_name(), "eiger-headerappendix", dataString, buffer.GetString());
     } else if (hdrPtr->messageType == Eiger::END_OF_STREAM) {
-      // Do nothing with End of Stream message
+      // Add Series number
+      rapidjson::Value keySeries("series", document.GetAllocator());
+      rapidjson::Value valueSeries(hdrPtr->series);
+      document.AddMember(keySeries, valueSeries, document.GetAllocator());
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      document.Accept(writer);
+
+      publish_meta(get_name(), "eiger-end", "", buffer.GetString());
     }
   }
 
