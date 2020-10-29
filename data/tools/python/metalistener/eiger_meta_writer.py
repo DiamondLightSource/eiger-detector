@@ -4,13 +4,15 @@ This module is a subclass of the odin_data MetaWriter and handles Eiger specific
 
 Matt Taylor, Diamond Light Source
 """
-import re
-from json import loads
 
 import numpy as np
 
-from odin_data.meta_writer.meta_writer import MetaWriter, MESSAGE_TYPE_ID, FRAME
-from odin_data.meta_writer.hdf5dataset import Int64HDF5Dataset, StringHDF5Dataset
+from odin_data.meta_writer.meta_writer import MetaWriter, FRAME
+from odin_data.meta_writer.hdf5dataset import (
+    Int64HDF5Dataset,
+    Float64HDF5Dataset,
+    StringHDF5Dataset,
+)
 from odin_data.util import construct_version_dict
 import _version as versioneer
 
@@ -24,22 +26,117 @@ HASH = "hash"
 ENCODING = "encoding"
 DATATYPE = "type"
 
+# Dectris header parameters
+AUTO_SUMMATION = "auto_summation"
+BEAM_CENTER_Y = "beam_center_y"
+BEAM_CENTER_X = "beam_center_x"
+BIT_DEPTH_IMAGE = "bit_depth_image"
+BIT_DEPTH_READOUT = "bit_depth_readout"
+CHI_INCREMENT = "chi_increment"
+CHI_START = "chi_start"
+COMPRESSION = "compression"
+COUNT_TIME = "count_time"
+COUNTRATE_CORRECTION_APPLIED = "countrate_correction_applied"
+COUNTRATE_CORRECTION_COUNT_CUTOFF = "countrate_correction_count_cutoff"
+DATA_COLLECTION_DATE = "data_collection_date"
+DESCRIPTION = "description"
+DETECTOR_DISTANCE = "detector_distance"
+DETECTOR_NUMBER = "detector_number"
+DETECTOR_READOUT_TIME = "detector_readout_time"
+DETECTOR_TRANSLATION = "detector_translation"
+EIGER_FW_VERSION = "eiger_fw_version"
+FLATFIELD_CORRECTION_APPLIED = "flatfield_correction_applied"
+FRAME_COUNT_TIME = "frame_count_time"
+FRAME_PERIOD = "frame_period"
+FRAME_TIME = "frame_time"
+KAPPA_INCREMENT = "kappa_increment"
+KAPPA_START = "kappa_start"
+NIMAGES = "nimages"
+NTRIGGER = "ntrigger"
+NUMBER_OF_EXCLUDED_PIXELS = "number_of_excluded_pixels"
+OMEGA_INCREMENT = "omega_increment"
+OMEGA_START = "omega_start"
+PHI_INCREMENT = "phi_increment"
+PHI_START = "phi_start"
+PHOTON_ENERGY = "photon_energy"
+PIXEL_MASK_APPLIED = "pixel_mask_applied"
+SENSOR_MATERIAL = "sensor_material"
+SENSOR_THICKNESS = "sensor_thickness"
+SOFTWARE_VERSION = "software_version"
+THRESHOLD_ENERGY = "threshold_energy"
+TRIGGER_MODE = "trigger_mode"
+TWO_THETA_INCREMENT = "two_theta_increment"
+TWO_THETA_START = "two_theta_start"
+VIRTUAL_PIXEL_CORRECTION_APPLIED = "virtual_pixel_correction_applied"
+WAVELENGTH = "wavelength"
+X_PIXEL_SIZE = "x_pixel_size"
+X_PIXELS_IN_DETECTOR = "x_pixels_in_detector"
+Y_PIXEL_SIZE = "y_pixel_size"
+Y_PIXELS_IN_DETECTOR = "y_pixels_in_detector"
+
+HEADER_CONFIG = [
+    AUTO_SUMMATION,
+    BEAM_CENTER_X,
+    BEAM_CENTER_Y,
+    BIT_DEPTH_IMAGE,
+    BIT_DEPTH_READOUT,
+    CHI_INCREMENT,
+    CHI_START,
+    COMPRESSION,
+    COUNT_TIME,
+    COUNTRATE_CORRECTION_APPLIED,
+    COUNTRATE_CORRECTION_COUNT_CUTOFF,
+    DATA_COLLECTION_DATE,
+    DESCRIPTION,
+    DETECTOR_DISTANCE,
+    DETECTOR_NUMBER,
+    DETECTOR_READOUT_TIME,
+    DETECTOR_TRANSLATION,
+    EIGER_FW_VERSION,
+    FLATFIELD_CORRECTION_APPLIED,
+    FRAME_COUNT_TIME,
+    FRAME_PERIOD,
+    FRAME_TIME,
+    KAPPA_INCREMENT,
+    KAPPA_START,
+    NIMAGES,
+    NTRIGGER,
+    NUMBER_OF_EXCLUDED_PIXELS,
+    OMEGA_INCREMENT,
+    OMEGA_START,
+    PHI_INCREMENT,
+    PHI_START,
+    PHOTON_ENERGY,
+    PIXEL_MASK_APPLIED,
+    SENSOR_MATERIAL,
+    SENSOR_THICKNESS,
+    SOFTWARE_VERSION,
+    THRESHOLD_ENERGY,
+    TRIGGER_MODE,
+    TWO_THETA_INCREMENT,
+    TWO_THETA_START,
+    VIRTUAL_PIXEL_CORRECTION_APPLIED,
+    WAVELENGTH,
+    X_PIXEL_SIZE,
+    X_PIXELS_IN_DETECTOR,
+    Y_PIXEL_SIZE,
+    Y_PIXELS_IN_DETECTOR,
+]
+
+# Separate header message datasets
+COUNTRATE = "countrate"
+FLATFIELD = "flatfield"
+MASK = "mask"
+
+
+def dectris(suffix):
+    return "_dectris/{}".format(suffix)
+
 
 class EigerMetaWriter(MetaWriter):
     """Implementation of MetaWriter that also handles Eiger meta messages"""
 
-    # Define Eiger-specific datasets
-    DETECTOR_DATASETS = [
-        Int64HDF5Dataset(START_TIME),
-        Int64HDF5Dataset(STOP_TIME),
-        Int64HDF5Dataset(REAL_TIME),
-        Int64HDF5Dataset(SERIES),
-        Int64HDF5Dataset(SIZE),
-        StringHDF5Dataset(HASH, length=32),
-        StringHDF5Dataset(ENCODING, length=10),
-        StringHDF5Dataset(DATATYPE, length=6),
-    ]
-    # Define parameters received on per frame meta message
+    # Define parameters received on per frame meta message for parent class
     DETECTOR_WRITE_FRAME_PARAMETERS = [
         START_TIME,
         STOP_TIME,
@@ -54,6 +151,71 @@ class EigerMetaWriter(MetaWriter):
     def __init__(self, *args, **kwargs):
         super(EigerMetaWriter, self).__init__(*args, **kwargs)
         self._detector_finished = False  # Require base class to check we have finished
+
+    @staticmethod
+    def _define_detector_datasets():
+        return [
+            # Datasets with one value received per frame
+            Int64HDF5Dataset(START_TIME),
+            Int64HDF5Dataset(STOP_TIME),
+            Int64HDF5Dataset(REAL_TIME),
+            Int64HDF5Dataset(SERIES),
+            Int64HDF5Dataset(SIZE),
+            StringHDF5Dataset(HASH, length=32),
+            StringHDF5Dataset(ENCODING, length=10),
+            StringHDF5Dataset(DATATYPE, length=6),
+            # Datasets received on arm
+            Int64HDF5Dataset(SERIES, cache=False),
+            Int64HDF5Dataset(COUNTRATE, rank=2, cache=False),
+            Int64HDF5Dataset(FLATFIELD, rank=2, cache=False),
+            Int64HDF5Dataset(MASK, rank=2, cache=False),
+            Int64HDF5Dataset(dectris(AUTO_SUMMATION), cache=False),
+            Float64HDF5Dataset(dectris(BEAM_CENTER_X), cache=False),
+            Float64HDF5Dataset(dectris(BEAM_CENTER_Y), cache=False),
+            Int64HDF5Dataset(dectris(BIT_DEPTH_IMAGE), cache=False),
+            Int64HDF5Dataset(dectris(BIT_DEPTH_READOUT), cache=False),
+            Int64HDF5Dataset(dectris(CHI_INCREMENT), cache=False),
+            Int64HDF5Dataset(dectris(CHI_START), cache=False),
+            StringHDF5Dataset(dectris(COMPRESSION), length=6, cache=False),
+            Float64HDF5Dataset(dectris(COUNT_TIME), cache=False),
+            Int64HDF5Dataset(dectris(COUNTRATE_CORRECTION_APPLIED), cache=False),
+            Int64HDF5Dataset(dectris(COUNTRATE_CORRECTION_COUNT_CUTOFF), cache=False),
+            StringHDF5Dataset(dectris(DATA_COLLECTION_DATE), length=100, cache=False),
+            StringHDF5Dataset(dectris(DESCRIPTION), length=100, cache=False),
+            Float64HDF5Dataset(dectris(DETECTOR_DISTANCE), cache=False),
+            StringHDF5Dataset(dectris(DETECTOR_NUMBER), length=100, cache=False),
+            Int64HDF5Dataset(dectris(DETECTOR_READOUT_TIME), cache=False),
+            Float64HDF5Dataset(dectris(DETECTOR_TRANSLATION), cache=False),
+            StringHDF5Dataset(dectris(EIGER_FW_VERSION), length=100, cache=False),
+            Int64HDF5Dataset(dectris(FLATFIELD_CORRECTION_APPLIED), cache=False),
+            Int64HDF5Dataset(dectris(FRAME_COUNT_TIME), cache=False),
+            Int64HDF5Dataset(dectris(FRAME_PERIOD), cache=False),
+            Int64HDF5Dataset(dectris(FRAME_TIME), cache=False),
+            Int64HDF5Dataset(dectris(KAPPA_INCREMENT), cache=False),
+            Int64HDF5Dataset(dectris(KAPPA_START), cache=False),
+            Int64HDF5Dataset(dectris(NIMAGES), cache=False),
+            Int64HDF5Dataset(dectris(NTRIGGER), cache=False),
+            Int64HDF5Dataset(dectris(NUMBER_OF_EXCLUDED_PIXELS), cache=False),
+            Int64HDF5Dataset(dectris(OMEGA_INCREMENT), cache=False),
+            Int64HDF5Dataset(dectris(OMEGA_START), cache=False),
+            Int64HDF5Dataset(dectris(PHI_INCREMENT), cache=False),
+            Int64HDF5Dataset(dectris(PHI_START), cache=False),
+            Float64HDF5Dataset(dectris(PHOTON_ENERGY), cache=False),
+            Int64HDF5Dataset(dectris(PIXEL_MASK_APPLIED), cache=False),
+            StringHDF5Dataset(dectris(SENSOR_MATERIAL), length=100, cache=False),
+            Float64HDF5Dataset(dectris(SENSOR_THICKNESS), cache=False),
+            StringHDF5Dataset(dectris(SOFTWARE_VERSION), length=100, cache=False),
+            Float64HDF5Dataset(dectris(THRESHOLD_ENERGY), cache=False),
+            StringHDF5Dataset(dectris(TRIGGER_MODE), length=4, cache=False),
+            Int64HDF5Dataset(dectris(TWO_THETA_INCREMENT), cache=False),
+            Int64HDF5Dataset(dectris(TWO_THETA_START), cache=False),
+            Int64HDF5Dataset(dectris(VIRTUAL_PIXEL_CORRECTION_APPLIED), cache=False),
+            Float64HDF5Dataset(dectris(WAVELENGTH), cache=False),
+            Float64HDF5Dataset(dectris(X_PIXEL_SIZE), cache=False),
+            Int64HDF5Dataset(dectris(X_PIXELS_IN_DETECTOR), cache=False),
+            Float64HDF5Dataset(dectris(Y_PIXEL_SIZE), cache=False),
+            Int64HDF5Dataset(dectris(Y_PIXELS_IN_DETECTOR), cache=False),
+        ]
 
     @property
     def detector_message_handlers(self):
@@ -80,35 +242,47 @@ class EigerMetaWriter(MetaWriter):
         self._logger.debug("%s | Handling global header config message", self._name)
 
         self._add_dataset("config", data=str(data))
-        for parameter, value in data.items():
-            self._add_dataset("_dectris/{}".format(parameter), value)
+        self._write_datasets(
+            # Add prefix to HEADER_CONFIG parameters and keys of data dictionary
+            [dectris(parameter) for parameter in HEADER_CONFIG],
+            dict((dectris(key), value) for key, value in data.items()),
+        )
 
-    def handle_flatfield_header(self, _header, flatfield_blob):
-        """Handle global header flatfield part message containing flatfield array"""
+        # This is the last message of the global header with header_detail basic
+        self._flush_datasets()
+
+    def handle_flatfield_header(self, header, flatfield_blob):
+        """Handle global header parts 3 and 4 containing flatfield array"""
         self._logger.debug("%s | Handling flatfield header message", self._name)
 
-        flatfield_array = np.frombuffer(flatfield_blob, dtype=np.float32)
-        self._add_dataset("flatfield", flatfield_array)
+        shape = header["shape"]
+        flatfield_array = np.frombuffer(flatfield_blob, dtype=np.float32).reshape(shape)
+        self._write_dataset(FLATFIELD, flatfield_array)
 
-    def handle_mask_header(self, _header, mask_blob):
-        """Handle global header mask part message containing mask array"""
+    def handle_mask_header(self, header, mask_blob):
+        """Handle global header parts 5 and 6 containing mask array"""
         self._logger.debug("%s | Handling mask header message", self._name)
 
-        mask_array = np.frombuffer(mask_blob, dtype=np.uint32)
-        self._add_dataset("mask", mask_array)
+        shape = header["shape"]
+        mask_array = np.frombuffer(mask_blob, dtype=np.uint32).reshape(shape)
+        self._write_dataset(MASK, mask_array)
 
-    def handle_countrate_header(self, _header, countrate_blob):
-        """Handle global header mask part message containing mask array"""
+    def handle_countrate_header(self, header, countrate_blob):
+        """Handle global header parts 7 and 8 containing mask array"""
         self._logger.debug("%s | Handling countrate header message", self._name)
 
-        countrate_table = np.frombuffer(countrate_blob, dtype=np.float32)
-        self._add_dataset("countrate", countrate_table)
+        shape = header["shape"]
+        countrate_table = np.frombuffer(countrate_blob, dtype=np.float32).reshape(shape)
+        self._write_dataset(COUNTRATE, countrate_table)
+
+        # This is the last message of the global header with header_detail all
+        self._flush_datasets()
 
     def handle_header_appendix(self, _header, data):
         """Handle global header appendix part message"""
         self._logger.debug("%s | Handling header appendix message", self._name)
 
-        appendix = np.str(data)
+        appendix = str(data)
         self._add_dataset("global_appendix", appendix)
 
     def handle_image_data(self, _header, data):
