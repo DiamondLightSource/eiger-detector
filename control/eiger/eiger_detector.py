@@ -432,7 +432,7 @@ class EigerDetector(object):
             return self.initialize_detector()
         else:
             # mbbi record will send integers; change to string
-            if isinstance(value, int) and any(option == path for option in option_config_items):
+            if any(option == path.split("/")[-1] for option in option_config_items):
                 value = str(value)
             return self._params.set(path, value)
 
