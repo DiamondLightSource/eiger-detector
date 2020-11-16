@@ -62,7 +62,7 @@ namespace FrameSimulator {
       opt_filepattern.add_option_to(config);
       opt_delay.add_option_to(config);
       opt_stream.add_option_to(config);
-
+      opt_user_prompt.add_option_to(config);
     }
 
     /** Setup eiger frame simulator plugin class from store of command line options
@@ -103,6 +103,7 @@ namespace FrameSimulator {
         return false;
       }
 
+      user_prompt = opt_user_prompt.get_val(vm);
       stream = opt_stream.get_val(vm);
       filepattern = opt_filepattern.get_val(vm);
       acquisitionID = opt_acqid.get_val(vm);
@@ -153,39 +154,55 @@ namespace FrameSimulator {
 
         sendEndOfSeries(socket);
 
-      }
+      } else {
 
-      else {
+        if (user_prompt)
+        {
+          std::cout << "Press enter to send header..." << std::endl;
+          getchar();
+        }
 
-        // Example use for system test data. Replace with the path to actual files.
-        SendFileMessage(socket, "streamfile_1", true);  // Global Header
-        SendFileMessage(socket, "streamfile_2", true);  // Global Header Config.
-        SendFileMessage(socket, "streamfile_3", true);  // Flatfield Header
-        SendFileMessage(socket, "streamfile_4", true);  // Flatfield data blob
-        SendFileMessage(socket, "streamfile_5", true);  // Pixelmask header
-        SendFileMessage(socket, "streamfile_6", true);  // Pixelmask data blob
-        SendFileMessage(socket, "streamfile_7", true);  // Countrate header
-        SendFileMessage(socket, "streamfile_8", true);  // Countrate data blob
-        SendFileMessage(socket, "streamfile_9",
-                        false); // Global Header Appendix. 'more' set to false as is the last message in a multipart message
+        SendFileMessage(socket, "streamfile_dheader-1.0", true);          // Global Header
+        SendFileMessage(socket, "streamfile_detector_config", true);      // Global Header Config.
+        SendFileMessage(socket, "streamfile_dflatfield-1.0", true);       // Flatfield Header
+        SendFileMessage(socket, "streamfile_flatfield", true);            // Flatfield data blob
+        SendFileMessage(socket, "streamfile_dpixelmask-1.0", true);       // Pixelmask header
+        SendFileMessage(socket, "streamfile_pixelmask", true);            // Pixelmask data blob
+        SendFileMessage(socket, "streamfile_dcountrate_table-1.0", true); // Countrate header
+        SendFileMessage(socket, "streamfile_countrate_table", false);     // Countrate data blob
+        // SendFileMessage(socket, "", false); // Global Header Appendix. 'more' set to false as is the last message in a multipart message
 
-        SendFileMessage(socket, "streamfile_10", true);  // Image data header
-        SendFileMessage(socket, "streamfile_11", true);  // Image data dimensions
-        SendFileMessage(socket, "streamfile_12", true);  // Image data blob
-        SendFileMessage(socket, "streamfile_13", false); // Image data times.
+        if (user_prompt)
+        {
+          std::cout << "Press enter to send data..." << std::endl;
+          getchar();
+        }
 
-        SendFileMessage(socket, "streamfile_14", true);  // Image data header
-        SendFileMessage(socket, "streamfile_15", true);  // Image data dimensions
-        SendFileMessage(socket, "streamfile_16", true);  // Image data blob
-        SendFileMessage(socket, "streamfile_17", false); // Image data times.
+        // Add a delay between header and frames when running with user prompt
+        wait_for_interval(frame_gap_secs_.get());
 
-        SendFileMessage(socket, "streamfile_18", true);  // Image data header
-        SendFileMessage(socket, "streamfile_19", true);  // Image data dimensions
-        SendFileMessage(socket, "streamfile_20", true);  // Image data blob
-        SendFileMessage(socket, "streamfile_21", false); // Image data times.
+        int frames_sent = 0;
+        std::string dimage_message = getSingleLineFromFile("streamfile_dimage-1.0");
+        while (frames_sent != replay_numframes_.get())
+        {
+          // Update frame number and send image header
+          dimage_message = setMessageFrameNumber(dimage_message, frames_sent);
+          sendMessage(socket, dimage_message, true);
+          // Send the rest of the image messages
+          SendFileMessage(socket, "streamfile_dimage_d-1.0", true); // Image data dimensions
+          SendFileMessage(socket, "streamfile_image", true);        // Image data blob
+          SendFileMessage(socket, "streamfile_dconfig-1.0", false); // Image data times.
+          frames_sent++;
+          wait_for_interval(frame_gap_secs_.get());
+        }
 
-        SendFileMessage(socket, "streamfile_22", false); // End message
+        if (user_prompt)
+        {
+          std::cout << "Press enter to send end..." << std::endl;
+          getchar();
+        }
 
+        SendFileMessage(socket, "streamfile_dseries_end-1.0", false); // End message
       }
 
       LOG4CXX_INFO(logger_, "Finished Sending messages");
@@ -222,6 +239,39 @@ namespace FrameSimulator {
         }
       } else {
         LOG4CXX_ERROR(logger_, "Unable to open file " << filePath);
+      }
+    }
+
+    std::string EigerFrameSimulatorPlugin::setMessageFrameNumber(std::string message, int frame_number)
+    {
+      // Create Document from message string
+      rapidjson::Document documentPart;
+      documentPart.Parse(message.c_str());
+
+      // Change parameter in Document
+      rapidjson::Value &frame = documentPart["frame"];
+      frame = frame_number;
+
+      // Create StringBuffer from updated Document
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      documentPart.Accept(writer);
+
+      return buffer.GetString();
+    }
+
+    void EigerFrameSimulatorPlugin::sendMessage(zmq::socket_t &socket, std::string message, bool more)
+    {
+      zmq::message_t zmessage(message.size());
+      memcpy(zmessage.data(), message.c_str(), message.size());
+
+      if (more)
+      {
+        socket.send(zmessage, ZMQ_SNDMORE);
+      }
+      else
+      {
+        socket.send(zmessage);
       }
     }
 
@@ -262,10 +312,15 @@ namespace FrameSimulator {
     }
 
     /** Read single line from a file
-     * @param file - file name and path
+     * @param file - file name in filepath directory or pwd if filepath not set
      * @return line as std::string
      */
     std::string EigerFrameSimulatorPlugin::getSingleLineFromFile(std::string file) {
+      if (filepath)
+      {
+        file.insert(0, filepath.get() + "/");
+      }
+
       std::string line;
       std::ifstream myfile(file.c_str());
       if (myfile.is_open()) {
@@ -299,13 +354,6 @@ namespace FrameSimulator {
       std::string mdata_file = file_pattern + "_2";
       std::string image_file = file_pattern + "_3";
       std::string times_file = file_pattern + "_4";
-
-      if (filepath) {
-        header_file.insert(0, filepath.get() + "/");
-        mdata_file.insert(0, filepath.get() + "/");
-        image_file.insert(0, filepath.get() + "/");
-        times_file.insert(0, filepath.get() + "/");
-      }
 
       std::streampos size;
       char *memblock;
@@ -425,6 +473,13 @@ namespace FrameSimulator {
       sender.send(message);
 
       LOG4CXX_DEBUG(logger_, "Sent End Of Series");
+    }
+
+    void EigerFrameSimulatorPlugin::wait_for_interval(double interval) {
+      struct timespec ts_interval, remains;
+      ts_interval.tv_sec = (long)interval;
+      ts_interval.tv_nsec = (long)(interval - ts_interval.tv_sec) * 1000000000L;
+      nanosleep(&ts_interval, &remains);
     }
 
     /**

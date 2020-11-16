@@ -56,7 +56,10 @@ namespace FrameSimulator {
         void sendEndOfSeries(zmq::socket_t& sender);
         void sendImageData(zmq::socket_t& sender, std::string file_pattern, int frames, int hertz);
         void SendFileMessage(zmq::socket_t &socket, std::string filePath, bool more);
+        std::string setMessageFrameNumber(std::string message, int frame_number);
+        void sendMessage(zmq::socket_t &socket, std::string message, bool more);
         std::string getSingleLineFromFile(std::string file);
+        void wait_for_interval(double interval);
 
         boost::optional<std::string> filepath;
         std::string filepattern;
@@ -64,6 +67,7 @@ namespace FrameSimulator {
         int delay_adjustment;
         std::vector<std::string> dest_ports;
         bool stream;
+        bool user_prompt;
 
     };
 
@@ -71,4 +75,4 @@ namespace FrameSimulator {
 
 }
 
-#endif 
+#endif
