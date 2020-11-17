@@ -230,16 +230,16 @@ class EigerMetaWriter(MetaWriter):
             "eiger-end": self.handle_end,
         }
 
-        """Handle global header message (header_detail = none)"""
     def handle_global_header_none(self, header, _data):
+        """Handle global header message part 1"""
         self._logger.debug("%s | Handling global header none message", self._name)
 
         # Register the series we are expecting in proceding messages
         self._series = header[SERIES]
         self._write_dataset(SERIES, header[SERIES])
 
-        """Handle global header config part message containing config data"""
     def handle_global_header_config(self, header, data):
+        """Handle global header message part (1 and) 2 containing config data"""
         self._logger.debug("%s | Handling global header config message", self._name)
 
         self.handle_global_header_none(header, data)
@@ -289,7 +289,7 @@ class EigerMetaWriter(MetaWriter):
         self._add_dataset("global_appendix", appendix)
 
     def handle_image_data(self, header, data):
-        """Handle image data message"""
+        """Handle image data message parts 1, 2 and 4"""
         self._logger.debug("%s | Handling image data message", self._name)
 
         if self._series_valid(header):
