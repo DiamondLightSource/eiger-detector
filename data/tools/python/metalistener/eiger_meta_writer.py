@@ -141,7 +141,6 @@ class EigerMetaWriter(MetaWriter):
         START_TIME,
         STOP_TIME,
         REAL_TIME,
-        SERIES,
         SIZE,
         HASH,
         ENCODING,
@@ -151,6 +150,7 @@ class EigerMetaWriter(MetaWriter):
     def __init__(self, *args, **kwargs):
         super(EigerMetaWriter, self).__init__(*args, **kwargs)
         self._detector_finished = False  # Require base class to check we have finished
+        self._series = None
 
     @staticmethod
     def _define_detector_datasets():
@@ -159,7 +159,6 @@ class EigerMetaWriter(MetaWriter):
             Int64HDF5Dataset(START_TIME),
             Int64HDF5Dataset(STOP_TIME),
             Int64HDF5Dataset(REAL_TIME),
-            Int64HDF5Dataset(SERIES),
             Int64HDF5Dataset(SIZE),
             StringHDF5Dataset(HASH, length=32),
             StringHDF5Dataset(ENCODING, length=10),
@@ -231,15 +230,19 @@ class EigerMetaWriter(MetaWriter):
             "eiger-end": self.handle_end,
         }
 
-    def handle_global_header_none(self, _header, data):
         """Handle global header message (header_detail = none)"""
+    def handle_global_header_none(self, header, _data):
         self._logger.debug("%s | Handling global header none message", self._name)
 
-        self._add_dataset(SERIES, np.array(data[SERIES]))
+        # Register the series we are expecting in proceding messages
+        self._series = header[SERIES]
+        self._write_dataset(SERIES, header[SERIES])
 
-    def handle_global_header_config(self, _header, data):
         """Handle global header config part message containing config data"""
+    def handle_global_header_config(self, header, data):
         self._logger.debug("%s | Handling global header config message", self._name)
+
+        self.handle_global_header_none(header, data)
 
         self._add_dataset("config", data=str(data))
         self._write_datasets(
@@ -285,24 +288,41 @@ class EigerMetaWriter(MetaWriter):
         appendix = str(data)
         self._add_dataset("global_appendix", appendix)
 
-    def handle_image_data(self, _header, data):
+    def handle_image_data(self, header, data):
         """Handle image data message"""
         self._logger.debug("%s | Handling image data message", self._name)
 
-        # Store this to be written in write_detector_frame_data
-        # This will be called when handle_write_frame is called in the
-        # base class with this frame number
-        self._frame_data_map[data[FRAME]] = data
+        if self._series_valid(header):
+            # Store this to be written in write_detector_frame_data
+            # This will be called when handle_write_frame is called in the
+            # base class with this frame number
+            self._frame_data_map[data[FRAME]] = data
 
     def handle_image_appendix(self, _header, _data):
         """Handle image appendix message"""
         self._logger.debug("%s | Handling image appendix message", self._name)
         # Do nothing as can't write variable length dataset in swmr
 
-    def handle_end(self, _header, _data):
+    def handle_end(self, header, _data):
         """Handle end message - register to stop when writers finished"""
         self._logger.debug("%s | Handling end message", self._name)
-        self.stop_when_writers_finished()
+
+        if self._series_valid(header):
+            self.stop_when_writers_finished()
+
+    def _series_valid(self, header):
+        if self._series == header[SERIES]:
+            return True
+        else:
+            self._logger.error(
+                "%s | Received unexpected message from series %s - %s",
+                self._name,
+                header[SERIES],
+                "expected series {}".format(self._series)
+                if self._series is not None
+                else "have not received header message with series",
+            )
+            return False
 
     @staticmethod
     def get_version():
