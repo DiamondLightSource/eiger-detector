@@ -86,8 +86,7 @@ class EigerDetector(object):
         'link_0',
         'link_1',
         'link_2',
-        'link_3',
-        'stale_parameters'
+        'link_3'
     ]
     DETECTOR_BOARD_STATUS = [
         'th0_temp',
@@ -139,7 +138,8 @@ class EigerDetector(object):
 
         # Re-fetch of the parameters; last fetch of certain parameters stale
         self._stale_parameters = []
-        
+        self._lock = threading.Lock()
+
         self.trigger_exposure = 0.0
         self.manual_trigger = False
 
@@ -242,12 +242,7 @@ class EigerDetector(object):
                     if 'link_' in status:
                         reply['allowed_values'] = ['down', 'up']
                     setattr(self, status, reply)
-                    if status == 'stale_parameters':
-                        param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=status: self.get_value(getattr(self, x)),
-                                                                                                    lambda value, x=status: self.set_value(x, value),
-                                                                                                    self.get_meta(getattr(self, status)))
-                    else:
-                        param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
                 else:
                     logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
                     self.missing_parameters.append(status)
@@ -257,6 +252,12 @@ class EigerDetector(object):
                     param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda: 'down', {'allowed_values': ['down', 'up']})
                 else:
                     raise
+
+        # Insert internal stale parameters flag into detector status parameters
+        param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS]['stale_parameters'] = (
+            self.has_stale_parameters,
+            {}
+        )
 
         for status in self.DETECTOR_BOARD_STATUS:
             reply = self.read_detector_status('{}/{}'.format(self.STR_BOARD_000, status))
@@ -476,8 +477,11 @@ class EigerDetector(object):
         # Now check the response to see if we need to update any config items
         if response is not None:
             if isinstance(response, list):
-                self._stale_parameters = response
-                self.update_stale_parameters()
+                with self._lock:
+                    self._stale_parameters += response
+                    logging.debug(
+                        "Stale parameters after put: %s", self._stale_parameters
+                    )
         else:
             if item in self.DETECTOR_CONFIG:
                 param = self.read_detector_config(item)
@@ -536,14 +540,9 @@ class EigerDetector(object):
         return self.parse_response(r, item)
 
     def read_detector_status(self, item):
-        if item == 'stale_parameters':
-            # Read stale parameters flag
-            response = {u'value': len(self._stale_parameters) != 0, u'access_mode': u'r', u'value_type': u'bool'}
-            return response
-        else:
-            # Read a specifc detector status item from the hardware
-            r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_status_uri, item))
-            return self.parse_response(r, item)
+        # Read a specifc detector status item from the hardware
+        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_status_uri, item))
+        return self.parse_response(r, item)
 
     def write_detector_command(self, command, value=None):
         # Write a detector specific command to the detector
@@ -682,22 +681,45 @@ class EigerDetector(object):
         logging.info("Initializing the detector")
         self._initialize_event.set()
 
-    def fetch_stale_parameters(self):
-        for cfg in self._stale_parameters:
+    def fetch_stale_parameters(self, blocking=False):
+        with self._lock:
+            # Take a copy in case it is changed while we fetch
+            previous_stale_parameters = list(self._stale_parameters)
+
+        # Iterate the parameters and fetch (only fetch duplicates once)
+        for cfg in set(previous_stale_parameters):
             if cfg in self.DETECTOR_CONFIG:
                 param = self.read_detector_config(cfg)
             elif cfg in self.STREAM_CONFIG:
                 param = self.read_stream_config(cfg)
             logging.info("Read from detector [{}]: {}".format(cfg, param))
             setattr(self, cfg, param)
-        self._stale_parameters = []
-        self.update_stale_parameters()
 
-    def update_stale_parameters(self):
-        setattr(self, 'stale_parameters', self.read_detector_status('stale_parameters'))
-        if hasattr(self, '_params'):
-            self.set('{}/stale_parameters'.format(self._detector_status_uri), len(self._stale_parameters) != 0)
-        
+        with self._lock:
+            # Remove only the parameters we have just fetched from the list
+            # This will leave any that were added while fetching in place
+            remaining_stale_parameters = []
+            for param in self._stale_parameters:
+                if param in previous_stale_parameters:
+                    previous_stale_parameters.remove(param)
+                else:
+                    remaining_stale_parameters.append(param)
+
+            self._stale_parameters[:] = remaining_stale_parameters
+
+            logging.debug(
+                "Stale parameters after fetch: %s", self._stale_parameters
+            )
+
+        # _stale_parameters may have been repopulated again by the time we get here
+        if blocking and self._stale_parameters:
+            logging.info("Stale parameters repopulated - fetching again")
+            self.fetch_stale_parameters(blocking)
+
+    def has_stale_parameters(self):
+        with self._lock:
+            return len(self._stale_parameters) != 0
+
     def get_trigger_mode(self):
         trigger_idx = self.get_value(self.trigger_mode)
         return option_config_options['trigger_mode'].get_option(trigger_idx)
@@ -707,7 +729,7 @@ class EigerDetector(object):
         logging.info("Start acquisition called")
 
         # Fetch stale parameters
-        self.fetch_stale_parameters()
+        self.fetch_stale_parameters(blocking=True)
 
         # Set the acquisition complete to false
         self._acquisition_complete = False
