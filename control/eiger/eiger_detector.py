@@ -224,8 +224,8 @@ class EigerDetector(object):
                         writeable = True
 
                 if writeable is True:
-                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
-                                                                                                            lambda value, x=cfg: self.set_value(x, value), 
+                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
+                                                                                                            lambda value, x=cfg: self.set_value(x, value),
                                                                                                             self.get_meta(getattr(self, cfg)))
                 else:
                     param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), self.get_meta(getattr(self, cfg)))
@@ -266,7 +266,7 @@ class EigerDetector(object):
             else:
                 logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
                 self.missing_parameters.append(status)
-                
+
         for status in self.DETECTOR_BUILD_STATUS:
             reply = self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status))
             if reply is not None:
@@ -284,27 +284,27 @@ class EigerDetector(object):
             else:
                 logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
                 self.missing_parameters.append(status)
-                
+
         # Initialise stream config items
         for cfg in self.STREAM_CONFIG:
             if cfg == 'mode':
                 setattr(self, 'stream_mode', self.read_stream_config('mode'))
-                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='stream_mode': self.get_value(getattr(self, x)), 
-                                                                                                         lambda value: self.set_mode(self.STR_STREAM, value), 
+                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='stream_mode': self.get_value(getattr(self, x)),
+                                                                                                         lambda value: self.set_mode(self.STR_STREAM, value),
                                                                                                          self.get_meta(getattr(self, 'stream_mode')))
 
             else:
                 setattr(self, cfg, self.read_stream_config(cfg))
-                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
-                                                                                                    lambda value, x=cfg: self.set_value(x, value), 
+                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
+                                                                                                    lambda value, x=cfg: self.set_value(x, value),
                                                                                                     self.get_meta(getattr(self, cfg)))
 
 #param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
 
         # Initialise monitor mode
         setattr(self, 'monitor_mode', self.read_monitor_config('mode'))
-        param_tree[self.STR_MONITOR][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='monitor_mode': self.get_value(getattr(self, x)), 
-                                                                                                  lambda value: self.set_mode(self.STR_MONITOR, value), 
+        param_tree[self.STR_MONITOR][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='monitor_mode': self.get_value(getattr(self, x)),
+                                                                                                  lambda value: self.set_mode(self.STR_MONITOR, value),
                                                                                                   self.get_meta(getattr(self, 'monitor_mode')))
 
         # Initialise filewriter config items
@@ -312,13 +312,13 @@ class EigerDetector(object):
             if cfg == 'mode':
                 # Initialise filewriter mode
                 setattr(self, 'fw_mode', self.read_filewriter_config('mode'))
-                param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='fw_mode': self.get_value(getattr(self, x)), 
-                                                                                                    lambda value: self.set_mode(self.STR_FW, value), 
+                param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='fw_mode': self.get_value(getattr(self, x)),
+                                                                                                    lambda value: self.set_mode(self.STR_FW, value),
                                                                                                     self.get_meta(getattr(self, 'fw_mode')))
             else:
                 setattr(self, cfg, self.read_filewriter_config(cfg))
-                param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), 
-                                                                                                  lambda value, x=cfg: self.set_value(x, value), 
+                param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
+                                                                                                  lambda value, x=cfg: self.set_value(x, value),
                                                                                                   self.get_meta(getattr(self, cfg)))
 
 
@@ -343,16 +343,16 @@ class EigerDetector(object):
         }
         param_tree['config'] = {
             'trigger_exposure': (lambda: self.trigger_exposure,
-                                 lambda value: setattr(self, 'trigger_exposure', value), 
+                                 lambda value: setattr(self, 'trigger_exposure', value),
                                  {}),
             'manual_trigger': (lambda: self.manual_trigger,
-                               lambda value: setattr(self, 'manual_trigger', value), 
+                               lambda value: setattr(self, 'manual_trigger', value),
                                {}),
             'num_images': (lambda: self.get_value(getattr(self, 'nimages')),
-                              lambda value: self.set_value('nimages', value), 
+                              lambda value: self.set_value('nimages', value),
                               self.get_meta(getattr(self, 'nimages'))),
             'exposure_time': (lambda: self.get_value(getattr(self, 'count_time')),
-                              lambda value: self.set_value('count_time', value), 
+                              lambda value: self.set_value('count_time', value),
                               self.get_meta(getattr(self, 'count_time'))),
             'live_view': (lambda: self._live_view_enabled,
                           lambda value: setattr(self, '_live_view_enabled', value),
@@ -701,7 +701,7 @@ class EigerDetector(object):
     def get_trigger_mode(self):
         trigger_idx = self.get_value(self.trigger_mode)
         return option_config_options['trigger_mode'].get_option(trigger_idx)
-        
+
     def start_acquisition(self):
         # Perform the start sequence
         logging.info("Start acquisition called")
