@@ -6,6 +6,7 @@
  */
 
 #include <EigerProcessPlugin.h>
+#include "Json.h"
 
 namespace FrameProcessor
 {
@@ -52,15 +53,11 @@ namespace FrameProcessor
     LOG4CXX_TRACE(logger_, "FrameHeader frame acquisition ID: " << hdrPtr->acquisitionID);
 
     // Create status message header
-    rapidjson::Document document;
-    document.SetObject();
 
     // Add Acquisition ID
     std::string acqIDString(hdrPtr->acquisitionID);
-    rapidjson::Value keyAcqID("acqID", document.GetAllocator());
-    rapidjson::Value valueAcqID;
-    valueAcqID.SetString(acqIDString.c_str(), acqIDString.length(), document.GetAllocator());
-    document.AddMember(keyAcqID, valueAcqID, document.GetAllocator());
+    OdinData::JsonDict json;
+    json.add("acqID", acqIDString);
 
     if (hdrPtr->messageType == Eiger::IMAGE_DATA) {
       frame->set_image_offset(sizeof(Eiger::FrameHeader));
@@ -82,175 +79,108 @@ namespace FrameProcessor
       frame->set_frame_number(hdrPtr->frame_number);
 
       // Add Frame number
-      rapidjson::Value keyFrame("frame", document.GetAllocator());
-      rapidjson::Value valueFrame(hdrPtr->frame_number);
-      document.AddMember(keyFrame, valueFrame, document.GetAllocator());
+      json.add("frame", hdrPtr->frame_number);
 
       // Add Series number
-      rapidjson::Value keySeries("series", document.GetAllocator());
-      rapidjson::Value valueSeries(hdrPtr->series);
-      document.AddMember(keySeries, valueSeries, document.GetAllocator());
+      json.add("series", hdrPtr->series);
 
       // Add Size
-      rapidjson::Value keySize("size", document.GetAllocator());
-      rapidjson::Value valueSize(hdrPtr->size_in_header);
-      document.AddMember(keySize, valueSize, document.GetAllocator());
+      json.add("size", hdrPtr->size_in_header);
 
       // Add Start Time
-      rapidjson::Value keyStart("start_time", document.GetAllocator());
-      rapidjson::Value valueStart(hdrPtr->startTime);
-      document.AddMember(keyStart, valueStart, document.GetAllocator());
+      json.add("start_time", hdrPtr->startTime);
 
       // Add Stop Time
-      rapidjson::Value keyStop("stop_time", document.GetAllocator());
-      rapidjson::Value valueStop(hdrPtr->stopTime);
-      document.AddMember(keyStop, valueStop, document.GetAllocator());
+      json.add("stop_time", hdrPtr->stopTime);
 
       // Add Real Time
-      rapidjson::Value keyReal("real_time", document.GetAllocator());
-      rapidjson::Value valueReal(hdrPtr->realTime);
-      document.AddMember(keyReal, valueReal, document.GetAllocator());
+      json.add("real_time", hdrPtr->realTime);
 
       // Add shape
-      rapidjson::Value keyShape("shape", document.GetAllocator());
-      rapidjson::Value valueShape;
-      valueShape.SetArray();
-      valueShape.PushBack(hdrPtr->shapeSizeX, document.GetAllocator());
-      valueShape.PushBack(hdrPtr->shapeSizeY, document.GetAllocator());
-      document.AddMember(keyShape, valueShape, document.GetAllocator());
+      std::vector<uint32_t> shape;
+      shape.push_back(hdrPtr->shapeSizeX);
+      shape.push_back(hdrPtr->shapeSizeY);
+      json.add("shape", shape);
 
       // Add data type
       std::string dataTypeString(hdrPtr->dataType);
-      rapidjson::Value keyType("type", document.GetAllocator());
-      rapidjson::Value valueType;
-      valueType.SetString(dataTypeString.c_str(), dataTypeString.length(), document.GetAllocator());
-      document.AddMember(keyType, valueType, document.GetAllocator());
+      json.add("type", dataTypeString);
 
       // Add encoding
       std::string encodingString(hdrPtr->encoding);
-      rapidjson::Value keyEncoding("encoding", document.GetAllocator());
-      rapidjson::Value valueEncoding;
-      valueEncoding.SetString(encodingString.c_str(), encodingString.length(), document.GetAllocator());
-      document.AddMember(keyEncoding, valueEncoding, document.GetAllocator());
+      json.add("encoding", encodingString);
 
       // Add hash
       std::string hashString(hdrPtr->hash);
-      rapidjson::Value keyHash("hash", document.GetAllocator());
-      rapidjson::Value valueHash;
-      valueHash.SetString(hashString.c_str(), hashString.length(), document.GetAllocator());
-      document.AddMember(keyHash, valueHash, document.GetAllocator());
+      json.add("hash", hashString);
 
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      document.Accept(writer);
-
-      publish_meta(get_name(), "eiger-imagedata", buffer.GetString(), buffer.GetString());
+      publish_meta(get_name(), "eiger-imagedata", json.str(), json.str());
 
       this->push(frame);
     } else if (hdrPtr->messageType == Eiger::IMAGE_APPENDIX) {
       std::string dataString((static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
       // Add Frame number
-      rapidjson::Value keyFrame("frame", document.GetAllocator());
-      rapidjson::Value valueFrame(hdrPtr->frame_number);
-      document.AddMember(keyFrame, valueFrame, document.GetAllocator());
+      json.add("frame", hdrPtr->frame_number);
 
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      document.Accept(writer);
-
-      publish_meta(get_name(), "eiger-imageappendix", dataString, buffer.GetString());
+      publish_meta(get_name(), "eiger-imageappendix", dataString, json.str());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_NONE) {
       // Add Series number
-      rapidjson::Value keySeries("series", document.GetAllocator());
-      rapidjson::Value valueSeries(hdrPtr->series);
-      document.AddMember(keySeries, valueSeries, document.GetAllocator());
+      json.add("series", hdrPtr->series);
 
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      document.Accept(writer);
-
-      publish_meta(get_name(), "eiger-globalnone", buffer.GetString(), buffer.GetString());
+      publish_meta(get_name(), "eiger-globalnone", json.str(), json.str());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_CONFIG) {
       std::string dataString((static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
       // Add Series number
-      rapidjson::Value keySeries("series", document.GetAllocator());
-      rapidjson::Value valueSeries(hdrPtr->series);
-      document.AddMember(keySeries, valueSeries, document.GetAllocator());
+      json.add("series", hdrPtr->series);
 
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      document.Accept(writer);
-
-      publish_meta(get_name(), "eiger-globalconfig", dataString, buffer.GetString());
+      publish_meta(get_name(), "eiger-globalconfig", dataString, json.str());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_FLATFIELD) {
       // Add shape
-      rapidjson::Value keyShape("shape", document.GetAllocator());
-      rapidjson::Value valueShape;
-      valueShape.SetArray();
-      valueShape.PushBack(hdrPtr->shapeSizeX, document.GetAllocator());
-      valueShape.PushBack(hdrPtr->shapeSizeY, document.GetAllocator());
-      document.AddMember(keyShape, valueShape, document.GetAllocator());
+      std::vector<uint32_t> shape;
+      shape.push_back(hdrPtr->shapeSizeX);
+      shape.push_back(hdrPtr->shapeSizeY);
+      json.add("shape", shape);
 
       // Add data type
-      rapidjson::Value keyType("type", document.GetAllocator());
-      rapidjson::Value valueType(hdrPtr->dataType);
-      document.AddMember(keyType, valueType, document.GetAllocator());
+      std::string dataTypeString(hdrPtr->dataType);
+      json.add("type", dataTypeString);
 
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      document.Accept(writer);
-
-      publish_meta(get_name(), "eiger-globalflatfield", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
+      publish_meta(get_name(), "eiger-globalflatfield", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, json.str());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_MASK) {
-      // Set shape
-      rapidjson::Value keyShape("shape", document.GetAllocator());
-      rapidjson::Value valueShape;
-      valueShape.SetArray();
-      valueShape.PushBack(hdrPtr->shapeSizeX, document.GetAllocator());
-      valueShape.PushBack(hdrPtr->shapeSizeY, document.GetAllocator());
-      document.AddMember(keyShape, valueShape, document.GetAllocator());
+      // Add shape
+      std::vector<uint32_t> shape;
+      shape.push_back(hdrPtr->shapeSizeX);
+      shape.push_back(hdrPtr->shapeSizeY);
+      json.add("shape", shape);
 
-      // Set data type
-      rapidjson::Value keyType("type", document.GetAllocator());
-      rapidjson::Value valueType(hdrPtr->dataType);
-      document.AddMember(keyType, valueType, document.GetAllocator());
+      // Add data type
+      std::string dataTypeString(hdrPtr->dataType);
+      json.add("type", dataTypeString);
 
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      document.Accept(writer);
-
-      publish_meta(get_name(), "eiger-globalmask", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
+      publish_meta(get_name(), "eiger-globalmask", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, json.str());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_COUNTRATE) {
-      // Set shape
-      rapidjson::Value keyShape("shape", document.GetAllocator());
-      rapidjson::Value valueShape;
-      valueShape.SetArray();
-      valueShape.PushBack(hdrPtr->shapeSizeX, document.GetAllocator());
-      valueShape.PushBack(hdrPtr->shapeSizeY, document.GetAllocator());
-      document.AddMember(keyShape, valueShape, document.GetAllocator());
+      // Add shape
+      std::vector<uint32_t> shape;
+      shape.push_back(hdrPtr->shapeSizeX);
+      shape.push_back(hdrPtr->shapeSizeY);
+      json.add("shape", shape);
 
-      // Set data type
-      rapidjson::Value keyType("type", document.GetAllocator());
-      rapidjson::Value valueType(hdrPtr->dataType);
-      document.AddMember(keyType, valueType, document.GetAllocator());
+      // Add data type
+      std::string dataTypeString(hdrPtr->dataType);
+      json.add("type", dataTypeString);
 
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      document.Accept(writer);
-
-      publish_meta(get_name(), "eiger-globalcountrate", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, buffer.GetString());
+      publish_meta(get_name(), "eiger-globalcountrate", reinterpret_cast<const void*>(static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size, json.str());
     } else if (hdrPtr->messageType == Eiger::GLOBAL_HEADER_APPENDIX) {
       std::string dataString((static_cast<const char*>(frame->get_image_ptr())+sizeof(Eiger::FrameHeader)), hdrPtr->data_size);
 
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      document.Accept(writer);
-
-      publish_meta(get_name(), "eiger-headerappendix", dataString, buffer.GetString());
+      publish_meta(get_name(), "eiger-headerappendix", dataString, json.str());
     } else if (hdrPtr->messageType == Eiger::END_OF_STREAM) {
-      // Do nothing with End of Stream message
+      // Add Series number
+      json.add("series", hdrPtr->series);
+
+      publish_meta(get_name(), "eiger-end", "", json.str());
     }
   }
 
