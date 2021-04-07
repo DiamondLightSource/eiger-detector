@@ -523,7 +523,7 @@ class EigerDetector(object):
         parsed_reply = self.parse_response(r, item)
         # Intercept detector config for options where we convert to index for
         # unamabiguous definition and update config to allow these
-        if any(option in item for option in option_config_items):
+        if any(option == item for option in option_config_items):
             # Inconsitency over mapping of index to string
             # communication via integer, uniquely converted to mapping as defined in eiger_options
             value = parsed_reply[u'value']
@@ -556,7 +556,7 @@ class EigerDetector(object):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item))
         parsed_reply = self.parse_response(r, item)
-        if any(option in item for option in option_config_items):
+        if any(option == item for option in option_config_items):
             # Inconsitency over mapping of index to string
             # communication via integer, uniquely converted to mapping as defined in eiger_options
             value = parsed_reply[u'value']
