@@ -442,7 +442,10 @@ class EigerDetector(object):
 
     def set_mode(self, mode_type, value):
         logging.info("Setting {} mode to {}".format(mode_type, value))
-        # First write the value to the hardware
+        # Intercept integer values and convert to string values where
+        # option not index is expected
+        if any(option == "mode" for option in option_config_items):
+            value = option_config_options["mode"].get_option(value)
         if mode_type == self.STR_STREAM:
             response = self.write_stream_config('mode', value)
             param = self.read_stream_config('mode')
@@ -521,14 +524,7 @@ class EigerDetector(object):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item))
         parsed_reply = self.parse_response(r, item)
-        # Intercept detector config for options where we convert to index for
-        # unamabiguous definition and update config to allow these
-        if any(option == item for option in option_config_items):
-            # Inconsitency over mapping of index to string
-            # communication via integer, uniquely converted to mapping as defined in eiger_options
-            value = parsed_reply[u'value']
-            parsed_reply[u'value'] = option_config_options[item].get_index(value)
-            parsed_reply[u'allowed_values'] = option_config_options[item].get_allowed_values()
+        parsed_reply = self.intercept_reply(item, parsed_reply)
         return parsed_reply
 
     def write_detector_config(self, item, value):
@@ -556,12 +552,7 @@ class EigerDetector(object):
         # Read a specifc detector config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item))
         parsed_reply = self.parse_response(r, item)
-        if any(option == item for option in option_config_items):
-            # Inconsitency over mapping of index to string
-            # communication via integer, uniquely converted to mapping as defined in eiger_options
-            value = parsed_reply[u'value']
-            parsed_reply[u'value'] = option_config_options[item].get_index(value)
-            parsed_reply[u'allowed_values'] = option_config_options[item].get_allowed_values()
+        parsed_reply = self.intercept_reply(item, parsed_reply)
         return parsed_reply
 
     def write_stream_config(self, item, value):
@@ -577,7 +568,9 @@ class EigerDetector(object):
     def read_monitor_config(self, item):
         # Read a specifc monitor config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item))
-        return self.parse_response(r, item)
+        parsed_reply = self.parse_response(r, item)
+        parsed_reply = self.intercept_reply(item, parsed_reply)
+        return parsed_reply
 
     def write_monitor_config(self, item, value):
         # Read a specifc detector config item from the hardware
@@ -587,7 +580,9 @@ class EigerDetector(object):
     def read_filewriter_config(self, item):
         # Read a specifc filewriter config item from the hardware
         r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item))
-        return self.parse_response(r, item)
+        parsed_reply = self.parse_response(r, item)
+        parsed_reply = self.intercept_reply(item, parsed_reply)
+        return parsed_reply
 
     def write_filewriter_config(self, item, value):
         # Write a specifc filewriter config item to the hardware
@@ -663,6 +658,17 @@ class EigerDetector(object):
                 self._lv_publisher.send_json(frame_header, flags=zmq.SNDMORE)
                 self._lv_publisher.send(frame_data, 0)
                 self._live_view_frame_number += 1
+
+    def intercept_reply(self, item, reply):
+        # Intercept detector config for options where we convert to index for
+        # unamabiguous definition and update config to allow these
+        if any(option == item for option in option_config_items):
+            # Inconsitency over mapping of index to string
+            # communication via integer, uniquely converted to mapping as defined in eiger_options
+            value = reply[u'value']
+            reply[u'value'] = option_config_options[item].get_index(value)
+            reply[u'allowed_values'] = option_config_options[item].get_allowed_values()
+        return reply
 
     def arm_detector(self):
         # Write a detector specific command to the detector
