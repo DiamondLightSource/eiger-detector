@@ -693,10 +693,15 @@ class EigerDetector(object):
         for cfg in set(previous_stale_parameters):
             if cfg in self.DETECTOR_CONFIG:
                 param = self.read_detector_config(cfg)
+                logging.info("Read from detector config [{}]: {}".format(cfg, param))
+                setattr(self, cfg, param)
             elif cfg in self.STREAM_CONFIG:
                 param = self.read_stream_config(cfg)
-            logging.info("Read from detector [{}]: {}".format(cfg, param))
-            setattr(self, cfg, param)
+                logging.info("Read from stream config [{}]: {}".format(cfg, param))
+                setattr(self, cfg, param)
+            else:
+                logging.warning("Did not fetch [{}] as not in parameter lists".format(cfg))
+
 
         with self._lock:
             # Remove only the parameters we have just fetched from the list
