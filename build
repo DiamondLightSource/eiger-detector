@@ -17,7 +17,8 @@ build()
     make -j8 VERBOSE=1 && make install
     
     # Removing pesky dist dir just in case a previous build is left over
-    rm -rf $BUILD_SCRIPT_DIR/tools/python/dist 
+    rm -rf $BUILD_SCRIPT_DIR/data/tools/python/dist 
+    rm -rf $BUILD_SCRIPT_DIR/control/dist 
 
     python_depends NUMPY PYZMQ H5PY ODIN_CONTROL ODIN_DATA
     
