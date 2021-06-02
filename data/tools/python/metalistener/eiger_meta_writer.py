@@ -293,10 +293,19 @@ class EigerMetaWriter(MetaWriter):
         self._logger.debug("%s | Handling image data message", self._name)
 
         if self._series_valid(header):
-            # Store this to be written in write_detector_frame_data
-            # This will be called when handle_write_frame is called in the
-            # base class with this frame number
-            self._frame_data_map[data[FRAME]] = data
+            if data[FRAME] in self._frame_offset_map:
+                self._logger.warning(
+                    "%s | Base class has already written data for frame %d",
+                    self._name,
+                    header[FRAME]
+                )
+                offset = self._frame_offset_map.pop(data[FRAME])
+                self._add_values(self.DETECTOR_WRITE_FRAME_PARAMETERS, data, offset)
+            else:
+                # Store this to be written in write_detector_frame_data
+                # This will be called when handle_write_frame is called in the
+                # base class with this frame number
+                self._frame_data_map[data[FRAME]] = data
 
     def handle_image_appendix(self, _header, _data):
         """Handle image appendix message"""
