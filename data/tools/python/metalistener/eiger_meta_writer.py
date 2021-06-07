@@ -147,13 +147,16 @@ class EigerMetaWriter(MetaWriter):
         DATATYPE,
     ]
 
-    def __init__(self, *args, **kwargs):
-        super(EigerMetaWriter, self).__init__(*args, **kwargs)
+    def __init__(self, name, directory, process_count, config):
+        # This must be defined for _define_detector_datasets in base class __init__
+        self._sensor_shape = config.sensor_shape
+
+        super(EigerMetaWriter, self).__init__(name, directory, process_count, config)
         self._detector_finished = False  # Require base class to check we have finished
+
         self._series = None
 
-    @staticmethod
-    def _define_detector_datasets():
+    def _define_detector_datasets(self):
         return [
             # Datasets with one value received per frame
             Int64HDF5Dataset(START_TIME),
@@ -166,8 +169,8 @@ class EigerMetaWriter(MetaWriter):
             # Datasets received on arm
             Int64HDF5Dataset(SERIES, cache=False),
             Int64HDF5Dataset(COUNTRATE, rank=2, cache=False),
-            Int64HDF5Dataset(FLATFIELD, rank=2, cache=False),
-            Int64HDF5Dataset(MASK, rank=2, cache=False),
+            Int64HDF5Dataset(FLATFIELD, shape=self._sensor_shape, rank=2, cache=False),
+            Int64HDF5Dataset(MASK, shape=self._sensor_shape, rank=2, cache=False),
             Int64HDF5Dataset(dectris(AUTO_SUMMATION), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_X), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_Y), cache=False),
@@ -297,7 +300,7 @@ class EigerMetaWriter(MetaWriter):
                 self._logger.warning(
                     "%s | Base class has already written data for frame %d",
                     self._name,
-                    header[FRAME]
+                    header[FRAME],
                 )
                 offset = self._frame_offset_map.pop(data[FRAME])
                 self._add_values(self.DETECTOR_WRITE_FRAME_PARAMETERS, data, offset)
