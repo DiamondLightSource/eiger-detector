@@ -19,7 +19,8 @@ class EigerOption(object):
 trigger_options = EigerOption(['ints', 'inte', 'exts', 'exte'])
 compression_options = EigerOption(['lz4', 'bslz4'])
 header_options = EigerOption(['all', 'basic', 'none'])
+mode_options = EigerOption(['disabled', 'enabled'])
 
-option_config_items = ['compression', 'trigger_mode', 'header_detail']
+option_config_items = ['compression', 'trigger_mode', 'header_detail', 'mode']
 
-option_config_options = {'compression': compression_options, 'trigger_mode': trigger_options, 'header_detail': header_options}
+option_config_options = {'compression': compression_options, 'trigger_mode': trigger_options, 'header_detail': header_options, 'mode': mode_options}
