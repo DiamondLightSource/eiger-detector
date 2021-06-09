@@ -258,7 +258,7 @@ class EigerMetaWriter(MetaWriter):
         """Handle global header parts 3 and 4 containing flatfield array"""
         self._logger.debug("%s | Handling flatfield header message", self._name)
 
-        shape = header["shape"]
+        shape = tuple(reversed(header["shape"]))  # (x, y) -> (y, x)
         flatfield_array = np.frombuffer(flatfield_blob, dtype=np.float32).reshape(shape)
         self._write_dataset(FLATFIELD, flatfield_array)
 
@@ -266,7 +266,7 @@ class EigerMetaWriter(MetaWriter):
         """Handle global header parts 5 and 6 containing mask array"""
         self._logger.debug("%s | Handling mask header message", self._name)
 
-        shape = header["shape"]
+        shape = tuple(reversed(header["shape"]))  # (x, y) -> (y, x)
         mask_array = np.frombuffer(mask_blob, dtype=np.uint32).reshape(shape)
         self._write_dataset(MASK, mask_array)
 
@@ -274,7 +274,7 @@ class EigerMetaWriter(MetaWriter):
         """Handle global header parts 7 and 8 containing mask array"""
         self._logger.debug("%s | Handling countrate header message", self._name)
 
-        shape = header["shape"]
+        shape = tuple(reversed(header["shape"]))  # (x, y) -> (y, x)
         countrate_table = np.frombuffer(countrate_blob, dtype=np.float32).reshape(shape)
         self._write_dataset(COUNTRATE, countrate_table)
 
