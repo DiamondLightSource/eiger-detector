@@ -9,7 +9,9 @@ import numpy as np
 
 from odin_data.meta_writer.meta_writer import MetaWriter, FRAME
 from odin_data.meta_writer.hdf5dataset import (
+    Int32HDF5Dataset,
     Int64HDF5Dataset,
+    Float32HDF5Dataset,
     Float64HDF5Dataset,
     StringHDF5Dataset,
 )
@@ -168,9 +170,9 @@ class EigerMetaWriter(MetaWriter):
             StringHDF5Dataset(DATATYPE, length=6),
             # Datasets received on arm
             Int64HDF5Dataset(SERIES, cache=False),
-            Int64HDF5Dataset(COUNTRATE, rank=2, cache=False),
-            Int64HDF5Dataset(FLATFIELD, shape=self._sensor_shape, rank=2, cache=False),
-            Int64HDF5Dataset(MASK, shape=self._sensor_shape, rank=2, cache=False),
+            Float32HDF5Dataset(COUNTRATE, rank=2, cache=False),
+            Float32HDF5Dataset(FLATFIELD, shape=self._sensor_shape, rank=2, cache=False),
+            Int32HDF5Dataset(MASK, shape=self._sensor_shape, rank=2, cache=False),
             Int64HDF5Dataset(dectris(AUTO_SUMMATION), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_X), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_Y), cache=False),
