@@ -9,7 +9,9 @@ import numpy as np
 
 from odin_data.meta_writer.meta_writer import MetaWriter, FRAME
 from odin_data.meta_writer.hdf5dataset import (
+    Int32HDF5Dataset,
     Int64HDF5Dataset,
+    Float32HDF5Dataset,
     Float64HDF5Dataset,
     StringHDF5Dataset,
 )
@@ -147,13 +149,16 @@ class EigerMetaWriter(MetaWriter):
         DATATYPE,
     ]
 
-    def __init__(self, *args, **kwargs):
-        super(EigerMetaWriter, self).__init__(*args, **kwargs)
+    def __init__(self, name, directory, process_count, config):
+        # This must be defined for _define_detector_datasets in base class __init__
+        self._sensor_shape = config.sensor_shape
+
+        super(EigerMetaWriter, self).__init__(name, directory, process_count, config)
         self._detector_finished = False  # Require base class to check we have finished
+
         self._series = None
 
-    @staticmethod
-    def _define_detector_datasets():
+    def _define_detector_datasets(self):
         return [
             # Datasets with one value received per frame
             Int64HDF5Dataset(START_TIME),
@@ -165,9 +170,9 @@ class EigerMetaWriter(MetaWriter):
             StringHDF5Dataset(DATATYPE, length=6),
             # Datasets received on arm
             Int64HDF5Dataset(SERIES, cache=False),
-            Int64HDF5Dataset(COUNTRATE, rank=2, cache=False),
-            Int64HDF5Dataset(FLATFIELD, rank=2, cache=False),
-            Int64HDF5Dataset(MASK, rank=2, cache=False),
+            Float32HDF5Dataset(COUNTRATE, rank=2, cache=False),
+            Float32HDF5Dataset(FLATFIELD, shape=self._sensor_shape, rank=2, cache=False),
+            Int32HDF5Dataset(MASK, shape=self._sensor_shape, rank=2, cache=False),
             Int64HDF5Dataset(dectris(AUTO_SUMMATION), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_X), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_Y), cache=False),
@@ -293,10 +298,19 @@ class EigerMetaWriter(MetaWriter):
         self._logger.debug("%s | Handling image data message", self._name)
 
         if self._series_valid(header):
-            # Store this to be written in write_detector_frame_data
-            # This will be called when handle_write_frame is called in the
-            # base class with this frame number
-            self._frame_data_map[data[FRAME]] = data
+            if data[FRAME] in self._frame_offset_map:
+                self._logger.warning(
+                    "%s | Base class has already written data for frame %d",
+                    self._name,
+                    header[FRAME],
+                )
+                offset = self._frame_offset_map.pop(data[FRAME])
+                self._add_values(self.DETECTOR_WRITE_FRAME_PARAMETERS, data, offset)
+            else:
+                # Store this to be written in write_detector_frame_data
+                # This will be called when handle_write_frame is called in the
+                # base class with this frame number
+                self._frame_data_map[data[FRAME]] = data
 
     def handle_image_appendix(self, _header, _data):
         """Handle image appendix message"""
