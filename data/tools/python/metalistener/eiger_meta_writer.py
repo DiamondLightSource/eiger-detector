@@ -149,11 +149,11 @@ class EigerMetaWriter(MetaWriter):
         DATATYPE,
     ]
 
-    def __init__(self, name, directory, process_count, config):
+    def __init__(self, name, directory, endpoints, config):
         # This must be defined for _define_detector_datasets in base class __init__
         self._sensor_shape = config.sensor_shape
 
-        super(EigerMetaWriter, self).__init__(name, directory, process_count, config)
+        super(EigerMetaWriter, self).__init__(name, directory, endpoints, config)
         self._detector_finished = False  # Require base class to check we have finished
 
         self._series = None
