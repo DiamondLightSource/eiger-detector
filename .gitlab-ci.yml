@@ -1,32 +1,30 @@
-image: gcc
-
-build:
+# Use controls group runners unless overridden in jobs
+default:
   tags:
-    - rhel7
+    - controls
+
+stages:
+  - build
+  - deploy
+
+wheel:
   stage: build
-  #before_script:
-  #  - apt-get update && apt-get -y install cmake liblog4cxx10-dev libboost-program-options-dev libboost-filesystem-dev libboost-date-time-dev libboost-system-dev libboost-test-dev libboost-thread-dev libboost-regex-dev libzmq3-dev libpcap-dev
-  variables:
-    HDF5_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/hdf5/1-10-4/prefix
-    BLOSC_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/c-blosc/1-14-2/prefix
-    INSTALL_PREFIX: $CI_PROJECT_DIR/install_prefix
-    ODIN_PREFIX: $CI_PROJECT_DIR/odin-data
-    LOG4CXX_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/log4cxx/0-10-0dls2/prefix
-    HDF5_PLUGIN_PATH: /dls_sw/work/tools/RHEL6-x86_64/hdf5filters/prefix/h5plugin
-    META_LISTENER_ROOT: /dls_sw/prod/tools/RHEL7-x86_64/defaults/bin
-    PYTHONPATH: $CI_PROJECT_DIR/data/tools/python/:$CI_PROJECT_DIR/odin-data/tools/python
+  image: python:3.7
   script:
-    - bash .install-odin.sh
-    - mkdir -p buildfolder
-    - mkdir -p $INSTALL_PREFIX
-    - cd buildfolder
-    - cmake -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DBoost_NO_BOOST_CMAKE=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DODINDATA_ROOT_DIR=$ODIN_PREFIX -DLOG4CXX_ROOT_DIR=$LOG4CXX_ROOT ../data
-    - cmake --build . --target install
-    - cd ..
-    - $ODIN_PREFIX/bin/odinDataTest --json=$INSTALL_PREFIX/test_config/eiger.json
-    - $INSTALL_PREFIX/bin/eigerfan-test
-    - cd control/eiger
-    - python eiger_simulator.py &
-    - cd ..
-    - dls-python setup.py test
-    - pid=`pgrep -f eiger_simulator`; kill $pid
+    - cd ${CI_PROJECT_DIR}/python/
+    - pip install build 'pipenv==2021.5.29'
+    - python -m build --wheel --outdir dist/
+    - python -m pipenv --python 3.7 lock -v --pypi-mirror https://pypiserver.diamond.ac.uk && cp Pipfile.lock dist/
+  artifacts:
+    paths:
+      - python/dist/
+
+deploy_dist:
+  stage: deploy
+  image: python:3.7
+  script:
+    - cp python/dist/*whl /dls_sw/work/python3/RHEL7-x86_64/distributions
+    - cp python/dist/Pipfile.lock /dls_sw/work/python3/RHEL7-x86_64/distributions/${CI_PROJECT_NAME}-${CI_COMMIT_TAG}.Pipfile.lock
+    - echo "Run 'dls-release.py -t -a python3ext ${CI_PROJECT_NAME} ${CI_COMMIT_TAG}' to release to python3 area"
+  only:
+    - tags

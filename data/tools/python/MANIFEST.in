@@ -1,2 +1,0 @@
-include versioneer.py
-include metalistener/_version.py

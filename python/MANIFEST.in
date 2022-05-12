@@ -1,0 +1,2 @@
+include versioneer.py
+include src/eiger_detector/_version.py
