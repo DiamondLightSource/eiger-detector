@@ -3,7 +3,15 @@ add_subdirectory(integrationTest)
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK)
 
-include_directories(${EIGERFAN_DIR}/include ${EIGERFAN_DIR}/src ${Boost_INCLUDE_DIRS} ${LOG4CXX_INCLUDE_DIRS}/.. ${ZEROMQ_INCLUDE_DIRS})
+include_directories(
+    ${EIGERFAN_DIR}/include
+    ${EIGERFAN_DIR}/src
+    ${Boost_INCLUDE_DIRS}
+    ${LOG4CXX_INCLUDE_DIRS}/..
+    ${ZEROMQ_INCLUDE_DIRS}
+    ${STREAM2_DIR}
+    ${STREAM2_DIR}/third_party/tinycbor/src
+)
 
 # Build list of test source files from current dir
 file(GLOB TEST_SOURCES *.cpp)
@@ -18,16 +26,20 @@ add_executable(eigerfan-test ${TEST_SOURCES} ${APP_SOURCES})
 
 if ( ${CMAKE_SYSTEM_NAME} MATCHES Linux )
 # librt required for timing functions
-find_library(REALTIME_LIBRARY 
+find_library(REALTIME_LIBRARY
 		NAMES rt)
 target_link_libraries( eigerfan-test ${REALTIME_LIBRARY} )
 endif()
 
 # Define libraries to link against
-target_link_libraries(eigerfan-test
-		${Boost_LIBRARIES}
-		${LOG4CXX_LIBRARIES}
-		${ZEROMQ_LIBRARIES})
+target_link_libraries(
+    eigerfan-test
+    ${Boost_LIBRARIES}
+    ${LOG4CXX_LIBRARIES}
+    ${ZEROMQ_LIBRARIES}
+    ${STREAM2_LIBRARY}
+    tinycbor
+)
 
 install(TARGETS eigerfan-test
 		RUNTIME DESTINATION bin
