@@ -17,6 +17,8 @@
 #include <log4cxx/logger.h>
 #include <boost/shared_ptr.hpp>
 
+#include "stream2.h"
+
 class EigerFan {
 
   typedef struct
@@ -26,26 +28,27 @@ class EigerFan {
   } EigerConsumer;
 
 public:
-
   EigerFan();
   EigerFan(EigerFanConfig config_);
   virtual ~EigerFan();
   void run();
   void Stop();
   void SetNumberOfConsumers(int number);
+
 protected:
   void HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
-  void HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket);
-  void HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket);
-  void HandleEndOfSeriesMessage(boost::shared_ptr<zmq::socket_t> socket);
+  void HandleStartMessage(struct stream2_start_msg* message);
+  void HandleImageMessage(struct stream2_image_msg* message);
+  void HandleEndMessage(struct stream2_end_msg* message);
+
   void HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank);
   void HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_t &socket);
   void HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage);
+
   void SendMessageToAllConsumers(zmq::message_t &message, int flags = 0);
-  void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
   void SendMessageToSingleConsumer(zmq::message_t &message, int flags = 0);
   void SendFabricatedEndMessage();
-  std::string AddAcquisitionIDToPart1();
+
   int GetNumberOfConnectedConsumers();
   bool ExpectedConsumersConnected();
 
@@ -72,6 +75,5 @@ private:
   int numConnectedForwardingSockets;
   bool forwardStream;
 };
-
 
 #endif //EIGERDAQ_EIGERFAN_H

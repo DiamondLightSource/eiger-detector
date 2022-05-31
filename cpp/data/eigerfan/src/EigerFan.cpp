@@ -350,66 +350,85 @@ void EigerFan::Stop() {
   state = KILL_REQUESTED;
 }
 
+void EigerFan::HandleStartMessage(struct stream2_start_msg* message) {
+  // At the start of an acquisition so set the current offset to any configured offset
+  currentOffset = configuredOffset;
+  configuredOffset = 0;
+  lastFrameSent = 0;
+  num_frames_sent = 0;
+  for(int j=0; j<num_frames_consumed.size(); j++) {
+    num_frames_consumed[j] = 0;
+  }
+  currentAcquisitionID = configuredAcquisitionID;
+
+  currentSeries = message->series_id;
+  LOG4CXX_INFO(log, "Handling start message for series " << currentSeries << " (" << message->series_unique_id << ")");
+
+  if (state != WAITING_STREAM && state != DSTR_END) {
+    LOG4CXX_WARN(log, "Received start message in " << GetStateString(state) << " state");
+  }
+  state = DSTR_HEADER;
+
+  LOG4CXX_DEBUG(log, "Finished Handling Header Message");
+}
+
+void EigerFan::HandleImageMessage(struct stream2_image_msg* message) {
+  currentConsumerIndexToSendTo = ((message->image_id + currentOffset) / config.block_size) % config.num_consumers;
+
+  if (message->image_id > lastFrameSent) {
+    lastFrameSent = message->image_id;
+  }
+  num_frames_sent++;
+  num_frames_consumed[currentConsumerIndexToSendTo]++;
+
+  if (state != DSTR_IMAGE && state != DSTR_HEADER) {
+    LOG4CXX_WARN(log, "Received image message in " << GetStateString(state) << " state");
+  }
+  state = DSTR_IMAGE;
+
+  LOG4CXX_DEBUG(log, "Finished handling image message");
+}
+
+void EigerFan::HandleEndMessage(struct stream2_end_msg* message) {
+  LOG4CXX_DEBUG(log, "Handling end message");
+  if (state != DSTR_IMAGE) {
+    LOG4CXX_WARN(log, "Received end message in " << GetStateString(state) << " state");
+  }
+  state = DSTR_END;
+  LOG4CXX_DEBUG(log, "Finished end event");
+}
+
 /**
  * Handle a message from the zmq stream
  *
  * \param[in] message The zeromq message to handle
  * \param[in] socket The socket that the message was received on
  */
-void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket) {
-
+void EigerFan::HandleStreamMessage(zmq::message_t &zmessage, boost::shared_ptr<zmq::socket_t> socket) {
+  struct stream2_msg* message;
+  const uint8_t* cbor_buffer_ptr = (const uint8_t*) zmessage.data();
   try {
-    std::string smessage(static_cast<char*>(message.data()), message.size());
+    stream2_result error = stream2_parse_msg(cbor_buffer_ptr, zmessage.size(), &message);
+    if (error) {
+      LOG4CXX_ERROR(log, "stream2_parse_msg returned error code " << (int) error);
+      throw std::runtime_error("Failed to parse message");  // Break out of try but tidy up
+    }
 
-    // Interpret the message as a JSON string and store in the global json document
-    jsonDocument.Parse(smessage.c_str());
-    if (jsonDocument.HasParseError()) {
-      LOG4CXX_ERROR(log, "Error parsing stream message into json");
-    } else {
-      rapidjson::Value& headerTypeValue = jsonDocument[HEADER_TYPE_KEY.c_str()];
-      std::string htype(headerTypeValue.GetString());
-      if (htype.compare(GLOBAL_HEADER_TYPE) == 0) {
-        // At the start of an acquisition so set the current offset to any configured offset
-        currentOffset = configuredOffset;
-        configuredOffset = 0;
-        lastFrameSent = 0;
-        num_frames_sent = 0;
-        for(int j=0; j<num_frames_consumed.size(); j++) {
-          num_frames_consumed[j] = 0;
-        }
-        currentAcquisitionID = configuredAcquisitionID;
-        // Handle Message
-        HandleGlobalHeaderMessage(socket);
-      } else if (htype.compare(IMAGE_HEADER_TYPE) == 0) {
-        rapidjson::Value& frameValue = jsonDocument[FRAME_KEY.c_str()];
-        int64_t frame(frameValue.GetInt64());
-        currentConsumerIndexToSendTo = ((frame + currentOffset) / config.block_size) % config.num_consumers;
-        HandleImageDataMessage(socket);
-        if (frame > lastFrameSent) {
-          lastFrameSent = frame;
-        }
-        num_frames_sent++;
-        if (currentConsumerIndexToSendTo < num_frames_consumed.size()) {
-          num_frames_consumed[currentConsumerIndexToSendTo]++;
-        }
-        else {
-          LOG4CXX_WARN(log, "Error counting consumer frames for logging");
-        }
-      } else if (htype.compare(END_HEADER_TYPE) == 0) {
-        LOG4CXX_INFO(log, "End of series message received after " + boost::lexical_cast<std::string>(num_frames_sent) \
-                + " frames sent");
-        std::string consumer_frames;
-        for(int j=0; j<num_frames_consumed.size(); j++) {
-          consumer_frames +=
-                  boost::lexical_cast<std::string>(j) + ": " + \
-                          boost::lexical_cast<std::string>(num_frames_consumed[j]) + " ";
-        }
-        LOG4CXX_INFO(log, "Consumer frame counts " + consumer_frames);
-        HandleEndOfSeriesMessage(socket);
-        state = WAITING_STREAM;
-      } else {
-        LOG4CXX_ERROR(log, std::string("Unknown header type ").append(htype));
-      }
+    switch (message->type) {
+      case STREAM2_MSG_START:
+        HandleStartMessage((struct stream2_start_msg*) message);
+        // TODO: Add AcquisitionID or use series_unique_id??
+        SendMessageToAllConsumers(zmessage);
+        break;
+      case STREAM2_MSG_IMAGE:
+        HandleImageMessage((struct stream2_image_msg*) message);
+        // HandleImageMessage sets the consumer to send to
+        SendMessageToSingleConsumer(zmessage);
+        break;
+      case STREAM2_MSG_END:
+        HandleEndMessage((struct stream2_end_msg*) message);
+        SendMessageToAllConsumers(zmessage);
+        break;
     }
   }
   catch (std::exception& e)
@@ -421,6 +440,8 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
     LOG4CXX_ERROR(log, "Unexpected exception handling stream message");
   }
 
+  stream2_free_msg(message);
+
   // Ensure there aren't any leftover messages on the socket
   socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
   while (more == MORE_MESSAGES) {
@@ -429,269 +450,6 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
     LOG4CXX_ERROR(log, "Unexpected unhandled message in stream");
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
   }
-}
-
-/**
- * Handle the Global Header message
- *
- * This is a multipart message sent by the Eiger at the start of an acquisition and can contain different amounts of meta data
- *
- * \param[in] socket The socket that the message was received on
- */
-void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket) {
-  std::vector<zmq::message_t*> messageList;
-
-  // Add the Acquisition ID to part 1 for easier downstream processing
-  std::string part1WithAcquisitionID = AddAcquisitionIDToPart1();
-  zmq::message_t newPart1message(part1WithAcquisitionID.size());
-  memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
-
-  LOG4CXX_INFO(log, std::string("Received Global Header message: ").append(part1WithAcquisitionID));
-
-  rapidjson::Value& seriesValue = jsonDocument[SERIES_KEY.c_str()];
-  currentSeries = seriesValue.GetInt();
-
-  rapidjson::Value& headerDetailValue = jsonDocument[HEADER_DETAIL_KEY.c_str()];
-  std::string headerDetail(headerDetailValue.GetString());
-
-  if (headerDetail.compare(HEADER_DETAIL_NONE) == 0) {
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more == MORE_MESSAGES) {
-      LOG4CXX_DEBUG(log, "Header has appendix");
-      zmq::message_t messageAppendix;
-      socket->recv(&messageAppendix);
-      messageList.push_back(&newPart1message);
-      messageList.push_back(&messageAppendix);
-      SendMessagesToAllConsumers(messageList);
-    } else {
-      SendMessageToAllConsumers(newPart1message);
-    }
-
-  } else if (headerDetail.compare(HEADER_DETAIL_BASIC) == 0) {
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 1 part but expected 2 for 'basic' detail");
-      return;
-    }
-
-    zmq::message_t messagePart2;
-    socket->recv(&messagePart2);
-
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more == MORE_MESSAGES) {
-      LOG4CXX_DEBUG(log, "Header has appendix");
-      zmq::message_t messageAppendix;
-      socket->recv(&messageAppendix);
-      messageList.push_back(&newPart1message);
-      messageList.push_back(&messagePart2);
-      messageList.push_back(&messageAppendix);
-      SendMessagesToAllConsumers(messageList);
-    } else {
-      messageList.push_back(&newPart1message);
-      messageList.push_back(&messagePart2);
-      SendMessagesToAllConsumers(messageList);
-    }
-
-  } else if (headerDetail.compare(HEADER_DETAIL_ALL) == 0) {
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 1 part but expected 8 for 'all' detail");
-      return;
-    }
-
-    // Part 2
-    zmq::message_t messagePart2;
-    socket->recv(&messagePart2);
-
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 2 part but expected 8 for 'all' detail");
-      return;
-    }
-
-    // Part 3
-    zmq::message_t messagePart3;
-    socket->recv(&messagePart3);
-
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 3 part but expected 8 for 'all' detail");
-      return;
-    }
-
-    // Part 4
-    zmq::message_t messagePart4;
-    socket->recv(&messagePart4);
-
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 4 part but expected 8 for 'all' detail");
-      return;
-    }
-
-    // Part 5
-    zmq::message_t messagePart5;
-    socket->recv(&messagePart5);
-
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 5 part but expected 8 for 'all' detail");
-      return;
-    }
-
-    // Part 6
-    zmq::message_t messagePart6;
-    socket->recv(&messagePart6);
-
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 6 part but expected 8 for 'all' detail");
-      return;
-    }
-
-    // Part 7
-    zmq::message_t messagePart7;
-    socket->recv(&messagePart7);
-
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 7 part but expected 8 for 'all' detail");
-      return;
-    }
-
-    // Part 8
-    zmq::message_t messagePart8;
-    socket->recv(&messagePart8);
-
-    socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-    if (more == MORE_MESSAGES) {
-      LOG4CXX_DEBUG(log, "Header has appendix");
-      zmq::message_t messageAppendix;
-      socket->recv(&messageAppendix);
-      messageList.push_back(&newPart1message);
-      messageList.push_back(&messagePart2);
-      messageList.push_back(&messagePart3);
-      messageList.push_back(&messagePart4);
-      messageList.push_back(&messagePart5);
-      messageList.push_back(&messagePart6);
-      messageList.push_back(&messagePart7);
-      messageList.push_back(&messagePart8);
-      messageList.push_back(&messageAppendix);
-      SendMessagesToAllConsumers(messageList);
-    } else {
-      messageList.push_back(&newPart1message);
-      messageList.push_back(&messagePart2);
-      messageList.push_back(&messagePart3);
-      messageList.push_back(&messagePart4);
-      messageList.push_back(&messagePart5);
-      messageList.push_back(&messagePart6);
-      messageList.push_back(&messagePart7);
-      messageList.push_back(&messagePart8);
-      SendMessagesToAllConsumers(messageList);
-    }
-  }
-  else {
-    LOG4CXX_ERROR(log, "Unexpected header detail type");
-  }
-
-  if (state != WAITING_STREAM) {
-    LOG4CXX_WARN(log, std::string("Received Global Header message in unexpected state: ").append(GetStateString(state)));
-  }
-  state = DSTR_HEADER;
-  LOG4CXX_DEBUG(log, "Finished Handling Header Message");
-}
-
-/**
- * Handle the Image Data message
- *
- * This is a a multipart message sent by the Eiger containing the image and associated meta data
- *
- * \param[in] socket The socket that the message was received on
- */
-void EigerFan::HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket) {
-  LOG4CXX_DEBUG(log, "Handling Image Data Message");
-
-  socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  if (more != MORE_MESSAGES) {
-    LOG4CXX_ERROR(log, "Image Data only contained 1 part");
-    return;
-  }
-
-  // Add the current Acquisition ID to part 1 for easier downstream processing
-  std::string part1WithAcquisitionID = AddAcquisitionIDToPart1();
-  zmq::message_t newPart1message(part1WithAcquisitionID.size());
-  memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
-
-  // Part 2 - shape and size
-  zmq::message_t messagePart2;
-  socket->recv(&messagePart2);
-
-  socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  if (more != MORE_MESSAGES) {
-    LOG4CXX_ERROR(log, "Image Data only contained 2 parts");
-    return;
-  }
-
-  // Part 3 - data blob
-  zmq::message_t messagePart3;
-  socket->recv(&messagePart3);
-
-  socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  if (more != MORE_MESSAGES) {
-    LOG4CXX_ERROR(log, "Image Data only contained 3 parts");
-    return;
-  }
-
-  //Part 4 - times
-  zmq::message_t messagePart4;
-  socket->recv(&messagePart4);
-
-  // Handle appendix
-  socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  if (more == MORE_MESSAGES) {
-    LOG4CXX_DEBUG(log, "Image has appendix");
-    zmq::message_t messageAppendix;
-    socket->recv(&messageAppendix);
-
-    // Send the data on to a consumer
-    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
-    SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
-    SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE);
-    SendMessageToSingleConsumer(messagePart4, ZMQ_SNDMORE);
-    SendMessageToSingleConsumer(messageAppendix, 0);
-  } else {
-    // Send the data on to a consumer
-    SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
-    SendMessageToSingleConsumer(messagePart2, ZMQ_SNDMORE);
-    SendMessageToSingleConsumer(messagePart3, ZMQ_SNDMORE);
-    SendMessageToSingleConsumer(messagePart4, 0);
-  }
-
-  if (state != DSTR_IMAGE && state != DSTR_HEADER) {
-    LOG4CXX_WARN(log, std::string("Received Image Data message in unexpected state: ").append(GetStateString(state)));
-  }
-  state = DSTR_IMAGE;
-  LOG4CXX_DEBUG(log, "Finished Handling Image Data Message");
-}
-
-/**
- * Handle the Image Data message
- *
- * This is a single message sent by the Eiger at the end of an acquisition
- *
- * \param[in] socket The socket that the message was received on
- */
-void EigerFan::HandleEndOfSeriesMessage(boost::shared_ptr<zmq::socket_t> socket) {
-  LOG4CXX_INFO(log, "Handling EndOfSeries Message");
-  std::string part1WithAcquisitionID = AddAcquisitionIDToPart1();
-  zmq::message_t newPart1message(part1WithAcquisitionID.size());
-  memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
-  SendMessageToAllConsumers(newPart1message);
-  if (state != DSTR_IMAGE) {
-    LOG4CXX_WARN(log, std::string("Received EndOfSeries message in unexpected state: ").append(GetStateString(state)));
-  }
-  state = DSTR_END;
-  LOG4CXX_DEBUG(log, "Finished Handling EndOfSeries Message");
 }
 
 /**
@@ -708,7 +466,7 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 
   // Get the event code from the message, which is a number contained in the first 16 bits
   uint16_t event = *(uint16_t *) (message.data());
-  
+
   // Get the second message part which contains the endpoint
   socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
   if (more != MORE_MESSAGES) {
@@ -767,7 +525,7 @@ void EigerFan::HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_
 
   // Get the event code from the message, which is a number contained in the first 16 bits
   uint16_t event = *(uint16_t *) (message.data());
-  
+
   // Get the second message part which contains the endpoint
   socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
   if (more != MORE_MESSAGES) {
@@ -1108,77 +866,6 @@ void EigerFan::SendMessageToAllConsumers(zmq::message_t& message, int flags) {
   LOG4CXX_DEBUG(log, "Finished Sending message to all consumers");
 }
 
-/**
- * Send a list of messages to all consumers
- *
- * \param[in] messageList The list of zeromq messages to send
- */
-void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageList) {
-  int messageListSize = messageList.size();
-  int numConsumersToSendTo = config.num_consumers;
-
-  //Send the message to the forwarding stream
-  if (forwardStream && numConnectedForwardingSockets > 0)
-  {
-    for (int messageCount = 0; messageCount < messageListSize; messageCount++)
-    {
-      zmq::message_t forwardingMessageCopy;
-      forwardingMessageCopy.copy(messageList[messageCount]);
-      if (messageCount != messageListSize - 1) {
-        if (forwardSocket.send(forwardingMessageCopy, ZMQ_SNDMORE) == false) {
-          LOG4CXX_ERROR(log, "Send socket returned false for forwarding socket");
-        }
-      } else {
-        if (forwardSocket.send(forwardingMessageCopy) == false) {
-          LOG4CXX_ERROR(log, "Send socket returned false for forwarding socket");
-        }
-      }
-    }
-  }
-
-  LOG4CXX_DEBUG(log, "Sending multiple messages to all consumers. Number of consumers = " << GetNumberOfConnectedConsumers());
-  // Make as many copies as necessary (number to send minus 1) and send them
-  for (int consumerCount = 0; consumerCount < numConsumersToSendTo-1; consumerCount++) {
-    if (consumers.at(consumerCount).connected > 0) {
-      for (int messageCount = 0; messageCount < messageListSize; messageCount++)
-      {
-        zmq::message_t messageCopy;
-        messageCopy.copy(messageList[messageCount]);
-        if (messageCount != messageListSize - 1) {
-          if (consumers.at(consumerCount).sendSocket->send(messageCopy, ZMQ_SNDMORE) == false) {
-            LOG4CXX_ERROR(log, "Send socket returned false");
-          }
-        } else {
-          if (consumers.at(consumerCount).sendSocket->send(messageCopy) == false) {
-            LOG4CXX_ERROR(log, "Send socket returned false");
-          }
-        }
-      }
-    } else {
-      LOG4CXX_ERROR(log, "Consumer with rank " << consumerCount << " not connected");
-    }
-  }
-  // Send the actual message for the last one
-  if (consumers.at(numConsumersToSendTo-1).connected > 0) {
-    for (int messageCount = 0; messageCount < messageListSize; messageCount++)
-    {
-      if (messageCount != messageListSize - 1) {
-        if (consumers.at(numConsumersToSendTo-1).sendSocket->send(*messageList[messageCount], ZMQ_SNDMORE) == false) {
-          LOG4CXX_ERROR(log, "Send socket returned false");
-        }
-      } else {
-        if (consumers.at(numConsumersToSendTo-1).sendSocket->send(*messageList[messageCount]) == false) {
-          LOG4CXX_ERROR(log, "Send socket returned false");
-        }
-      }
-    }
-  } else {
-    LOG4CXX_ERROR(log, "Consumer with rank " << numConsumersToSendTo-1 << " not connected");
-  }
-
-  messageList.clear();
-  LOG4CXX_DEBUG(log, "Finished Sending multiple messages to all consumers");
-}
 
 /**
  * Send a single messages to the appropriate consumer
@@ -1189,7 +876,7 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
  * \param[in] flags Any flags to apply to the message (e.g. more messages to come)
  */
 void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags) {
-  LOG4CXX_DEBUG(log, "Sending message to single consumers at index:" << currentConsumerIndexToSendTo);
+  LOG4CXX_DEBUG(log, "Sending message to single consumer at index:" << currentConsumerIndexToSendTo);
 
   //Send the message to the forwarding stream
   if (forwardStream && numConnectedForwardingSockets > 0)
@@ -1252,26 +939,6 @@ void EigerFan::SendFabricatedEndMessage() {
  */
 void EigerFan::SetNumberOfConsumers(int number) {
   config.num_consumers = number;
-}
-
-/**
- * Adds the current acquisition ID to the first message part.
- *
- * This is to enable easier downstream processing.
- * This relies on the class variable jsonDocument still containing the
- * first message part.
- *
- * \return The string of the first message part which now also contains the acquisition id
- */
-std::string EigerFan::AddAcquisitionIDToPart1() {
-  rapidjson::Value keyAcquisitionID(Eiger::ACQUISITION_ID_KEY.c_str(), jsonDocument.GetAllocator());
-  rapidjson::Value valueAcquisitionID(currentAcquisitionID, jsonDocument.GetAllocator());
-  jsonDocument.AddMember(keyAcquisitionID, valueAcquisitionID, jsonDocument.GetAllocator());
-
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  jsonDocument.Accept(writer);
-  return buffer.GetString();
 }
 
 /**
