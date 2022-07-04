@@ -239,6 +239,12 @@ class EigerMetaWriter(MetaWriter):
         """Handle global header message part 1"""
         self._logger.debug("%s | Handling global header none message", self._name)
 
+        if not self.file_open:
+            self._logger.warning(
+                "%s | File not open for eiger start message. Creating now.", self._name
+            )
+            self._create_file(self._generate_full_file_path(), 0)
+
         # Register the series we are expecting in proceding messages
         self._series = header[SERIES]
         self._write_dataset(SERIES, header[SERIES])
