@@ -5,9 +5,9 @@
  *      Authors: Matt Taylor, Gary Yendell
  */
 
-#include "DataBlockFrame.h"
 #include "DebugLevelLogger.h"
 #include "Json.h"
+#include "TmpfsFrame.h"
 #include "WrapperFrame.h"
 
 #include "EigerDefinitions.h"
@@ -23,8 +23,7 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
    */
   EigerProcessPlugin::EigerProcessPlugin() :
     zmq_context_(),
-    zmq_socket_(zmq_context_, ZMQ_PULL),
-    shutdown_(false)
+    zmq_socket_(zmq_context_, ZMQ_PULL)
   {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.EigerProcessPlugin");
@@ -41,7 +40,6 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
    */
   EigerProcessPlugin::~EigerProcessPlugin()
   {
-    shutdown_ = true;
     rx_thread_->join();
     rx_thread_.reset();
   }
@@ -81,19 +79,22 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
     LOG4CXX_INFO(logger_, "Connected to " << this->endpoint_ << " - Listening...");
 
     zmq::message_t buffer_message;
-    while (!shutdown_) {
+    zmq::pollitem_t items [] = {{this->zmq_socket_, 0, ZMQ_POLLIN, 0}};
+    while (this->isWorking()) {
+      // Poll for 1000ms and skip loop if no messages were received (to check for shutdown)
+      zmq::poll(&items[0], 1, 1000);
+      if (!(items[0].revents & ZMQ_POLLIN)) {
+        continue;
+      }
+
+      // Message found on socket
+
       zmq_socket_.recv(&buffer_message);
       LOG4CXX_DEBUG_LEVEL(1, logger_, "Received data message");
 
-      FrameMetaData frame_meta_data;
-      boost::shared_ptr<Frame> frame = boost::shared_ptr<DataBlockFrame>(
-        new DataBlockFrame(frame_meta_data, buffer_message.size())
-      );
-      memcpy(frame->get_data_ptr(), buffer_message.data(), buffer_message.size());
-
       struct stream2_msg* message;
-      const uint8_t* cbor_buffer_ptr = (const uint8_t*) frame->get_data_ptr();
-      stream2_result error = stream2_parse_msg(cbor_buffer_ptr, frame->get_data_size(), &message);
+      const uint8_t* cbor_buffer_ptr = (const uint8_t*) buffer_message.data();
+      stream2_result error = stream2_parse_msg(cbor_buffer_ptr, buffer_message.size(), &message);
       if (error) {
         LOG4CXX_ERROR(logger_, "stream2_parse_msg returned error code " << (int) error);
         continue;
@@ -104,12 +105,14 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
           handle_start_msg((struct stream2_start_msg*) message, buffer_message);
           break;
         case STREAM2_MSG_IMAGE:
-          handle_image_msg((struct stream2_image_msg*) message, frame);
+          handle_image_msg((struct stream2_image_msg*) message, buffer_message);
           break;
         case STREAM2_MSG_END:
           handle_end_msg((struct stream2_end_msg*) message, buffer_message);
           break;
       }
+
+      stream2_free_msg(message);
     }
 
     LOG4CXX_INFO(logger_, "Shutting down");
@@ -136,7 +139,7 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
    * \param[in] message Parsed stream2 image message
    * \param[in] frame Frame to process
    */
-  void EigerProcessPlugin::handle_image_msg(struct stream2_image_msg* message, boost::shared_ptr<Frame> frame) {
+  void EigerProcessPlugin::handle_image_msg(struct stream2_image_msg* message, const zmq::message_t& zmq_message) {
     LOG4CXX_TRACE(logger_, "Processing series " << message->series_id << " image " << message->image_id);
 
     if (message->series_id != this->current_series_id_) {
@@ -145,6 +148,29 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
       ss << " - expecting " << this->current_series_id_;
       ss << " - ignoring";
       this->set_error(ss.str());
+      return;
+    }
+
+    // Create file path from series and image id, nesting blocks of 1000 files in subdirectories
+    std::string block = std::to_string((int) message->image_id / 1000);
+    std::stringstream file_path_stream;
+    file_path_stream << "/dev/shm/eiger/" << message->series_id << "/" << block << "/" << message->image_id;
+    std::string file_path = file_path_stream.str();
+
+    // Create a Frame backed by a file in /dev/shm and copy zmq_message data into it
+    FrameMetaData frame_meta_data;
+    boost::shared_ptr<Frame> frame;
+    try {
+      frame = boost::shared_ptr<Frame>(
+        new TmpfsFrame(
+          file_path,
+          frame_meta_data,
+          zmq_message.data(),
+          zmq_message.size()
+        )
+      );
+    } catch (std::runtime_error& e) {
+      LOG4CXX_ERROR(logger_, "Failed to create TmpfsFrame" << ": " << e.what());
       return;
     }
 
@@ -169,7 +195,6 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
     data.add("compression", get_compress_from_enum(compression));
     std::vector<uint32_t> compressed_size;  // To be populated from each image channel
 
-    FrameMetaData frame_meta_data;
     frame_meta_data.set_data_type(data_type);
     frame_meta_data.set_dimensions(dimensions);
     frame_meta_data.set_compression_type(compression);
@@ -186,7 +211,7 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
       boost::shared_ptr<WrapperFrame> wrapper_frame = boost::shared_ptr<WrapperFrame>(
         new WrapperFrame(
           frame,
-          (const uint8_t*) image_data->data.array.data.ptr - (const uint8_t*) frame->get_data_ptr()
+          (const uint8_t*) image_data->data.array.data.ptr - (const uint8_t*) zmq_message.data()
         )
       );
 
