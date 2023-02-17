@@ -38,6 +38,8 @@ namespace FrameProcessor
     EigerProcessPlugin();
     virtual ~EigerProcessPlugin();
 
+    /** Parent class methods */
+
     int get_version_major();
     int get_version_minor();
     int get_version_patch();
@@ -45,27 +47,37 @@ namespace FrameProcessor
     std::string get_version_long();
 
   private:
-    void configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
-    void requestConfiguration(OdinData::IpcMessage& reply);
-
+    /** Handle data stream socket */
     void handle_rx_socket();
+    /** Handle a start message */
     void handle_start_msg(struct stream2_start_msg* message, const zmq::message_t& zmq_message);
-    void handle_image_msg(struct stream2_image_msg* message, boost::shared_ptr<Frame> frame);
+    /** Handle a image message */
+    void handle_image_msg(struct stream2_image_msg* message, const zmq::message_t& zmq_message);
+    /** Handle an end message */
     void handle_end_msg(struct stream2_end_msg* message, const zmq::message_t& zmq_message);
-    void process_frame(boost::shared_ptr<Frame> frame);
 
+    /** Parse the data type from a stream2 image */
     DataType get_stream2_data_type(const struct stream2_image_data* image_data);
+    /** Parse the data dimensions from a stream2 image */
     dimensions_t get_stream2_dimensions(const struct stream2_image_data* image_data);
+    /** Parse the data compression mode from a stream2 image */
     CompressionType get_stream2_compression(const struct stream2_image_data* image_data);
+    /** Parse the total size of the data in a stream2 image */
     uint32_t get_stream2_compressed_size(const struct stream2_image_data* image_data);
 
+    /** Current series id from header to verify image and end messages */
     uint64_t current_series_id_;
+    /** Data stream endpoint to connect to */
     std::string endpoint_;
+    /** ZeroMQ context */
     zmq::context_t zmq_context_;
+    /** ZeroMQ socket for data stream */
     zmq::socket_t zmq_socket_;
+    /** Thread for handling data stream socket */
     boost::shared_ptr<boost::thread> rx_thread_;
     /** Mutex used to make this class thread safe */
     boost::recursive_mutex mutex_;
+    /** Flag to trigger shutdown of plugin */
     bool shutdown_;
 
     /** Pointer to logger */
@@ -73,6 +85,12 @@ namespace FrameProcessor
 
     static const std::string CONFIG_ENDPOINT;
 
+    /** Parent class methods */
+
+    void configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
+    void requestConfiguration(OdinData::IpcMessage& reply);
+    /** `process_frame` should not be called as the data is received directly from a socket */
+    void process_frame(boost::shared_ptr<Frame> frame);
   };
 
   /**
