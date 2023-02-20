@@ -14,7 +14,7 @@
 namespace Eiger {
 
   // Eiger constants
-  const std::string STREAM_PORT_NUMBER = "9999";
+  const std::string STREAM_PORT_NUMBER = "31001";
 
   const std::string GLOBAL_HEADER_TYPE = "dheader-1.0";
   const std::string IMAGE_HEADER_TYPE = "dimage-1.0";
@@ -26,7 +26,7 @@ namespace Eiger {
 
   const std::string HEADER_TYPE_KEY = "htype";
   const std::string HEADER_DETAIL_KEY = "header_detail";
-  const std::string SERIES_KEY = "series";
+  const std::string SERIES_KEY = "series_number";
   const std::string FRAME_KEY = "frame";
   const std::string SHAPE_KEY = "shape";
   const std::string DATA_TYPE_KEY = "type";
@@ -95,8 +95,8 @@ namespace Eiger {
 
     uint64_t size_in_header; // Tag in the dimage_d header containing size in bytes
     char hash[33];      // MD5 hash of the message part, written in a 32 byte string
-    char encoding[11];  // String of the form "[bs<BIT>][[-]lz4][<|>]"
-    char dataType[8];	// "uint16" or "uint32" or "float32"
+    char encoding[5];  // String of the form "[bs]lz4"
+    char dataType[8];  // "uint8" or "uint16le" or "uint32le" or "float32??"
     char acquisitionID[256];	// acquisitionID
   } FrameHeader;
 
