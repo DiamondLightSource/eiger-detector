@@ -1,30 +1,26 @@
-PROGRAM=eiger-detector
-VERSION=1-6-0
 TAR_FILE=none
 
 build()
 {
-    git checkout -- ../configure/RELEASE
+    if [ -v is_test ]; then
+        # On the build server - fix dirty git tree
+        git checkout ../configure/RELEASE
+    fi
 
+    echo "CMake Configure"
     ${CMAKE_BIN}/cmake \
-                       -DBoost_NO_BOOST_CMAKE=ON \
-                       -DZEROMQ_ROOTDIR=${ZEROMQ_PREFIX} \
-                       -DLOG4CXX_ROOT_DIR=${LOG4CXX_PREFIX} \
-                       -DODINDATA_ROOT_DIR=${ODIN_DATA_PREFIX} \
-                       -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
-                       -DCMAKE_INSTALL_PREFIX=${TARGET_PREFIX} \
-                       ${BUILD_SCRIPT_DIR}/data
-    make -j8 VERBOSE=1 && make install
-    
-    # Removing pesky dist dir just in case a previous build is left over
-    rm -rf $BUILD_SCRIPT_DIR/data/tools/python/dist 
-    rm -rf $BUILD_SCRIPT_DIR/control/dist 
+        -DBoost_NO_BOOST_CMAKE=ON \
+        -DODINDATA_ROOT_DIR=${ODIN_DATA_PREFIX} \
+        -DZEROMQ_ROOTDIR=${ZEROMQ_PREFIX} \
+        -DLOG4CXX_ROOT_DIR=${LOG4CXX_PREFIX} \
+        -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
+        -DCMAKE_INSTALL_PREFIX=${TARGET_PREFIX} \
+        ${BUILD_SCRIPT_DIR}/cpp || Error "Configure failed"
 
-    python_depends NUMPY PYZMQ H5PY ODIN_CONTROL ODIN_DATA
-    
-    export SRC=$BUILD_SCRIPT_DIR/data/tools/python
-    setuptools_build # Defined in Python/CONFIG
+    echo "Build"
+    make -j8 VERBOSE=1 && make install || Error "Build failed"
 
-    export SRC=$BUILD_SCRIPT_DIR/control
-    setuptools_build # Defined in Python/CONFIG
+    # Install the static html files for the odin control server
+    mkdir ${TARGET_PREFIX}/html
+    cp -r $BUILD_SCRIPT_DIR/python/src/eiger_detector/control/static ${TARGET_PREFIX}/html/
 }
