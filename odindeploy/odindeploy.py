@@ -406,12 +406,12 @@ class _OdinControlServer(object):
 
         return """
 [adapter.fp]
-module = odin_data.frame_processor_adapter.FrameProcessorAdapter
+module = odin_data.control.frame_processor_adapter.FrameProcessorAdapter
 endpoints = {}
 update_interval = 0.2
 
 [adapter.fr]
-module = odin_data.frame_receiver_adapter.FrameReceiverAdapter
+module = odin_data.control.frame_receiver_adapter.FrameReceiverAdapter
 endpoints = {}
 update_interval = 0.2
 """.format(", ".join(fp_endpoints), ", ".join(fr_endpoints))
@@ -696,7 +696,7 @@ update_interval = 0.5
     def _create_meta_listener_config_entry(self):
         return """
 [adapter.meta_listener]
-module = odin_data.meta_listener_adapter.MetaListenerAdapter
+module = odin_data.control.meta_listener_adapter.MetaListenerAdapter
 endpoints = {}:5659
 update_interval = 0.5
 """.format(self.meta_listener.ip)
