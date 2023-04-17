@@ -1,6 +1,6 @@
 *~
 *.pyc
-prefix/
+*prefix/
 build_name*
 build-dir/
 *build/
@@ -8,3 +8,4 @@ build-dir/
 *.egg-info
 .idea/
 cmake-build-debug/
+venv/

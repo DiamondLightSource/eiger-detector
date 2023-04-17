@@ -1,0 +1,31 @@
+{
+    "cmake.generator": "Unix Makefiles",
+    "cmake.sourceDirectory": "${workspaceFolder}/cpp",
+    "cmake.buildDirectory": "${workspaceFolder}/vscode_build",
+    "cmake.installPrefix": "${workspaceFolder}/vscode_prefix",
+    "cmake.configureArgs": [
+        "-DLOG4CXX_ROOT_DIR=/dls_sw/prod/tools/RHEL7-x86_64/log4cxx/0-10-0dls2/prefix",
+        "-DBLOSC_ROOT_DIR=/dls_sw/prod/tools/RHEL7-x86_64/c-blosc/1-14-2/prefix",
+        "-DHDF5_ROOT=/dls_sw/prod/tools/RHEL7-x86_64/hdf5/1-10-5/prefix",
+        "-DODINDATA_ROOT_DIR=${workspaceFolder:odin-data}/vscode_prefix"
+    ],
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        },
+        "editor.defaultFormatter": "ms-python.python",
+        "editor.rulers": [
+            88
+        ]
+    },
+    "python.linting.flake8Args": [
+        "--max-line-length=88"
+    ],
+    "python.formatting.provider": "black",
+    "isort.args": [
+        "--profile",
+        "black"
+    ],
+}
