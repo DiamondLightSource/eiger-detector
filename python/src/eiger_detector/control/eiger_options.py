@@ -6,7 +6,7 @@ class EigerOption(object):
 
     def get_allowed_values(self):
 
-        return map(str, range(0, len(self.options)))
+        return list(map(str, range(0, len(self.options))))
 
     def get_option(self, idx):
 
