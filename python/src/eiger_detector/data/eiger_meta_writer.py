@@ -346,4 +346,4 @@ class EigerMetaWriter(MetaWriter):
 
     @staticmethod
     def get_version():
-        return ("eiger-data", construct_version_dict(get_versions()["version"]))
+        return ("eiger-detector", construct_version_dict(get_versions()["version"]))
