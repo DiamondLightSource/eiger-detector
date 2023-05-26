@@ -14,6 +14,10 @@ set(CMAKE_CONFIG_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test_config)
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):
 set(CMAKE_MODULE_PATH ${SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
+# Add the automatically determined parts of the RPATH which point to directories outside the
+# build tree to the install RPATH
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # Find and add external packages required for application and test
 find_package(
     Boost 1.41.0 REQUIRED
