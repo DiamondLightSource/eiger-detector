@@ -144,14 +144,14 @@ class EigerMetaWriter(MetaWriter):
     def _define_detector_datasets(self):
         return [
             # Datasets with one value received per frame
-            Int64HDF5Dataset(IMAGE_ID),
-            Int64HDF5Dataset(START_TIME),
-            Int64HDF5Dataset(STOP_TIME),
-            Int64HDF5Dataset(REAL_TIME),
+            Int64HDF5Dataset(IMAGE_ID, block_size=1000),
+            Int64HDF5Dataset(START_TIME, block_size=1000),
+            Int64HDF5Dataset(STOP_TIME, block_size=1000),
+            Int64HDF5Dataset(REAL_TIME, block_size=1000),
             # SIZE will be N arrays of 1-3 values depending on threshold configuration
-            Int64HDF5Dataset(SIZE, shape=(0, 3), maxshape=(None, 3)),
-            StringHDF5Dataset(COMPRESSION),
-            StringHDF5Dataset(DATATYPE),
+            Int64HDF5Dataset(SIZE, shape=(0, 3), maxshape=(None, 3), block_size=1000),
+            StringHDF5Dataset(COMPRESSION, block_size=1000),
+            StringHDF5Dataset(DATATYPE, block_size=1000),
             # Datasets received on arm
             Int64HDF5Dataset(SERIES_ID, cache=False),
             StringHDF5Dataset(dectris(SERIES_UNIQUE_ID), cache=False),
