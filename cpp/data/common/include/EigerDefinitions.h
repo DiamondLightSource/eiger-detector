@@ -43,8 +43,8 @@ namespace Eiger {
 
   // EigerFan related constants
   const int MORE_MESSAGES = 1;
-  const int RECEIVE_HWM = 100000;
-  const int SEND_HWM = 100000;
+  const int RECEIVE_HWM = 10000;
+  const int SEND_HWM = 10000;
 
   const std::string CONTROL_CMD_KEY = "msg_val";
   const std::string CONTROL_ID_KEY = "id";
