@@ -77,11 +77,14 @@ namespace FrameProcessor
     boost::shared_ptr<boost::thread> rx_thread_;
     /** Mutex used to make this class thread safe */
     boost::recursive_mutex mutex_;
+   /** Flag to determine if files shold be kept persistently or removed when processing is completed */
+    bool persistent_files_;
 
     /** Pointer to logger */
     LoggerPtr logger_;
 
     static const std::string CONFIG_ENDPOINT;
+    static const std::string CONFIG_PERSISTENT_FILES;
 
     /** Parent class methods */
 
