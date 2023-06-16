@@ -17,13 +17,15 @@ namespace FrameProcessor
 {
 
 const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
+const std::string EigerProcessPlugin::CONFIG_PERSISTENT_FILES = "persistent_files";
 
   /**
    * Constuctor
    */
   EigerProcessPlugin::EigerProcessPlugin() :
     zmq_context_(),
-    zmq_socket_(zmq_context_, ZMQ_PULL)
+    zmq_socket_(zmq_context_, ZMQ_PULL),
+    persistent_files_(false)
   {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.EigerProcessPlugin");
@@ -68,6 +70,15 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
       rx_thread_ = boost::shared_ptr<boost::thread>(
         new boost::thread(boost::bind(&EigerProcessPlugin::handle_rx_socket, this))
       );
+    }
+
+    if (config.has_param(EigerProcessPlugin::CONFIG_PERSISTENT_FILES)) {
+      this->persistent_files_ = config.get_param<bool>(EigerProcessPlugin::CONFIG_PERSISTENT_FILES);
+      if (this->persistent_files_) {
+        LOG4CXX_INFO(logger_, "Persistent files enabled");
+      } else {
+        LOG4CXX_INFO(logger_, "Persistent files disabled");
+      }
     }
   }
 
@@ -154,7 +165,12 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
     // Create file path from series and image id, nesting blocks of 1000 files in subdirectories
     std::string block = std::to_string((int) message->image_id / 1000);
     std::stringstream file_path_stream;
-    file_path_stream << "/dev/shm/eiger/" << message->series_id << "/" << block << "/" << message->image_id;
+    file_path_stream << "/dev/shm/eiger/";
+    if (this->persistent_files_) {
+      // If files are persistent then store by series id
+      file_path_stream << message->series_id << "/";
+    }
+    file_path_stream << block << "/" << message->image_id;
     std::string file_path = file_path_stream.str();
 
     // Create a Frame backed by a file in /dev/shm and copy zmq_message data into it
@@ -166,7 +182,9 @@ const std::string EigerProcessPlugin::CONFIG_ENDPOINT = "endpoint";
           file_path,
           frame_meta_data,
           zmq_message.data(),
-          zmq_message.size()
+          zmq_message.size(),
+          0,
+          !this->persistent_files_
         )
       );
     } catch (std::runtime_error& e) {
