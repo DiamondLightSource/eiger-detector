@@ -494,6 +494,9 @@ class EigerDetector(object):
             setattr(self, item, param)
 
     def parse_response(self, response, item):
+        if not response.text:
+            return None
+
         reply = None
         try:
             reply = json.loads(response.text)
@@ -503,7 +506,11 @@ class EigerDetector(object):
                 if missing in item:
                     return None
             # Unable to parse the json response, so simply log this
-            logging.error("Failed to parse a JSON response: {}".format(response.text))
+            logging.error(
+                "Failed to parse a JSON response for {} from '{}'".format(
+                    item, response.text
+                )
+            )
         return reply
 
     def get_meta(self, item):
