@@ -653,7 +653,8 @@ class EigerDetector(object):
                 }
                 logging.info("Frame object created: {}".format(frame_header))
 
-                frame_data = tiff[image_strip_offset:image_strip_offset+(image_width * image_height * image_bitdepth / 8)]
+                image_size = image_width * image_height * image_bitdepth // 8
+                frame_data = tiff[image_strip_offset : image_strip_offset + image_size]
 
                 self._lv_publisher.send_json(frame_header, flags=zmq.SNDMORE)
                 self._lv_publisher.send(frame_data, 0)
