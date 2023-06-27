@@ -359,7 +359,6 @@ void EigerFan::HandleStartMessage(struct stream2_start_msg* message) {
   for(int j=0; j<num_frames_consumed.size(); j++) {
     num_frames_consumed[j] = 0;
   }
-  currentAcquisitionID = configuredAcquisitionID;
 
   currentSeries = message->series_id;
   LOG4CXX_INFO(log, "Handling start message for series " << currentSeries << " (" << message->series_unique_id << ")");
@@ -417,7 +416,6 @@ void EigerFan::HandleStreamMessage(zmq::message_t &zmessage, boost::shared_ptr<z
     switch (message->type) {
       case STREAM2_MSG_START:
         HandleStartMessage((struct stream2_start_msg*) message);
-        // TODO: Add AcquisitionID or use series_unique_id??
         SendMessageToAllConsumers(zmessage);
         break;
       case STREAM2_MSG_IMAGE:
@@ -759,12 +757,6 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
           LOG4CXX_INFO(log, "Offset changed to " << configuredOffset);
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
         }
-        if (paramsValue.HasMember(CONTROL_ACQ_ID.c_str())) {
-          // Change the acquisition ID
-          configuredAcquisitionID = paramsValue[CONTROL_ACQ_ID.c_str()].GetString();
-          LOG4CXX_INFO(log, "Acquisition ID changed to " << configuredAcquisitionID);
-          replyString.assign(CONTROL_RESPONSE_OK.c_str());
-        }
         if (paramsValue.HasMember(CONTROL_FWD_STREAM.c_str())) {
           // Change whether to forward the stream or not
           forwardStream = paramsValue[CONTROL_FWD_STREAM.c_str()].GetBool();
@@ -914,10 +906,6 @@ void EigerFan::SendFabricatedEndMessage() {
 
   rapidjson::Value& series = documentEoS[SERIES_KEY.c_str()];
   series.SetInt(currentSeries);
-
-  rapidjson::Value keyAcquisitionID(Eiger::ACQUISITION_ID_KEY.c_str(), documentEoS.GetAllocator());
-  rapidjson::Value valueAcquisitionID(currentAcquisitionID, documentEoS.GetAllocator());
-  documentEoS.AddMember(keyAcquisitionID, valueAcquisitionID, documentEoS.GetAllocator());
 
   rapidjson::StringBuffer buffer1;
   rapidjson::Writer<rapidjson::StringBuffer> writer1(buffer1);
