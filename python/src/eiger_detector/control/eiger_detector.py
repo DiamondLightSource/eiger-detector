@@ -96,6 +96,7 @@ class EigerDetector(object):
     ]
     STREAM_CONFIG = [
         'mode',
+        'format',
         'header_detail',
         'header_appendix',
         'image_appendix'
