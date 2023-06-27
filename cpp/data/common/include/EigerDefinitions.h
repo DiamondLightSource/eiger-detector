@@ -38,6 +38,7 @@ namespace Eiger {
   const std::string CONTROL_KILL = "kill";
   const std::string CONTROL_CLOSE = "close";
   const std::string CONTROL_OFFSET = "offset";
+  const std::string CONTROL_ACQ_ID = "acqid";
   const std::string CONTROL_FWD_STREAM = "forward_stream";
   const std::string CONTROL_BLOCK_SIZE = "block_size";
 
