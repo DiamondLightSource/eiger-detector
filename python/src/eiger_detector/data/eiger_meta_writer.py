@@ -191,7 +191,7 @@ class EigerMetaWriter(MetaWriter):
 
     @property
     def _data_datasets(self):
-        return ["data1", "data2", "data3"]
+        return ["data", "data2", "data3"]
 
     @property
     def detector_message_handlers(self):

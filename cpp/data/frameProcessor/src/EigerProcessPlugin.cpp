@@ -234,7 +234,13 @@ const std::string EigerProcessPlugin::CONFIG_PERSISTENT_FILES = "persistent_file
       );
 
       // Update name and size for this image channel
-      frame_meta_data.set_dataset_name("data" + std::to_string(data_idx + 1));
+      std::stringstream dataset_name_stream;
+      dataset_name_stream << "data";
+      // Dataset names are `data`, `data2`, `data3`, ...
+      if (data_idx > 0) {
+        dataset_name_stream << data_idx + 1;
+      }
+      frame_meta_data.set_dataset_name(dataset_name_stream.str());
       compressed_size.push_back(get_stream2_compressed_size(image_data));
       wrapper_frame->set_meta_data(frame_meta_data);
 
