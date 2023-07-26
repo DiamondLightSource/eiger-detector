@@ -1,0 +1,32 @@
+layout {
+    pane size=1 borderless=true {
+        plugin location="zellij:tab-bar"
+    }
+    pane split_direction="vertical" {
+        pane split_direction="horizontal" {
+            pane command="./stFrameReceiver1.sh"
+            pane command="./stFrameProcessor1.sh"
+            pane command="./stFrameReceiver2.sh"
+            pane command="./stFrameProcessor2.sh"
+            pane command="./stFrameReceiver3.sh"
+            pane command="./stFrameProcessor3.sh"
+            pane command="./stFrameReceiver4.sh"
+            pane command="./stFrameProcessor4.sh"
+        }
+        pane split_direction="horizontal" {
+            pane command="./stEigerFan.sh"
+            pane command="./stMetaWriter.sh"
+            pane command="bash" {
+                args "-c" "sleep 3; ./stOdinServer.sh"
+            }
+            pane command="tickit" {
+                args "all" "./eiger.yaml"
+            }
+        }
+    }
+    pane size=2 borderless=true {
+        plugin location="zellij:status-bar"
+    }
+}
+session_name "EIGER"
+attach_to_session true
