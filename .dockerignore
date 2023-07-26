@@ -1,0 +1,10 @@
+.dockerignore
+
+external
+*build*
+*prefix*
+*.pyc
+venv*
+*.egg-info
+
+docs/build/
