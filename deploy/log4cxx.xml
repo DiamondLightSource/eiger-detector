@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+    <!-- Output the log message to system console -->
+    <appender name="ApplicationConsoleAppender" class="org.apache.log4j.ConsoleAppender">
+        <param name="Target" value="System.out" />
+        <param name="Threshold" value="INFO"/>
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%F:%L:%n %d{HH:mm:ss,SSS} %-14c %-5p - %m%n"/>
+        </layout>
+    </appender>
+
+    <!-- all of the loggers inherit settings from the root and print to stdout -->
+    <root>
+        <priority value="all" />
+        <appender-ref ref="ApplicationConsoleAppender" />
+    </root>
+
+    <!-- The FrameProcessor applications logger hierarchy -->
+    <logger name="FP">
+        <priority value="all" />
+    </logger>
+    <logger name="FP.App"></logger>
+    <logger name="FP.FrameProcessorController"></logger>
+    <logger name="FP.DataBlock"></logger>
+    <logger name="FP.DataBlockPool"></logger>
+    <logger name="FP.FrameProcessorPlugin"></logger>
+    <logger name="FP.FileWriterPlugin"></logger>
+    <logger name="FP.Acquisition"></logger>
+    <logger name="FP.HDF5File"></logger>
+    <!-- Detector-specific plugins -->
+    <logger name="FP.EigerProcessPlugin"></logger>
+    <logger name="FP.ExcaliburProcessPlugin"></logger>
+    <logger name="FP.LATRDProcessPlugin"></logger>
+
+    <!-- The FrameReceiver applications logger hierarchy -->
+    <logger name="FR">
+        <priority value="all" />
+    </logger>
+    <logger name="FR.App"></logger>
+    <!-- Detector-specific plugins -->
+    <logger name="FR.EigerFrameDecoder"></logger>
+    <logger name="FR.ExcaliburFrameDecoder"></logger>
+    <logger name="FR.LATRDDecoderPlugin"></logger>
+
+</log4j:configuration>
