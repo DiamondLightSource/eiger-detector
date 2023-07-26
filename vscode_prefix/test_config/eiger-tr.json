@@ -1,0 +1,78 @@
+{
+  "Main": {
+    "metalistener": {
+      "process" : true,
+      "command": "${META_LISTENER_ROOT}/meta_writer",
+      "pos-args": "",
+      "sleep": "5",
+      "socket": "tcp://127.0.0.1:5659",
+      "configure": "{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"output_dir\":\"\", \"acquisition_id\":\"test_1\"},  \"timestamp\": \"2017-07-03T14:17:58.440432\"}"
+    },
+    "eigerfan": {
+      "process" : true,
+      "command": "${INSTALL_PREFIX}\/bin\/eigerfan",
+      "pos-args": "",
+      "sleep": "1",
+      "socket": "tcp://localhost:5559",
+      "kill": "{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"kill\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}",
+      "configure": "{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"acqid\":\"test_1\"}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}"
+    },
+    "receiver": {
+      "process" : true,
+      "command": "${ODIN_PREFIX}\/bin\/frameReceiver",
+      "pos-args": "",
+      "sleep": "1"
+    },
+    "processor": {
+      "process" : true,
+      "command": "${ODIN_PREFIX}\/bin\/frameProcessor",
+      "pos-args": "",
+      "sleep": "1"
+    },
+    "simulator": {
+      "process" : false,
+      "command": "${ODIN_PREFIX}\/bin\/frameSimulator",
+      "pos-args": "Eiger",
+      "sleep": "60"
+    },
+    "test": {
+      "process" : false,
+      "command": "${ODIN_PREFIX}\/bin\/frameTests",
+      "pos-args": "",
+      "sleep": "1"
+    },
+    "metatest": {
+      "process" : false,
+      "command": "${ODIN_PREFIX}\/bin\/frameTests",
+      "pos-args": "",
+      "sleep": "1"
+    }
+  },
+  "eigerfan": {
+  },
+  "metalistener": {
+    "w": "metalistener.eiger_meta_writer.EigerMetaWriter",
+    "i": "tcp://127.0.0.1:5008",
+    "d": ""
+  },
+  "receiver": {
+    "json_file": "${INSTALL_PREFIX}\/test_config\/eiger-fr.json",
+    "m": "500000000"
+  },
+  "processor": {
+    "json_file": "${INSTALL_PREFIX}\/test_config\/eiger-fp.json"
+  },
+  "simulator": {
+    "lib-path": "${INSTALL_PREFIX}\/lib",
+    "path": "${HOME}\/build\/dls-controls\/eiger-detector\/data\/test\/testdata\/",
+    "stream": 1
+  },
+  "test": {
+    "json": "${INSTALL_PREFIX}\/test_config\/test.json",
+    "log_level": "ALL"
+  },
+  "metatest": {
+    "json": "${INSTALL_PREFIX}\/test_config\/metatest.json",
+    "log_level": "ALL"
+  }
+}

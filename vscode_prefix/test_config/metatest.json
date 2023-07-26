@@ -1,0 +1,14 @@
+{
+    "Test":
+    {
+        "output_file": "test_1_meta.h5",
+        "dimensions": "1",
+        "dataset": "frame_written",
+        "type": "uint64",
+        "data": {
+            "0": 0,
+            "1": 1,
+            "2": 2
+        }
+    }
+}
