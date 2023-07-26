@@ -1,0 +1,20 @@
+{
+    "cmake.generator": "Unix Makefiles",
+    "cmake.sourceDirectory": "${workspaceFolder}/cpp",
+    "cmake.buildDirectory": "${workspaceFolder}/vscode_build",
+    "cmake.installPrefix": "/odin",
+    "cmake.configureArgs": [
+        "-DODINDATA_ROOT_DIR=/odin"
+    ],
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        },
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.rulers": [
+            88
+        ]
+    },
+}

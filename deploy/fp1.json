@@ -1,0 +1,140 @@
+[
+  {
+    "fr_setup": {
+      "fr_ready_cnxn": "tcp://127.0.0.1:10001",
+      "fr_release_cnxn": "tcp://127.0.0.1:10002"
+    },
+    "meta_endpoint": "tcp://*:10008"
+  },
+  {
+    "plugin": {
+      "load": {
+        "index": "eiger",
+        "name": "EigerProcessPlugin",
+        "library": "/odin/lib/libEigerProcessPlugin.so"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "load": {
+        "index": "offset",
+        "name": "OffsetAdjustmentPlugin",
+        "library": "/odin/lib/libOffsetAdjustmentPlugin.so"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "load": {
+        "index": "param",
+        "name": "ParameterAdjustmentPlugin",
+        "library": "/odin/lib/libParameterAdjustmentPlugin.so"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "load": {
+        "index": "hdf",
+        "name": "FileWriterPlugin",
+        "library": "/odin/lib/libHdf5Plugin.so"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "connect": {
+        "index": "eiger",
+        "connection": "frame_receiver"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "connect": {
+        "index": "offset",
+        "connection": "eiger"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "connect": {
+        "index": "param",
+        "connection": "offset"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "connect": {
+        "index": "hdf",
+        "connection": "param"
+      }
+    }
+  },
+  {
+    "hdf": {
+      "dataset": {
+        "compressed_size": {
+          "datatype": "uint32",
+          "chunks": [1000]
+        }
+      }
+    }
+  },
+  {
+    "hdf": {
+      "dataset": {
+        "uid": {
+          "datatype": "uint64",
+          "chunks": [1000]
+        }
+      }
+    }
+  },
+  {
+    "param": {
+      "parameter": {
+        "uid": {
+          "adjustment": 1
+        }
+      }
+    }
+  },
+  {
+    "hdf": {
+      "process": {
+        "number": 4,
+        "rank": 0
+      }
+    }
+  },
+  {
+    "hdf": {
+      "file": {
+        "flush_error_duration": 10000,
+        "write_error_duration": 10000,
+        "close_error_duration": 10000,
+        "create_error_duration": 10000
+      }
+    }
+  },
+  {
+    "hdf": {
+      "file": {
+        "first_number": 1
+      }
+    }
+  },
+  {
+    "hdf": {
+      "dataset": {
+        "data": {
+          "indexes": true
+        }
+      }
+    }
+  }
+]

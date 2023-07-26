@@ -1,27 +1,29 @@
-# The devcontainer should use the developer target and run as root with podman
-# or docker with user namespaces.
-ARG PYTHON_VERSION=3.11
-FROM python:${PYTHON_VERSION} as developer
+FROM ghcr.io/odin-detector/odin-data-build:latest AS developer
 
-# Add any system dependencies for the developer/build environment here
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    graphviz \
-    && rm -rf /var/lib/apt/lists/*
+FROM developer AS build
 
-# Set up a virtual environment and put it in PATH
-RUN python -m venv /venv
-ENV PATH=/venv/bin:$PATH
+# Root of eiger-detector
+COPY . /tmp/eiger-detector
 
-# The build stage installs the context into the venv
-FROM developer as build
-COPY . /context
-WORKDIR /context
-RUN pip install ./python
+# C++
+WORKDIR /tmp/eiger-detector
+RUN mkdir -p build && cd build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/odin -DODINDATA_ROOT_DIR=/odin ../cpp && \
+    make -j8 VERBOSE=1 && \
+    make install
 
-# The runtime stage copies the built venv into a slim runtime container
-FROM python:${PYTHON_VERSION}-slim as runtime
-# Add apt-get system dependecies for runtime here if needed
-COPY --from=build /venv/ /venv/
-ENV PATH=/venv/bin:$PATH
+# Python
+WORKDIR /tmp/eiger-detector/python
+RUN python -m pip install .[sim]
 
-ENTRYPOINT ["bash"]
+FROM ghcr.io/odin-detector/odin-data-runtime:latest AS runtime
+
+COPY --from=build /odin /odin
+COPY --from=build /venv /venv
+COPY deploy /odin/eiger-deploy
+
+ENV PATH=/odin/bin:/odin/venv/bin:$PATH
+
+WORKDIR /odin
+
+CMD ["sh", "-c", "cd /odin/eiger-deploy && zellij --layout ./layout.kdl"]
