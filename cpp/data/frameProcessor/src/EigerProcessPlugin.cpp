@@ -25,7 +25,8 @@ const std::string EigerProcessPlugin::CONFIG_PERSISTENT_FILES = "persistent_file
   EigerProcessPlugin::EigerProcessPlugin() :
     zmq_context_(),
     zmq_socket_(zmq_context_, ZMQ_PULL),
-    persistent_files_(false)
+    persistent_files_(false),
+    dropped_frames_(0)
   {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.EigerProcessPlugin");
@@ -188,7 +189,9 @@ const std::string EigerProcessPlugin::CONFIG_PERSISTENT_FILES = "persistent_file
         )
       );
     } catch (std::runtime_error& e) {
+      ++this->dropped_frames_;
       LOG4CXX_ERROR(logger_, "Failed to create TmpfsFrame" << ": " << e.what());
+
       return;
     }
 
@@ -340,11 +343,28 @@ const std::string EigerProcessPlugin::CONFIG_PERSISTENT_FILES = "persistent_file
 
   /** Provide configuration readback
    *
-   * @param reply - Response IpcMessage.
+   * \param reply[out] - Response IpcMessage to update with current configuration
    */
-  void EigerProcessPlugin::requestConfiguration(OdinData::IpcMessage& reply)
-  {
+  void EigerProcessPlugin::requestConfiguration(OdinData::IpcMessage& reply) {
     reply.set_param(this->get_name() + "/" + EigerProcessPlugin::CONFIG_ENDPOINT, this->endpoint_);
+  }
+
+  /** Report status
+   *
+   * \param[out] status - Reference to an IpcMessage value to store the status
+   */
+  void EigerProcessPlugin::status(OdinData::IpcMessage& status) {
+    status.set_param(this->get_name() + "/frames_dropped", this->dropped_frames_);
+  }
+
+  /** Reset dropped frames counter
+   *
+   * \returns True if reset was successful
+   */
+  bool EigerProcessPlugin::reset_statistics() {
+    this->dropped_frames_ = 0;
+
+    return true;
   }
 
   int EigerProcessPlugin::get_version_major() {
