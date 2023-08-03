@@ -80,6 +80,9 @@ namespace FrameProcessor
    /** Flag to determine if files shold be kept persistently or removed when processing is completed */
     bool persistent_files_;
 
+    /** Frames dropped when failing to allocating memory */
+    uint64_t dropped_frames_;
+
     /** Pointer to logger */
     LoggerPtr logger_;
 
@@ -90,6 +93,8 @@ namespace FrameProcessor
 
     void configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
     void requestConfiguration(OdinData::IpcMessage& reply);
+    void status(OdinData::IpcMessage& status);
+    bool reset_statistics();
     /** `process_frame` should not be called as the data is received directly from a socket */
     void process_frame(boost::shared_ptr<Frame> frame);
   };
