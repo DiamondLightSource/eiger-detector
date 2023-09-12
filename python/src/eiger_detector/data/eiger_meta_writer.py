@@ -41,8 +41,11 @@ SERIES_UNIQUE_ID = "series_unique_id"
 ARM_DATE = "arm_date"
 BEAM_CENTER_Y = "beam_center_y"
 BEAM_CENTER_X = "beam_center_x"
+BIT_DEPTH_IMAGE = "bit_depth_image"
+BIT_DEPTH_READOUT = "bit_depth_readout"
 COUNT_TIME = "count_time"
 COUNTRATE_CORRECTION_ENABLED = "countrate_correction_enabled"
+COUNTRATE_CORRECTION_COUNT_CUTOFF = "countrate_correction_count_cutoff"
 DETECTOR_DESCRIPTION = "detector_description"
 DETECTOR_TRANSLATION = "detector_translation"
 DETECTOR_SERIAL_NUMBER = "detector_serial_number"
@@ -96,11 +99,11 @@ THRESHOLD_1 = "threshold_1"
 THRESHOLD_2 = "threshold_2"
 COUNTRATE_CORRECTION = "countrate_correction_lookup_table"
 FLATFIELD = "flatfield"
-FLATFIELD_1 = f"{FLATFIELD}/{THRESHOLD_1}"
-FLATFIELD_2 = f"{FLATFIELD}/{THRESHOLD_2}"
+FLATFIELD_1 = f"{FLATFIELD}"
+FLATFIELD_2 = f"{FLATFIELD}2"
 PIXEL_MASK = "pixel_mask"
-PIXEL_MASK_1 = f"{PIXEL_MASK}/{THRESHOLD_1}"
-PIXEL_MASK_2 = f"{PIXEL_MASK}/{THRESHOLD_2}"
+PIXEL_MASK_1 = f"{PIXEL_MASK}"
+PIXEL_MASK_2 = f"{PIXEL_MASK}2"
 THRESHOLD_ENERGY = "threshold_energy"
 THRESHOLD_ENERGY_1 = f"{THRESHOLD_ENERGY}/{THRESHOLD_1}"
 THRESHOLD_ENERGY_2 = f"{THRESHOLD_ENERGY}/{THRESHOLD_2}"
@@ -141,6 +144,8 @@ class EigerMetaWriter(MetaWriter):
 
         self._series_number = None
 
+        print("EIGER TEST 13")
+
     def _define_detector_datasets(self):
         return [
             # Datasets with one value received per frame
@@ -158,6 +163,8 @@ class EigerMetaWriter(MetaWriter):
             StringHDF5Dataset(dectris(ARM_DATE), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_X), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_Y), cache=False),
+            Float64HDF5Dataset(dectris(BIT_DEPTH_IMAGE), cache=False),
+            Float64HDF5Dataset(dectris(BIT_DEPTH_READOUT), cache=False),
             Float64HDF5Dataset(dectris(COUNT_TIME), cache=False),
             UInt64HDF5Dataset(dectris(COUNTRATE_CORRECTION_ENABLED), cache=False),
             StringHDF5Dataset(dectris(DETECTOR_DESCRIPTION), cache=False),
@@ -177,14 +184,15 @@ class EigerMetaWriter(MetaWriter):
             Float64HDF5Dataset(dectris(PIXEL_SIZE_Y), cache=False),
             StringHDF5Dataset(dectris(ROI_MODE), cache=False),
             UInt64HDF5Dataset(dectris(SATURATION_VALUE), cache=False),
+            UInt64HDF5Dataset(dectris(COUNTRATE_CORRECTION_COUNT_CUTOFF), cache=False),
             StringHDF5Dataset(dectris(SENSOR_MATERIAL), cache=False),
             Float64HDF5Dataset(dectris(SENSOR_THICKNESS), cache=False),
             UInt64HDF5Dataset(dectris(VIRTUAL_PIXEL_INTERPOLATION_ENABLED), cache=False),
             UInt64HDF5Dataset(dectris(COUNTRATE_CORRECTION), cache=False),
-            Float32HDF5Dataset(dectris(FLATFIELD_1), shape=self._sensor_shape, rank=2, cache=False),
-            Float32HDF5Dataset(dectris(FLATFIELD_2), shape=self._sensor_shape, rank=2, cache=False),
-            UInt32HDF5Dataset(dectris(PIXEL_MASK_1), shape=self._sensor_shape, rank=2, cache=False),
-            UInt32HDF5Dataset(dectris(PIXEL_MASK_2), shape=self._sensor_shape, rank=2, cache=False),
+            Float32HDF5Dataset("flatfield", shape=self._sensor_shape, rank=2, cache=False),
+            Float32HDF5Dataset("flatfield2", shape=self._sensor_shape, rank=2, cache=False),
+            UInt32HDF5Dataset("mask", shape=self._sensor_shape, rank=2, cache=False),
+            UInt32HDF5Dataset("mask2", shape=self._sensor_shape, rank=2, cache=False),
             Float64HDF5Dataset(dectris(THRESHOLD_ENERGY_1), cache=False),
             Float64HDF5Dataset(dectris(THRESHOLD_ENERGY_2), cache=False),
         ]
@@ -231,20 +239,29 @@ class EigerMetaWriter(MetaWriter):
 
         # Array datasets
         self._write_dataset(dectris(COUNTRATE_CORRECTION), data[COUNTRATE_CORRECTION])
-        self._write_dataset(dectris(FLATFIELD_1), data[FLATFIELD][THRESHOLD_1])
-        self._write_dataset(dectris(PIXEL_MASK_1), data[PIXEL_MASK][THRESHOLD_1])
+        self._write_dataset(FLATFIELD_1, data[FLATFIELD][THRESHOLD_1])
+        self._write_dataset("mask", data[PIXEL_MASK][THRESHOLD_1])
         self._write_dataset(
             dectris(THRESHOLD_ENERGY_1), data[THRESHOLD_ENERGY][THRESHOLD_1]
         )
         # There may or may not be meta data for a second threshold
         if THRESHOLD_2 in data[FLATFIELD]:
-            self._write_dataset(dectris(FLATFIELD_2), data[FLATFIELD][THRESHOLD_2])
+            self._write_dataset(FLATFIELD_2, data[FLATFIELD][THRESHOLD_2])
         if THRESHOLD_2 in data[PIXEL_MASK]:
-            self._write_dataset(dectris(PIXEL_MASK_2), data[PIXEL_MASK][THRESHOLD_2])
+            self._write_dataset("mask2", data[PIXEL_MASK][THRESHOLD_2])
         if THRESHOLD_2 in data[THRESHOLD_ENERGY]:
             self._write_dataset(
                 dectris(THRESHOLD_ENERGY_2), data[THRESHOLD_ENERGY][THRESHOLD_2]
             )
+
+        # Remap these renamed things
+        self._write_dataset(dectris(COUNTRATE_CORRECTION_COUNT_CUTOFF), data[SATURATION_VALUE])
+        # Hard code these missing things
+        self._write_dataset(dectris(BIT_DEPTH_IMAGE), 16)
+        self._write_dataset(dectris(BIT_DEPTH_READOUT), 16)
+        self._write_dataset(dectris(IMAGES_PER_TRIGGER), 3600)
+        self._write_dataset(dectris(NUMBER_OF_TRIGGERS), 1)
+        self._write_dataset(dectris(ROI_MODE), "disabled")
 
         # Goniometer axis parameters
         for axis_name in GONIOMETER_DATASETS:
