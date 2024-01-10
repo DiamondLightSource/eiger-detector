@@ -8,14 +8,20 @@
 #define RAPIDJSON_HAS_STDSTRING 1
 
 #include <vector>
+
+#include <log4cxx/logger.h>
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
+#include "zmq/zmq.hpp"
+
+#include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
+
 #include "EigerFanConfig.h"
 #include "EigerDefinitions.h"
-#include "zmq/zmq.hpp"
-#include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
-#include <log4cxx/logger.h>
-#include <boost/shared_ptr.hpp>
+#include "MultiPullBroker.h"
+
 
 class EigerFan {
 
@@ -26,13 +32,14 @@ class EigerFan {
   } EigerConsumer;
 
 public:
-
   EigerFan();
   EigerFan(EigerFanConfig config_);
   virtual ~EigerFan();
   void run();
+  void HandleRxSocket(std::string& endpoint);
   void Stop();
   void SetNumberOfConsumers(int number);
+
 protected:
   void HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
   void HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket);
@@ -42,6 +49,7 @@ protected:
   void HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank);
   void HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_t &socket);
   void HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage);
+
   void SendMessageToAllConsumers(zmq::message_t &message, int flags = 0);
   void SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageLista);
   void SendMessageToSingleConsumer(zmq::message_t &message, int flags = 0);
@@ -57,6 +65,8 @@ private:
   zmq::context_t ctx_;
   zmq::socket_t controlSocket;
   zmq::socket_t forwardSocket;
+  MultiPullBroker broker;
+  boost::shared_ptr<boost::thread> rx_thread_;
   std::vector<EigerConsumer> consumers;
 
   bool killRequested;
@@ -74,6 +84,5 @@ private:
   bool forwardStream;
   bool devShmCache;
 };
-
 
 #endif //EIGERDAQ_EIGERFAN_H
