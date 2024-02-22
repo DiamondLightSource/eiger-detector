@@ -12,6 +12,7 @@ namespace FrameReceiver
 
 const std::string EigerFrameDecoder::CONFIG_DETECTOR_MODEL = "detector_model";
 const std::string EigerFrameDecoder::DETECTOR_MODEL_500K = "500K";
+const std::string EigerFrameDecoder::DETECTOR_MODEL_1M = "1M";
 const std::string EigerFrameDecoder::DETECTOR_MODEL_4M = "4M";
 const std::string EigerFrameDecoder::DETECTOR_MODEL_9M = "9M";
 const std::string EigerFrameDecoder::DETECTOR_MODEL_16M = "16M";
@@ -59,6 +60,10 @@ void EigerFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config_msg
     if (detector_model_ == DETECTOR_MODEL_500K)
     {
       buffer_size = Eiger::frame_size_500K;
+    }
+    else if (detector_model_ == DETECTOR_MODEL_1M)
+    {
+      buffer_size = Eiger::frame_size_1M;
     }
     else if (detector_model_ == DETECTOR_MODEL_4M)
     {
