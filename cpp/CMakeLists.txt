@@ -5,6 +5,10 @@ set(SOURCE_DIR ${EigerDetector_SOURCE_DIR})
 # Require CMake version >=2.8
 cmake_minimum_required(VERSION 2.8)
 
+# Set C++11
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -14,10 +18,12 @@ set(CMAKE_CONFIG_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test_config)
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):
 set(CMAKE_MODULE_PATH ${SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # Find and add external packages required for application and test
 find_package(
     Boost 1.41.0 REQUIRED
-    COMPONENTS program_options system unit_test_framework date_time thread
+    COMPONENTS program_options system filesystem unit_test_framework date_time thread
 )
 find_package(LOG4CXX 0.10.0 REQUIRED)
 find_package(ZEROMQ 3.2.4 REQUIRED)

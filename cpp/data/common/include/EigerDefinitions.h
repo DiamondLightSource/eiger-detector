@@ -59,6 +59,7 @@ namespace Eiger {
   const std::string CONTROL_OFFSET = "offset";
   const std::string CONTROL_ACQ_ID = "acqid";
   const std::string CONTROL_FWD_STREAM = "forward_stream";
+  const std::string CONTROL_DEV_SHM_CACHE = "dev_shm_cache";
   const std::string CONTROL_BLOCK_SIZE = "block_size";
 
   const std::string CONTROL_RESPONSE_OK = "{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {}}";
@@ -74,6 +75,8 @@ namespace Eiger {
   static const std::string STATE_DSTR_IMAGE = "DSTR_IMAGE";
   static const std::string STATE_DSTR_END = "DSTR_END";
   static const std::string STATE_KILL_REQUESTED = "KILL_REQUESTED";
+
+  static const std::string DEV_SHM_PATH = "/dev/shm/eiger";
 
   enum EigerMessageType { GLOBAL_HEADER_NONE, GLOBAL_HEADER_CONFIG, GLOBAL_HEADER_FLATFIELD, GLOBAL_HEADER_MASK, GLOBAL_HEADER_COUNTRATE, GLOBAL_HEADER_APPENDIX, IMAGE_DATA, IMAGE_APPENDIX, END_OF_STREAM};
 

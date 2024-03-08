@@ -5,17 +5,34 @@
  *      Author: Ulrik Pedersen
  */
 
+#include <fcntl.h> // open, O_CREAT, O_RDWR
+#include <iomanip> // std::setw, std::setfill
 #include <iostream>
 #include <string>
 #include <sstream>
-#include "EigerFan.h"
+
 #include "boost/date_time/posix_time/posix_time.hpp"
+#include <boost/filesystem.hpp>
+
+#include "EigerFan.h"
 
 // Utility variables
 int more;
 size_t more_size = sizeof (more);
 
 using namespace Eiger;
+
+
+/** Log an error with the given message and the current errno
+ *
+ * @param message Message to append errno onto
+ *
+*/
+#define LOG_WITH_ERRNO(log, message) { \
+  std::stringstream error; \
+  error << message << " [errno: " << errno << " - " << strerror(errno) << "]"; \
+  LOG4CXX_ERROR(log, error.str()); \
+}
 
 /**
  * Get a user-friendly string from a state enum value
@@ -33,6 +50,19 @@ std::string GetStateString(EigerFanState state) {
     case KILL_REQUESTED:	return STATE_KILL_REQUESTED;
   }
   return "UNKNOWN STATE";
+}
+
+/**
+ * Create a string of value padded with zeroes.
+ *
+ * \param[in] value Value to pad
+ * \return The padded string
+ *
+*/
+std::string PadInt(int value) {
+  std::ostringstream ss;
+  ss << std::setw(6) << std::setfill('0') << value;
+  return ss.str();
 }
 
 /**
@@ -54,6 +84,7 @@ EigerFan::EigerFan()
   currentOffset = 0;
   numConnectedForwardingSockets = 0;
   forwardStream = false;
+  devShmCache = false;
 }
 
 /**
@@ -78,6 +109,7 @@ EigerFan::EigerFan(EigerFanConfig config_)
   currentOffset = 0;
   numConnectedForwardingSockets = 0;
   forwardStream = false;
+  devShmCache = false;
 }
 
 /**
@@ -384,7 +416,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
         rapidjson::Value& frameValue = jsonDocument[FRAME_KEY.c_str()];
         int64_t frame(frameValue.GetInt64());
         currentConsumerIndexToSendTo = ((frame + currentOffset) / config.block_size) % config.num_consumers;
-        HandleImageDataMessage(socket);
+        HandleImageDataMessage(socket, frame);
         if (frame > lastFrameSent) {
           lastFrameSent = frame;
         }
@@ -454,12 +486,17 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
   rapidjson::Value& headerDetailValue = jsonDocument[HEADER_DETAIL_KEY.c_str()];
   std::string headerDetail(headerDetailValue.GetString());
 
+  this->WriteMessageToFile(newPart1message, "start_0");
+
   if (headerDetail.compare(HEADER_DETAIL_NONE) == 0) {
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more == MORE_MESSAGES) {
       LOG4CXX_DEBUG(log, "Header has appendix");
       zmq::message_t messageAppendix;
       socket->recv(&messageAppendix);
+
+      this->WriteMessageToFile(messageAppendix, "start_appendix");
+
       messageList.push_back(&newPart1message);
       messageList.push_back(&messageAppendix);
       SendMessagesToAllConsumers(messageList);
@@ -477,11 +514,16 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
     zmq::message_t messagePart2;
     socket->recv(&messagePart2);
 
+    this->WriteMessageToFile(messagePart2, "start_1");
+
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more == MORE_MESSAGES) {
       LOG4CXX_DEBUG(log, "Header has appendix");
       zmq::message_t messageAppendix;
       socket->recv(&messageAppendix);
+
+      this->WriteMessageToFile(messageAppendix, "start_appendix");
+
       messageList.push_back(&newPart1message);
       messageList.push_back(&messagePart2);
       messageList.push_back(&messageAppendix);
@@ -503,9 +545,11 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
     zmq::message_t messagePart2;
     socket->recv(&messagePart2);
 
+    this->WriteMessageToFile(messagePart2, "start_1");
+
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 2 part but expected 8 for 'all' detail");
+      LOG4CXX_ERROR(log, "Header only contained 2 parts but expected 8 for 'all' detail");
       return;
     }
 
@@ -513,9 +557,11 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
     zmq::message_t messagePart3;
     socket->recv(&messagePart3);
 
+    this->WriteMessageToFile(messagePart3, "start_2");
+
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 3 part but expected 8 for 'all' detail");
+      LOG4CXX_ERROR(log, "Header only contained 3 parts but expected 8 for 'all' detail");
       return;
     }
 
@@ -523,9 +569,11 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
     zmq::message_t messagePart4;
     socket->recv(&messagePart4);
 
+    this->WriteMessageToFile(messagePart4, "start_3");
+
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 4 part but expected 8 for 'all' detail");
+      LOG4CXX_ERROR(log, "Header only contained 4 parts but expected 8 for 'all' detail");
       return;
     }
 
@@ -533,9 +581,11 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
     zmq::message_t messagePart5;
     socket->recv(&messagePart5);
 
+    this->WriteMessageToFile(messagePart5, "start_4");
+
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 5 part but expected 8 for 'all' detail");
+      LOG4CXX_ERROR(log, "Header only contained 5 parts but expected 8 for 'all' detail");
       return;
     }
 
@@ -543,9 +593,11 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
     zmq::message_t messagePart6;
     socket->recv(&messagePart6);
 
+    this->WriteMessageToFile(messagePart6, "start_5");
+
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 6 part but expected 8 for 'all' detail");
+      LOG4CXX_ERROR(log, "Header only contained 6 parts but expected 8 for 'all' detail");
       return;
     }
 
@@ -553,9 +605,11 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
     zmq::message_t messagePart7;
     socket->recv(&messagePart7);
 
+    this->WriteMessageToFile(messagePart7, "start_6");
+
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more != MORE_MESSAGES) {
-      LOG4CXX_ERROR(log, "Header only contained 7 part but expected 8 for 'all' detail");
+      LOG4CXX_ERROR(log, "Header only contained 7 parts but expected 8 for 'all' detail");
       return;
     }
 
@@ -563,11 +617,16 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
     zmq::message_t messagePart8;
     socket->recv(&messagePart8);
 
+    this->WriteMessageToFile(messagePart8, "start_7");
+
     socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
     if (more == MORE_MESSAGES) {
       LOG4CXX_DEBUG(log, "Header has appendix");
       zmq::message_t messageAppendix;
       socket->recv(&messageAppendix);
+
+      this->WriteMessageToFile(messageAppendix, "start_appendix");
+
       messageList.push_back(&newPart1message);
       messageList.push_back(&messagePart2);
       messageList.push_back(&messagePart3);
@@ -589,6 +648,7 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
       messageList.push_back(&messagePart8);
       SendMessagesToAllConsumers(messageList);
     }
+
   }
   else {
     LOG4CXX_ERROR(log, "Unexpected header detail type");
@@ -608,7 +668,7 @@ void EigerFan::HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket
  *
  * \param[in] socket The socket that the message was received on
  */
-void EigerFan::HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket) {
+void EigerFan::HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket, uint64_t frame_number) {
   LOG4CXX_DEBUG(log, "Handling Image Data Message");
 
   socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
@@ -646,12 +706,19 @@ void EigerFan::HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket) {
   zmq::message_t messagePart4;
   socket->recv(&messagePart4);
 
+  this->WriteMessageToFile(newPart1message, "image_" + PadInt(frame_number) + "_0");
+  this->WriteMessageToFile(messagePart2, "image_" + PadInt(frame_number) + "_1");
+  this->WriteMessageToFile(messagePart3, "image_" + PadInt(frame_number) + "_2");
+  this->WriteMessageToFile(messagePart4, "image_" + PadInt(frame_number) + "_3");
+
   // Handle appendix
   socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
   if (more == MORE_MESSAGES) {
     LOG4CXX_DEBUG(log, "Image has appendix");
     zmq::message_t messageAppendix;
     socket->recv(&messageAppendix);
+
+    this->WriteMessageToFile(messageAppendix, "image_" + PadInt(frame_number) + "_appendix");
 
     // Send the data on to a consumer
     SendMessageToSingleConsumer(newPart1message, ZMQ_SNDMORE);
@@ -686,12 +753,43 @@ void EigerFan::HandleEndOfSeriesMessage(boost::shared_ptr<zmq::socket_t> socket)
   std::string part1WithAcquisitionID = AddAcquisitionIDToPart1();
   zmq::message_t newPart1message(part1WithAcquisitionID.size());
   memcpy (newPart1message.data (), part1WithAcquisitionID.c_str(), part1WithAcquisitionID.size());
+
+  this->WriteMessageToFile(newPart1message, "end");
+
   SendMessageToAllConsumers(newPart1message);
   if (state != DSTR_IMAGE) {
     LOG4CXX_WARN(log, std::string("Received EndOfSeries message in unexpected state: ").append(GetStateString(state)));
   }
   state = DSTR_END;
   LOG4CXX_DEBUG(log, "Finished Handling EndOfSeries Message");
+}
+
+void EigerFan::WriteMessageToFile(zmq::message_t &message, std::string filename) {
+  if (!this->devShmCache) {
+    return;
+  }
+
+  boost::filesystem::path full_file_path = boost::filesystem::path(
+    DEV_SHM_PATH + "/" + currentAcquisitionID + "/" + filename
+  );
+  boost::filesystem::path tmp_file_path = boost::filesystem::path(full_file_path.string() + ".tmp");
+
+  boost::filesystem::create_directories(full_file_path.parent_path());
+
+  int fd = open(tmp_file_path.c_str(), O_CREAT | O_RDWR, 0666);
+  if (fd == -1) {
+    LOG_WITH_ERRNO(log, "open failed");
+  }
+
+  if (write(fd, message.data(), message.size()) != message.size()) {
+    LOG_WITH_ERRNO(log, "write failed");
+  }
+
+  close(fd);
+
+  if (rename(tmp_file_path.c_str(), full_file_path.c_str())) {
+    LOG_WITH_ERRNO(log, "rename failed");
+  }
 }
 
 /**
@@ -708,7 +806,7 @@ void EigerFan::HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<z
 
   // Get the event code from the message, which is a number contained in the first 16 bits
   uint16_t event = *(uint16_t *) (message.data());
-  
+
   // Get the second message part which contains the endpoint
   socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
   if (more != MORE_MESSAGES) {
@@ -767,7 +865,7 @@ void EigerFan::HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_
 
   // Get the event code from the message, which is a number contained in the first 16 bits
   uint16_t event = *(uint16_t *) (message.data());
-  
+
   // Get the second message part which contains the endpoint
   socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
   if (more != MORE_MESSAGES) {
@@ -925,6 +1023,12 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       valueForward.SetBool(forwardStream);
       document.AddMember(keyForward, valueForward, document.GetAllocator());
 
+      // Add /dev/shm cache state
+      rapidjson::Value keyDevShmCache(CONTROL_DEV_SHM_CACHE, document.GetAllocator());
+      rapidjson::Value valueDevShmCache;
+      valueDevShmCache.SetBool(devShmCache);
+      document.AddMember(keyDevShmCache, valueDevShmCache, document.GetAllocator());
+
       rapidjson::StringBuffer buffer;
       rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 
@@ -1011,6 +1115,17 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
           // Change whether to forward the stream or not
           forwardStream = paramsValue[CONTROL_FWD_STREAM.c_str()].GetBool();
           LOG4CXX_INFO(log, "Forward stream changed to " << forwardStream);
+          replyString.assign(CONTROL_RESPONSE_OK.c_str());
+        }
+        if (paramsValue.HasMember(CONTROL_DEV_SHM_CACHE.c_str())) {
+          // Enable/disable /dev/shm cache
+          devShmCache = paramsValue[CONTROL_DEV_SHM_CACHE.c_str()].GetBool();
+          if (devShmCache) {
+            LOG4CXX_INFO(log, "Enabling shared memory cache");
+          } else {
+            LOG4CXX_INFO(log, "Disabling shared memory cache");
+            boost::filesystem::remove_all(DEV_SHM_PATH);
+          }
           replyString.assign(CONTROL_RESPONSE_OK.c_str());
         }
         if (paramsValue.HasMember(CONTROL_BLOCK_SIZE.c_str())) {
