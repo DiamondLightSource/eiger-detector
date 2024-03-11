@@ -82,7 +82,8 @@ class EigerDetector(object):
         'link_0',
         'link_1',
         'link_2',
-        'link_3'
+        'link_3',
+        'high_voltage/state'
     ]
     DETECTOR_BOARD_STATUS = [
         'th0_temp',
@@ -853,6 +854,32 @@ class EigerDetector(object):
             if self._live_view_enabled:
                 self.read_detector_live_image()
             time.sleep(0.1)
+
+    def hv_reset(self):
+        logging.info("Initiating HV Reset")
+
+        material = getattr(self, "sensor_material")
+        # Make sure sensor material is CdTe
+        assert material.lower() == "cdte", "Sensor material is not CdTe."
+
+        # HV state
+        hv_state = getattr(self, "high_voltage/state")
+
+        # send HV reset command, 45 seconds is recommended, in a loop of 10
+        niterations = 10
+        for it in range(niterations):
+            counter = 0
+            while hv_state != "READY":
+                counter += 1
+                if counter > 60:
+                    raise Exception("Detector failed to be ready after 600 seconds,\
+                                     stopping program")
+                time.sleep(10)
+                hv_state = getattr(self, "high_voltage/state")
+            time.sleep(60)
+            self.write_detector_command("hv_reset", 45)
+        
+        logging.info("HV Reset complete.")
 
     def shutdown(self):
         self._executing = False
