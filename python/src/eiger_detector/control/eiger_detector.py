@@ -127,6 +127,7 @@ class EigerDetector(object):
         self._connected = False
         self._sequence_id = 0
         self._initializing = False
+        self._hv_resetting = False
         self._error = ''
         self._acquisition_complete = True
         self._armed = False
@@ -143,6 +144,7 @@ class EigerDetector(object):
         self._trigger_event = threading.Event()
         self._acquisition_event = threading.Event()
         self._initialize_event = threading.Event()
+        self._hv_resetting_event = threading.Event()
 
         self._detector_config_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_CONFIG)
         self._detector_status_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_STATUS)
@@ -389,6 +391,10 @@ class EigerDetector(object):
         self._status_thread = threading.Thread(target=self.do_check_status)
         self._status_thread.start()
 
+        # Run the hv resetting thread
+        self._hv_reset_thread = threading.Thread(target=self.do_hv_reset)
+        self._hv_reset_thread.start()
+
     def read_all_config(self):
         for cfg in self.DETECTOR_CONFIG:
             param =  self.read_detector_config(cfg)
@@ -415,6 +421,8 @@ class EigerDetector(object):
             return {'send_trigger': {'value': 0}}
         elif path == 'command/initialize':
             return {'initialize': {'value': self._initializing}}
+        elif path == 'command/hv_reset':
+            return {'hv_reset': {'value': self._hv_resetting}}
         else:
             return self._params.get(path, with_metadata=True)
 
@@ -428,6 +436,8 @@ class EigerDetector(object):
             return self.send_trigger()
         elif path == 'command/initialize':
             return self.initialize_detector()
+        elif path == 'command/hv_reset':
+            return self.hv_reset_detector()
         else:
             # mbbi record will send integers; change to string
             if any(option == path.split("/")[-1] for option in option_config_items):
@@ -685,6 +695,11 @@ class EigerDetector(object):
         logging.info("Initializing the detector")
         self._initialize_event.set()
 
+    def hv_reset_detector(self):
+        self._hv_resetting = True
+        logging.info("HV Resetting the detector")
+        self._hv_resetting_event.set()
+
     def fetch_stale_parameters(self, blocking=False):
         with self._lock:
             # Take a copy in case it is changed while we fetch
@@ -837,6 +852,13 @@ class EigerDetector(object):
                     pass
             time.sleep(.5)
 
+    def do_hv_reset(self):
+        while self._executing:
+            if self._hv_resetting_event.wait(1.0):
+                self.hv_reset()
+                self._hv_resetting = False
+                self._hv_resetting_event.clear()
+
     def stop_acquisition(self):
         # Perform an abort sequence
         logging.info("Stop acquisition called")
@@ -861,7 +883,7 @@ class EigerDetector(object):
         material = getattr(self, "sensor_material")
         # Make sure sensor material is CdTe
         if material.lower() != "cdte":
-            logging.info("Sensor material is not CdTe.")
+            logging.error("Sensor material is not CdTe.")
             return
 
         # HV state
@@ -874,15 +896,15 @@ class EigerDetector(object):
             while hv_state != "READY":
                 counter += 1
                 if counter > 60:
-                    logging.info("Detector failed to be ready after 600 seconds,\
-                                     stopping program")
+                    logging.error("Detector failed to be ready after 600 seconds,\
+                                     stopping hv reset")
                     return
                 time.sleep(10)
                 hv_state = getattr(self, "high_voltage/state")
             time.sleep(60)
             self.write_detector_command("hv_reset", 45)
         
-        logging.info("HV Reset complete.")
+        logging.info("HV Reset complete")
 
     def shutdown(self):
         self._executing = False
