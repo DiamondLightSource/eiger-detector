@@ -896,8 +896,10 @@ class EigerDetector(object):
             while hv_state != "READY":
                 counter += 1
                 if counter > 60:
-                    logging.error("Detector failed to be ready after 600 seconds,\
-                                     stopping hv reset")
+                    logging.error(
+                        "Detector failed to be ready after 600 seconds, "
+                        "Stopping hv reset"
+                    )
                     return
                 time.sleep(10)
                 hv_state = getattr(self, "high_voltage/state")
