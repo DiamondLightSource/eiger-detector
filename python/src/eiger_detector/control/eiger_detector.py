@@ -867,7 +867,7 @@ class EigerDetector(object):
 
         # send HV reset command, 45 seconds is recommended, in a loop of 10
         niterations = 10
-        for it in range(niterations):
+        for _ in range(niterations):
             counter = 0
             while hv_state != "READY":
                 counter += 1
