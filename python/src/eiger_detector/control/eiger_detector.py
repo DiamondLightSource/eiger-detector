@@ -860,7 +860,9 @@ class EigerDetector(object):
 
         material = getattr(self, "sensor_material")
         # Make sure sensor material is CdTe
-        assert material.lower() == "cdte", "Sensor material is not CdTe."
+        if material.lower() != "cdte":
+            logging.info("Sensor material is not CdTe.")
+            return
 
         # HV state
         hv_state = getattr(self, "high_voltage/state")
@@ -872,8 +874,9 @@ class EigerDetector(object):
             while hv_state != "READY":
                 counter += 1
                 if counter > 60:
-                    raise Exception("Detector failed to be ready after 600 seconds,\
+                    logging.info("Detector failed to be ready after 600 seconds,\
                                      stopping program")
+                    return
                 time.sleep(10)
                 hv_state = getattr(self, "high_voltage/state")
             time.sleep(60)
