@@ -36,8 +36,9 @@ public:
 protected:
   void HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket);
   void HandleGlobalHeaderMessage(boost::shared_ptr<zmq::socket_t> socket);
-  void HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket);
+  void HandleImageDataMessage(boost::shared_ptr<zmq::socket_t> socket, uint64_t frame_number);
   void HandleEndOfSeriesMessage(boost::shared_ptr<zmq::socket_t> socket);
+  void WriteMessageToFile(zmq::message_t &message, std::string filename);
   void HandleMonitorMessage(zmq::message_t &message, boost::shared_ptr<zmq::socket_t> socket, int rank);
   void HandleForwardMonitorMessage(zmq::message_t &message, zmq::socket_t &socket);
   void HandleControlMessage(zmq::message_t &message, zmq::message_t &idMessage);
@@ -71,6 +72,7 @@ private:
   int currentOffset;
   int numConnectedForwardingSockets;
   bool forwardStream;
+  bool devShmCache;
 };
 
 
