@@ -877,23 +877,25 @@ class EigerDetector(object):
                 self.read_detector_live_image()
             time.sleep(0.1)
 
+    def _get_hv_state(self) -> str:
+        hv_state = getattr(self, "high_voltage/state")["value"]
+
+        return hv_state
+
     def hv_reset(self):
         logging.info("Initiating HV Reset")
 
-        material = getattr(self, "sensor_material")
+        material = getattr(self, "sensor_material")["value"]
         # Make sure sensor material is CdTe
         if material.lower() != "cdte":
             logging.error("Sensor material is not CdTe.")
             return
 
-        # HV state
-        hv_state = getattr(self, "high_voltage/state")
-
         # send HV reset command, 45 seconds is recommended, in a loop of 10
         niterations = 10
-        for _ in range(niterations):
+        for i in range(niterations):
             counter = 0
-            while hv_state != "READY":
+            while self._get_hv_state() != "READY":
                 counter += 1
                 if counter > 60:
                     logging.error(
@@ -902,9 +904,10 @@ class EigerDetector(object):
                     )
                     return
                 time.sleep(10)
-                hv_state = getattr(self, "high_voltage/state")
-            time.sleep(60)
+            logging.info(f"Starting HV Reset iteration {i}")
             self.write_detector_command("hv_reset", 45)
+            # Need to wait for command to be processed
+            time.sleep(10)
         
         logging.info("HV Reset complete")
 
