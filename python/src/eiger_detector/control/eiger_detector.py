@@ -907,7 +907,7 @@ class EigerDetector(object):
             logging.info(f"Starting HV Reset iteration {i}")
             self.write_detector_command("hv_reset", 45)
             # Need to wait for command to be processed
-            time.sleep(10)
+            time.sleep(60)
         
         logging.info("HV Reset complete")
 
