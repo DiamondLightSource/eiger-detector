@@ -56,9 +56,11 @@ at different sites.
 The figure below shows the OdinControl Server architecture for
 a four node Eiger Odin system.
 
-.. figure:: images/EigerOdinControl.png
+TODO: This image is missing
 
-    Figure 1. OdinControl Server architecture for a four-node Eiger Odin system.
+.. .. figure:: images/EigerOdinControl.png
+
+..     Figure 1. OdinControl Server architecture for a four-node Eiger Odin system.
 
 Figure 1 demonstrates the generic RESTful interface that Odin
 provides.  The control server can be accessed by four different 
