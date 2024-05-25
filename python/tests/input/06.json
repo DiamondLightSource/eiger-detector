@@ -1,0 +1,13 @@
+{
+    "plugin": "eiger",
+    "parameter": "eiger-globalflatfield",
+    "type": "raw",
+    "header": {
+        "acqID": "test_0_0",
+        "shape": [
+            4148,
+            4362
+        ],
+        "type": "float32"
+    }
+}

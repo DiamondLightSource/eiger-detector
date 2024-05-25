@@ -1,0 +1,21 @@
+{
+    "plugin": "eiger",
+    "parameter": "eiger-imagedata",
+    "type": "string",
+    "header": {
+        "acqID": "test_0_0",
+        "frame": 0,
+        "series": 40181,
+        "size": 1504987,
+        "start_time": 3964989369387280,
+        "stop_time": 3964989469387180,
+        "real_time": 99999900,
+        "shape": [
+            4148,
+            4362
+        ],
+        "type": "uint32",
+        "encoding": "bs32-lz4<",
+        "hash": "3aca01d1417576a9c8c26343a93b29a1"
+    }
+}
