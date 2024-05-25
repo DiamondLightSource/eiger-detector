@@ -171,7 +171,9 @@ class EigerMetaWriter(MetaWriter):
             # Datasets received on arm
             Int64HDF5Dataset(SERIES, cache=False),
             Float32HDF5Dataset(COUNTRATE, rank=2, cache=False),
-            Float32HDF5Dataset(FLATFIELD, shape=self._sensor_shape, rank=2, cache=False),
+            Float32HDF5Dataset(
+                FLATFIELD, shape=self._sensor_shape, rank=2, cache=False
+            ),
             Int32HDF5Dataset(MASK, shape=self._sensor_shape, rank=2, cache=False),
             Int64HDF5Dataset(dectris(AUTO_SUMMATION), cache=False),
             Float64HDF5Dataset(dectris(BEAM_CENTER_X), cache=False),
