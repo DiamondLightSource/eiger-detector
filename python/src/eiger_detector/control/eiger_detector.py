@@ -14,7 +14,7 @@ import requests
 import zmq
 from odin.adapters.parameter_tree import ParameterAccessor, ParameterTree
 
-from .eiger_options import option_config_items, option_config_options
+from .eiger_options import option_config_options
 
 
 class EigerDetector(object):
@@ -440,7 +440,7 @@ class EigerDetector(object):
             return self.hv_reset_detector()
         else:
             # mbbi record will send integers; change to string
-            if any(option == path.split("/")[-1] for option in option_config_items):
+            if any(option == path.split("/")[-1] for option in option_config_options):
                 value = str(value)
             return self._params.set(path, value)
 
@@ -454,8 +454,7 @@ class EigerDetector(object):
         logging.info("Setting {} mode to {}".format(mode_type, value))
         # Intercept integer values and convert to string values where
         # option not index is expected
-        if any(option == "mode" for option in option_config_items):
-            value = option_config_options["mode"].get_option(value)
+        value = option_config_options["mode"].get_option(value)
         if mode_type == self.STR_STREAM:
             response = self.write_stream_config('mode', value)
             param = self.read_stream_config('mode')
@@ -474,7 +473,7 @@ class EigerDetector(object):
         logging.info("Setting {} to {}".format(item, value))
         # Intercept integer values and convert to string values where
         # option not index is expected
-        if any(option == item for option in option_config_items):
+        if any(option == item for option in option_config_options):
             value = option_config_options[item].get_option(value)
         # First write the value to the hardware
         if item in self.DETECTOR_CONFIG:
@@ -520,12 +519,9 @@ class EigerDetector(object):
     def get_meta(self, item):
         # Populate any meta data items and return the dict
         meta = {}
-        if 'min' in item:
-            meta['min'] = item['min']
-        if 'max' in item:
-            meta['max'] = item['max']
-        if 'allowed_values' in item:
-            meta['allowed_values'] = item['allowed_values']
+        for field in ['min', 'max', 'allowed_values']:
+            if field in item:
+                meta[field] = item[field]
         if 'unit' in item:
             meta['units'] = item['unit']
         return meta
@@ -673,7 +669,7 @@ class EigerDetector(object):
     def intercept_reply(self, item, reply):
         # Intercept detector config for options where we convert to index for
         # unamabiguous definition and update config to allow these
-        if any(option == item for option in option_config_items):
+        if any(option == item for option in option_config_options):
             # Inconsitency over mapping of index to string
             # communication via integer, uniquely converted to mapping as defined in eiger_options
             value = reply[u'value']
