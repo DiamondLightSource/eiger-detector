@@ -146,14 +146,14 @@ class EigerDetector(object):
         self._initialize_event = threading.Event()
         self._hv_resetting_event = threading.Event()
 
-        self._detector_config_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_CONFIG)
-        self._detector_status_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_STATUS)
-        self._detector_monitor_uri = '{}/{}/{}/images/next'.format(self.STR_MONITOR, self.STR_API, api_version)
-        self._detector_command_uri = '{}/{}/{}/{}'.format(self.STR_DETECTOR, self.STR_API, api_version, self.STR_COMMAND)
-        self._stream_config_uri = '{}/{}/{}/{}'.format(self.STR_STREAM, self.STR_API, api_version, self.STR_CONFIG)
-        self._stream_status_uri = '{}/{}/{}/{}'.format(self.STR_STREAM, self.STR_API, api_version, self.STR_STATUS)
-        self._monitor_config_uri = '{}/{}/{}/{}'.format(self.STR_MONITOR, self.STR_API, api_version, self.STR_CONFIG)
-        self._filewriter_config_uri = '{}/{}/{}/{}'.format(self.STR_FW, self.STR_API, api_version, self.STR_CONFIG)
+        self._detector_config_uri = f"{self.STR_DETECTOR}/{self.STR_API}/{api_version}/{self.STR_CONFIG}"
+        self._detector_status_uri = f"{self.STR_DETECTOR}/{self.STR_API}/{api_version}/{self.STR_STATUS}"
+        self._detector_monitor_uri = f"{self.STR_MONITOR}/{self.STR_API}/{api_version}/images/next"
+        self._detector_command_uri = f"{self.STR_DETECTOR}/{self.STR_API}/{api_version}/{self.STR_COMMAND}"
+        self._stream_config_uri = f"{self.STR_STREAM}/{self.STR_API}/{api_version}/{self.STR_CONFIG}"
+        self._stream_status_uri = f"{self.STR_STREAM}/{self.STR_API}/{api_version}/{self.STR_STATUS}"
+        self._monitor_config_uri = f"{self.STR_MONITOR}/{self.STR_API}/{api_version}/{self.STR_CONFIG}"
+        self._filewriter_config_uri = f"{self.STR_FW}/{self.STR_API}/{api_version}/{self.STR_CONFIG}"
 
         self.missing_parameters = []
 
@@ -528,19 +528,21 @@ class EigerDetector(object):
 
     def read_detector_config(self, item):
         # Read a specifc detector config item from the hardware
-        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item))
+        r = requests.get(f"http://{self._endpoint}/{self._detector_config_uri}/{item}")
         parsed_reply = self.parse_response(r, item)
         parsed_reply = self.intercept_reply(item, parsed_reply)
         return parsed_reply
 
     def write_detector_config(self, item, value):
         # Read a specifc detector config item from the hardware
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
+        r = requests.put(f"http://{self._endpoint}/{self._detector_config_uri}/{item}",
+                         data=json.dumps({'value': value}),
+                         headers={"Content-Type": "application/json"})
         return self.parse_response(r, item)
 
     def read_detector_status(self, item):
         # Read a specifc detector status item from the hardware
-        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._detector_status_uri, item))
+        r = requests.get(f"http://{self._endpoint}/{self._detector_status_uri}/{item}")
         return self.parse_response(r, item)
 
     def write_detector_command(self, command, value=None):
@@ -549,55 +551,63 @@ class EigerDetector(object):
         data = None
         if value is not None:
             data=json.dumps({'value': value})
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._detector_command_uri, command), data=data, headers={"Content-Type": "application/json"})
+        r = requests.put(f"http://{self._endpoint}/{self._detector_command_uri}/{command}",
+                         data=data,
+                         headers={"Content-Type": "application/json"})
         if len(r.text) > 0:
             reply = self.parse_response(r, command)
         return reply
 
     def read_stream_config(self, item):
         # Read a specifc detector config item from the hardware
-        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item))
+        r = requests.get(f"http://{self._endpoint}/{self._stream_config_uri}/{item}")
         parsed_reply = self.parse_response(r, item)
         parsed_reply = self.intercept_reply(item, parsed_reply)
         return parsed_reply
 
     def write_stream_config(self, item, value):
         # Read a specifc detector config item from the hardware
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._stream_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
+        r = requests.put(f"http://{self._endpoint}/{self._stream_config_uri}/{item}",
+                         data=json.dumps({'value': value}),
+                         headers={"Content-Type": "application/json"})
         return self.parse_response(r, item)
 
     def read_stream_status(self, item):
         # Read a specifc stream status item from the hardware
-        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._stream_status_uri, item))
+        r = requests.get(f"http://{self._endpoint}/{self._stream_status_uri}/{item}")
         return self.parse_response(r, item)
 
     def read_monitor_config(self, item):
         # Read a specifc monitor config item from the hardware
-        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item))
+        r = requests.get(f"http://{self._endpoint}/{self._monitor_config_uri}/{item}")
         parsed_reply = self.parse_response(r, item)
         parsed_reply = self.intercept_reply(item, parsed_reply)
         return parsed_reply
 
     def write_monitor_config(self, item, value):
         # Read a specifc detector config item from the hardware
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._monitor_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
+        r = requests.put(f"http://{self._endpoint}/{self._monitor_config_uri}/{item}",
+                         data=json.dumps({'value': value}),
+                         headers={"Content-Type": "application/json"})
         return self.parse_response(r, item)
 
     def read_filewriter_config(self, item):
         # Read a specifc filewriter config item from the hardware
-        r = requests.get('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item))
+        r = requests.get(f"http://{self._endpoint}/{self._filewriter_config_uri}/{item}")
         parsed_reply = self.parse_response(r, item)
         parsed_reply = self.intercept_reply(item, parsed_reply)
         return parsed_reply
 
     def write_filewriter_config(self, item, value):
         # Write a specifc filewriter config item to the hardware
-        r = requests.put('http://{}/{}/{}'.format(self._endpoint, self._filewriter_config_uri, item), data=json.dumps({'value': value}), headers={"Content-Type": "application/json"})
+        r = requests.put(f"http://{self._endpoint}/{self._filewriter_config_uri}/{item}",
+                         data=json.dumps({'value': value}),
+                         headers={"Content-Type": "application/json"})
         return self.parse_response(r, item)
 
     def read_detector_live_image(self):
         # Read the relevant monitor stream
-        r = requests.get('http://{}/{}'.format(self._endpoint, self._detector_monitor_uri))
+        r = requests.get(f"http://{self._endpoint}/{self._detector_monitor_uri}")
         if r.status_code != 200:
             logging.debug("No image")
             # There is no live image (1.6.0 or 1.8.0) so we can just pass through
