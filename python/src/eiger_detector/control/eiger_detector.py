@@ -288,10 +288,10 @@ class EigerDetector(object):
         # Initialise stream config items
         for cfg in self.STREAM_CONFIG:
             if cfg == 'mode':
-                setattr(self, 'stream_mode', self.read_stream_config('mode'))
+                self.stream_mode = self.read_stream_config('mode')
                 param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='stream_mode': self.get_value(getattr(self, x)),
                                                                                                          lambda value: self.set_mode(self.STR_STREAM, value),
-                                                                                                         self.get_meta(getattr(self, 'stream_mode')))
+                                                                                                         self.get_meta(self.stream_mode))
 
             else:
                 setattr(self, cfg, self.read_stream_config(cfg))
@@ -302,19 +302,19 @@ class EigerDetector(object):
 #param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
 
         # Initialise monitor mode
-        setattr(self, 'monitor_mode', self.read_monitor_config('mode'))
+        self.monitor_mode = self.read_monitor_config('mode')
         param_tree[self.STR_MONITOR][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='monitor_mode': self.get_value(getattr(self, x)),
                                                                                                   lambda value: self.set_mode(self.STR_MONITOR, value),
-                                                                                                  self.get_meta(getattr(self, 'monitor_mode')))
+                                                                                                  self.get_meta(self.monitor_mode))
 
         # Initialise filewriter config items
         for cfg in self.FW_CONFIG:
             if cfg == 'mode':
                 # Initialise filewriter mode
-                setattr(self, 'fw_mode', self.read_filewriter_config('mode'))
+                self.fw_mode = self.read_filewriter_config('mode')
                 param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='fw_mode': self.get_value(getattr(self, x)),
                                                                                                     lambda value: self.set_mode(self.STR_FW, value),
-                                                                                                    self.get_meta(getattr(self, 'fw_mode')))
+                                                                                                    self.get_meta(self.fw_mode))
             else:
                 setattr(self, cfg, self.read_filewriter_config(cfg))
                 param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
@@ -324,17 +324,17 @@ class EigerDetector(object):
 
         # Initialise additional ADOdin configuration items
         if self._api_version != '1.8.0':
-            param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG]['ccc_cutoff'] = (lambda: self.get_value(getattr(self, 'countrate_correction_count_cutoff')), self.get_meta(getattr(self, 'countrate_correction_count_cutoff')))
+            param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG]['ccc_cutoff'] = (lambda: self.get_value(self.countrate_correction_count_cutoff), self.get_meta(self.countrate_correction_count_cutoff))
         param_tree['status'] = {
             'manufacturer': (lambda: 'Dectris', {}),
             'model': (lambda: 'Odin [Eiger {}]'.format(self._api_version), {}),
             'state': (self.get_state, {}),
             'sensor': {
-                'width': (lambda: self.get_value(getattr(self, 'x_pixels_in_detector')), self.get_meta(getattr(self, 'x_pixels_in_detector'))),
-                'height': (lambda: self.get_value(getattr(self, 'y_pixels_in_detector')), self.get_meta(getattr(self, 'y_pixels_in_detector'))),
-                'bytes': (lambda: self.get_value(getattr(self, 'x_pixels_in_detector')) *
-                         self.get_value(getattr(self, 'y_pixels_in_detector')) *
-                         self.get_value(getattr(self, 'bit_depth_image')) / 8, {})
+                'width': (lambda: self.get_value(self.x_pixels_in_detector), self.get_meta(self.x_pixels_in_detector)),
+                'height': (lambda: self.get_value(self.y_pixels_in_detector), self.get_meta(self.y_pixels_in_detector)),
+                'bytes': (lambda: self.get_value(self.x_pixels_in_detector) *
+                         self.get_value(self.y_pixels_in_detector) *
+                         self.get_value(self.bit_depth_image) / 8, {})
             },
             'sequence_id': (lambda: self._sequence_id, {}),
             'error': (lambda: self._error, {}),
@@ -348,20 +348,22 @@ class EigerDetector(object):
             'manual_trigger': (lambda: self.manual_trigger,
                                lambda value: setattr(self, 'manual_trigger', value),
                                {}),
-            'num_images': (lambda: self.get_value(getattr(self, 'nimages')),
+            'num_images': (lambda: self.get_value(self.nimages),
                               lambda value: self.set_value('nimages', value),
-                              self.get_meta(getattr(self, 'nimages'))),
-            'exposure_time': (lambda: self.get_value(getattr(self, 'count_time')),
+                              self.get_meta(self.nimages)),
+            'exposure_time': (lambda: self.get_value(self.count_time),
                               lambda value: self.set_value('count_time', value),
-                              self.get_meta(getattr(self, 'count_time'))),
+                              self.get_meta(self.count_time)),
             'live_view': (lambda: self._live_view_enabled,
                           lambda value: setattr(self, '_live_view_enabled', value),
                           {})
         }
         param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_COMMAND] = {
-            'initialize': (lambda: 0, lambda value: self.write_detector_command('initialize')),
+            'initialize': (lambda: 0,
+                           lambda value: self.write_detector_command('initialize')),
             'arm': (lambda: 0, lambda value: self.write_detector_command('arm')),
-            'trigger': (lambda: 0, lambda value: self.write_detector_command('trigger')),
+            'trigger': (lambda: 0,
+                        lambda value: self.write_detector_command('trigger')),
             'disarm': (lambda: 0, lambda value: self.write_detector_command('disarm')),
             'cancel': (lambda: 0, lambda value: self.write_detector_command('cancel')),
             'abort': (lambda: 0, lambda value: self.write_detector_command('abort')),
@@ -458,15 +460,15 @@ class EigerDetector(object):
         if mode_type == self.STR_STREAM:
             response = self.write_stream_config('mode', value)
             param = self.read_stream_config('mode')
-            setattr(self, 'stream_mode', param)
+            self.stream_mode = param
         elif mode_type == self.STR_MONITOR:
             response = self.write_monitor_config('mode', value)
             param = self.read_monitor_config('mode')
-            setattr(self, 'monitor_mode', param)
+            self.monitor_mode = param
         elif mode_type == self.STR_FW:
             response = self.write_filewriter_config('mode', value)
             param = self.read_filewriter_config('mode')
-            setattr(self, 'fw_mode', param)
+            self.fw_mode = param
 
     def set_value(self, item, value):
         response = None
@@ -834,7 +836,7 @@ class EigerDetector(object):
                 if status not in self.missing_parameters:
                     try:
                         if status == 'link_2' or status == 'link_3':
-                            if '500K' not in self.get_value(getattr(self, 'description')):
+                            if '500K' not in self.get_value(self.description):
                                 setattr(self, status, self.read_detector_status(status))
                         else:
                             setattr(self, status, self.read_detector_status(status))
@@ -891,7 +893,7 @@ class EigerDetector(object):
     def hv_reset(self):
         logging.info("Initiating HV Reset")
 
-        material = getattr(self, "sensor_material")["value"]
+        material = self.sensor_material["value"]
         # Make sure sensor material is CdTe
         if material.lower() != "cdte":
             logging.error("Sensor material is not CdTe.")
