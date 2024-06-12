@@ -212,6 +212,7 @@ class EigerDetector(object):
         }
 
         # Initialise configuration parameters and populate the parameter tree
+        detector_config = param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG]
         for cfg in self.DETECTOR_CONFIG:
             param =  self.read_detector_config(cfg)
             if param is not None:
@@ -223,16 +224,22 @@ class EigerDetector(object):
                         writeable = True
 
                 if writeable is True:
-                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
-                                                                                                            lambda value, x=cfg: self.set_value(x, value),
-                                                                                                            self.get_meta(getattr(self, cfg)))
+                    detector_config[cfg] = (
+                        lambda x=cfg: self.get_value(getattr(self, x)),
+                        lambda value, x=cfg: self.set_value(x, value),
+                        self.get_meta(getattr(self, cfg))
+                    )
                 else:
-                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)), self.get_meta(getattr(self, cfg)))
+                    detector_config[cfg] = (
+                        lambda x=cfg: self.get_value(getattr(self, x)),
+                        self.get_meta(getattr(self, cfg))
+                    )
             else:
                 logging.error("Parameter {} has not been implemented for API {}".format(cfg, self._api_version))
                 self.missing_parameters.append(cfg)
 
         # Initialise status parameters and populate the parameter tree
+        detector_status = param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS]
         for status in self.DETECTOR_STATUS:
             try:
                 reply = self.read_detector_status(status)
@@ -241,19 +248,24 @@ class EigerDetector(object):
                     if 'link_' in status:
                         reply['allowed_values'] = ['down', 'up']
                     setattr(self, status, reply)
-                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+                    detector_status[status] = (
+                        lambda x=getattr(self, status): self.get_value(x),
+                        self.get_meta(getattr(self, status))
+                    )
                 else:
                     logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
                     self.missing_parameters.append(status)
             except:
                 # For a 500K link_2 and link_3 status will fail and return exceptions here, which is OK
                 if status == 'link_2' or status == 'link_3':
-                    param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda: 'down', {'allowed_values': ['down', 'up']})
+                    detector_status[status] = (
+                        lambda: 'down', {'allowed_values': ['down', 'up']}
+                    )
                 else:
                     raise
 
         # Insert internal stale parameters flag into detector status parameters
-        param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS]['stale_parameters'] = (
+        detector_status['stale_parameters'] = (
             self.has_stale_parameters,
             {}
         )
@@ -262,7 +274,10 @@ class EigerDetector(object):
             reply = self.read_detector_status('{}/{}'.format(self.STR_BOARD_000, status))
             if reply is not None:
                 setattr(self, status, reply)
-                param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BOARD_000][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+                detector_status[self.STR_BOARD_000][status] = (
+                    lambda x=getattr(self, status): self.get_value(x),
+                    self.get_meta(getattr(self, status))
+                )
             else:
                 logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
                 self.missing_parameters.append(status)
@@ -271,67 +286,96 @@ class EigerDetector(object):
             reply = self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status))
             if reply is not None:
                 setattr(self, status, reply)
-                param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][self.STR_BUILDER][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+                detector_status[self.STR_BUILDER][status] = (
+                    lambda x=getattr(self, status): self.get_value(x),
+                    self.get_meta(getattr(self, status))
+                )
             else:
-                logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
+                logging.error("Status {} has not been implemented for API {}".format(
+                    status, self._api_version)
+                )
                 self.missing_parameters.append(status)
 
+        stream_status = param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_STATUS]
         for status in self.STREAM_STATUS:
             reply = self.read_stream_status(status)
             if reply is not None:
                 setattr(self, status, reply)
-                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+                stream_status[status] = (
+                    lambda x=getattr(self, status): self.get_value(x),
+                    self.get_meta(getattr(self, status))
+                )
             else:
-                logging.error("Status {} has not been implemented for API {}".format(status, self._api_version))
+                logging.error("Status {} has not been implemented for API {}".format(
+                    status, self._api_version)
+                )
                 self.missing_parameters.append(status)
 
         # Initialise stream config items
+        stream_config = param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG]
         for cfg in self.STREAM_CONFIG:
             if cfg == 'mode':
                 self.stream_mode = self.read_stream_config('mode')
-                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='stream_mode': self.get_value(getattr(self, x)),
-                                                                                                         lambda value: self.set_mode(self.STR_STREAM, value),
-                                                                                                         self.get_meta(self.stream_mode))
+                stream_config['mode'] = (
+                    lambda x='stream_mode': self.get_value(getattr(self, x)),
+                    lambda value: self.set_mode(self.STR_STREAM, value),
+                    self.get_meta(self.stream_mode)
+                )
 
             else:
                 setattr(self, cfg, self.read_stream_config(cfg))
-                param_tree[self.STR_STREAM][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
-                                                                                                    lambda value, x=cfg: self.set_value(x, value),
-                                                                                                    self.get_meta(getattr(self, cfg)))
-
-#param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_STATUS][status] = (lambda x=getattr(self, status): self.get_value(x), self.get_meta(getattr(self, status)))
+                stream_config[cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
+                                      lambda value, x=cfg: self.set_value(x, value),
+                                      self.get_meta(getattr(self, cfg))
+                )
 
         # Initialise monitor mode
         self.monitor_mode = self.read_monitor_config('mode')
-        param_tree[self.STR_MONITOR][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='monitor_mode': self.get_value(getattr(self, x)),
-                                                                                                  lambda value: self.set_mode(self.STR_MONITOR, value),
-                                                                                                  self.get_meta(self.monitor_mode))
+        param_tree[self.STR_MONITOR][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (
+            lambda x='monitor_mode': self.get_value(getattr(self, x)),
+            lambda value: self.set_mode(self.STR_MONITOR, value),
+            self.get_meta(self.monitor_mode)
+        )
 
         # Initialise filewriter config items
+        fw_config = param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG]
         for cfg in self.FW_CONFIG:
             if cfg == 'mode':
                 # Initialise filewriter mode
                 self.fw_mode = self.read_filewriter_config('mode')
-                param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG]['mode'] = (lambda x='fw_mode': self.get_value(getattr(self, x)),
-                                                                                                    lambda value: self.set_mode(self.STR_FW, value),
-                                                                                                    self.get_meta(self.fw_mode))
+                fw_config['mode'] = (
+                    lambda x='fw_mode': self.get_value(getattr(self, x)),
+                    lambda value: self.set_mode(self.STR_FW, value),
+                    self.get_meta(self.fw_mode)
+                )
             else:
                 setattr(self, cfg, self.read_filewriter_config(cfg))
-                param_tree[self.STR_FW][self.STR_API][self._api_version][self.STR_CONFIG][cfg] = (lambda x=cfg: self.get_value(getattr(self, x)),
-                                                                                                  lambda value, x=cfg: self.set_value(x, value),
-                                                                                                  self.get_meta(getattr(self, cfg)))
+                fw_config[cfg] = (
+                    lambda x=cfg: self.get_value(getattr(self, x)),
+                    lambda value, x=cfg: self.set_value(x, value),
+                    self.get_meta(getattr(self, cfg))
+                )
 
 
         # Initialise additional ADOdin configuration items
         if self._api_version != '1.8.0':
-            param_tree[self.STR_DETECTOR][self.STR_API][self._api_version][self.STR_CONFIG]['ccc_cutoff'] = (lambda: self.get_value(self.countrate_correction_count_cutoff), self.get_meta(self.countrate_correction_count_cutoff))
+            detector_config['ccc_cutoff'] = (
+                lambda: self.get_value(self.countrate_correction_count_cutoff),
+                self.get_meta(self.countrate_correction_count_cutoff)
+            )
         param_tree['status'] = {
             'manufacturer': (lambda: 'Dectris', {}),
             'model': (lambda: 'Odin [Eiger {}]'.format(self._api_version), {}),
             'state': (self.get_state, {}),
             'sensor': {
-                'width': (lambda: self.get_value(self.x_pixels_in_detector), self.get_meta(self.x_pixels_in_detector)),
-                'height': (lambda: self.get_value(self.y_pixels_in_detector), self.get_meta(self.y_pixels_in_detector)),
+                'width': (
+                    lambda: self.get_value(self.x_pixels_in_detector),
+                    self.get_meta(self.x_pixels_in_detector)
+                ),
+                'height': (
+                    lambda: self.get_value(self.y_pixels_in_detector),
+                    self.get_meta(self.y_pixels_in_detector)
+                ),
                 'bytes': (lambda: self.get_value(self.x_pixels_in_detector) *
                          self.get_value(self.y_pixels_in_detector) *
                          self.get_value(self.bit_depth_image) / 8, {})
@@ -659,8 +703,13 @@ class EigerDetector(object):
                 elif tag_id == self.TIFF_ID_STRIPOFFSETS:
                     image_strip_offset = tag_data_offset
 
-            if image_width > -1 and image_height > -1 and image_bitdepth > -1 and image_rows_per_strip == image_height and image_strip_offset > -1:
-                # We have a valid image so construct the required object and publish it
+            if (
+                image_width > -1
+                and image_height > -1
+                and image_bitdepth > -1
+                and image_rows_per_strip == image_height
+                and image_strip_offset > -1
+            ):  # We have a valid image so construct the required object and publish it
                 frame_header = {
                     'frame_num': self._live_view_frame_number,
                     'acquisition_id': '',
@@ -850,12 +899,12 @@ class EigerDetector(object):
                     pass
             for status in self.DETECTOR_BOARD_STATUS:
                 try:
-                    setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BOARD_000, status)))
+                    setattr(self, status, self.read_detector_status(f"{self.STR_BOARD_000}/{status}"))
                 except:
                     pass
             for status in self.DETECTOR_BUILD_STATUS:
                 try:
-                    setattr(self, status, self.read_detector_status('{}/{}'.format(self.STR_BUILDER, status)))
+                    setattr(self, status, self.read_detector_status(f"{self.STR_BUILDER}/{status}"))
                 except:
                     pass
             time.sleep(.5)
