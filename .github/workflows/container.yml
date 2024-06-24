@@ -5,7 +5,7 @@ on:
     # Build for main, tags and PRs
     # Builds from PRs are not pushed to the registry because of rules in the steps
     branches:
-      - dev
+      - main
     tags:
       - "*"
   pull_request:
