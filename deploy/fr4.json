@@ -6,7 +6,7 @@
     "rx_address": "127.0.0.1",
     "rx_ports": "31603,",
     "shared_buffer_name": "odin_buf_4",
-    "max_buffer_mem": 1600000000,
+    "max_buffer_mem": 160000000,
     "frame_ready_endpoint": "tcp://127.0.0.1:10031",
     "frame_release_endpoint": "tcp://127.0.0.1:10032",
     "decoder_config": {
