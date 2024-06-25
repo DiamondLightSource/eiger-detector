@@ -2,12 +2,6 @@ name: Container CI
 
 on:
   push:
-    # Build for main, tags and PRs
-    # Builds from PRs are not pushed to the registry because of rules in the steps
-    branches:
-      - main
-    tags:
-      - "*"
   pull_request:
 
 jobs:
@@ -16,9 +10,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-
-    env:
-      TAG: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
 
     steps:
       - name: Checkout
@@ -56,24 +47,46 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
+      - name: Create tags for developer image
+        id: meta-developer
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-developer
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
       - name: Push developer image
+        if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
         uses: docker/build-push-action@v4
         with:
           context: .
           file: Dockerfile
           target: developer
-          tags: ${{ env.TAG }}-developer:latest
+          tags: ${{ steps.meta-developer.outputs.tags }}
+          labels: ${{ steps.meta-developer.outputs.labels }}
           push: ${{ github.event_name != 'pull_request' }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
+      - name: Create tags for runtime image
+        id: meta-runtime
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-runtime
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
       - name: Push runtime image
+        if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
         uses: docker/build-push-action@v4
         with:
           context: .
           file: Dockerfile
           target: runtime
-          tags: ${{ env.TAG }}-runtime:latest
+          tags: ${{ steps.meta-runtime.outputs.tags }}
+          labels: ${{ steps.meta-runtime.outputs.labels }}
           push: ${{ github.event_name != 'pull_request' }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
