@@ -1,5 +1,9 @@
 [
   {
+    "version": "1.16.0beta2",
+    "url": "https://dls-controls.github.io/eiger-detector/1.16.0beta2/"
+  },
+  {
     "version": "1.16.0beta1",
     "url": "https://dls-controls.github.io/eiger-detector/1.16.0beta1/"
   },
