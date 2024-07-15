@@ -64,7 +64,7 @@
   },
   "simulator": {
     "lib-path": "${INSTALL_PREFIX}\/lib",
-    "path": "${HOME}\/build\/dls-controls\/eiger-detector\/data\/test\/testdata\/",
+    "path": "${HOME}\/build\/DiamondLightSource\/eiger-detector\/data\/test\/testdata\/",
     "stream": 1
   },
   "test": {

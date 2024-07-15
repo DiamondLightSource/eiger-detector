@@ -56,4 +56,4 @@ Indices and tables
     https://github.com/odin-detector
 
 .. _ADOdin:
-    https://github.com/dls-controls/ADOdin
+    https://github.com/DiamondLightSource/ADOdin

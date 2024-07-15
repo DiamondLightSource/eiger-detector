@@ -24,7 +24,7 @@ Step By Step
 1) Make sure you have read the :ref:`prereq`
 2) Clone the eiger-detector github repository::
 
-    git clone https://github.com/dls-controls/eiger-detector.git
+    git clone https://github.com/DiamondLightSource/eiger-detector.git
 
 3) Change into the docker directory present in the module::
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 HDF5FILTERS_PREFIX=$HOME/hdf5filters
-git clone https://github.com/dls-controls/hdf5filters.git
+git clone https://github.com/DiamondLightSource/hdf5filters.git
 cd hdf5filters
 git checkout master
 mkdir -p cmake-build;
