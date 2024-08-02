@@ -1,14 +1,18 @@
 [
   {
     "version": "1.16.0beta2",
-    "url": "https://dls-controls.github.io/eiger-detector/1.16.0beta2/"
+    "url": "https://DiamondLightSource.github.io/eiger-detector/1.16.0beta2/"
   },
   {
     "version": "1.16.0beta1",
-    "url": "https://dls-controls.github.io/eiger-detector/1.16.0beta1/"
+    "url": "https://DiamondLightSource.github.io/eiger-detector/1.16.0beta1/"
   },
   {
     "version": "1.15.1",
-    "url": "https://dls-controls.github.io/eiger-detector/1.15.1/"
+    "url": "https://DiamondLightSource.github.io/eiger-detector/1.15.1/"
+  },
+  {
+    "version": "0.16.0beta3",
+    "url": "https://DiamondLightSource.github.io/eiger-detector/0.16.0beta3/"
   }
 ]
