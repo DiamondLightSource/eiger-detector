@@ -149,7 +149,7 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
       ("logconfig,l", po::value<std::string>(),
           "Set the log4cxx logging configuration file")
       ("threads,t", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_THREADS),
-          "Set the number of 0MQ threads for the 0MQ context")
+          "Set the number of zmq threads for the zmq context")
       ("consumers,n", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_CONSUMERS),
           "Set the number of expected consumers")
       ("eigerport,e", po::value<std::string>()->default_value(EigerFanDefaults::DEFAULT_EIGER_PORT_NUMBER),
@@ -160,8 +160,8 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
           "Set the port to accept control messages on")
       ("addr,s", po::value<std::string>()->default_value(EigerFanDefaults::DEFAULT_STREAM_ADDRESS),
           "Set the address of the stream to connect to")
-      ("sockets,z", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_SOCKETS),
-          "Set the number of zmq sockets to connect to the Eiger with")
+      ("contextthreads,z", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_CONTEXT_THREADS),
+          "Set the number of zmq context threads to connect to the Eiger with")
       ("blocksize,b", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_BLOCK_SIZE),
           "Set the block size being used by the downstream data file writers to")
       ;
@@ -261,10 +261,10 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
       LOG4CXX_DEBUG(logger, "Setting Eiger stream address to " << cfg.getEigerChannelAddress());
     }
 
-    if (vm.count("sockets"))
+    if (vm.count("contextthreads"))
     {
-      cfg.setNum0MQSockets(vm["sockets"].as<unsigned int>());
-      LOG4CXX_DEBUG(logger, "Setting number of ZeroMQ sockets to " << cfg.getNum0MQSockets());
+      cfg.setNum0MQContextThreads(vm["contextthreads"].as<unsigned int>());
+      LOG4CXX_DEBUG(logger, "Setting number of ZeroMQ context threads to " << cfg.getNum0MQContextThreads());
     }
 
     if (vm.count("blocksize"))

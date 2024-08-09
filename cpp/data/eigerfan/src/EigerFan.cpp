@@ -73,7 +73,7 @@ std::string PadInt(int value) {
  * Default constructor for the EigerFan class
  */
 EigerFan::EigerFan()
-: ctx_(EigerFanDefaults::DEFAULT_NUM_THREADS),
+: ctx_(EigerFanDefaults::DEFAULT_NUM_CONTEXT_THREADS),
   controlSocket(ctx_, ZMQ_ROUTER),
   forwardSocket(ctx_, ZMQ_PUSH),
   broker(BROKER_INPROC_ENDPOINT, 1)
@@ -99,7 +99,7 @@ EigerFan::EigerFan()
  * \param[in] config_ Config options
  */
 EigerFan::EigerFan(EigerFanConfig config_)
-: ctx_(config_.num_zmq_threads),
+: ctx_(config_.num_zmq_context_threads),
   controlSocket(ctx_, ZMQ_ROUTER),
   forwardSocket(ctx_, ZMQ_PUSH),
   broker(BROKER_INPROC_ENDPOINT, 8)
@@ -1005,12 +1005,12 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       rapidjson::Value valueNumZMQThreads(config.num_zmq_threads);
       document.AddMember(keyNumZMQThreads, valueNumZMQThreads, document.GetAllocator());
 
-      // Add Number of 0MQ sockets
-      rapidjson::Value keyNumZMQSockets("num_zmq_sockets", document.GetAllocator());
-      rapidjson::Value valueNumZMQSockets(config.num_zmq_sockets);
-      document.AddMember(keyNumZMQSockets, valueNumZMQSockets, document.GetAllocator());
+      // Add Number of 0MQ context threads
+      rapidjson::Value keyNumZMQContextThreads("num_zmq_context_threads", document.GetAllocator());
+      rapidjson::Value valueNumZMQContextThreads(config.num_zmq_context_threads);
+      document.AddMember(keyNumZMQContextThreads, valueNumZMQContextThreads, document.GetAllocator());
 
-      // Add Number of 0MQ threads
+      // Add Number of 0MQ consumers
       rapidjson::Value keyNumConsumers("num_consumers", document.GetAllocator());
       rapidjson::Value valueNumConsumers(config.num_consumers);
       document.AddMember(keyNumConsumers, valueNumConsumers, document.GetAllocator());
