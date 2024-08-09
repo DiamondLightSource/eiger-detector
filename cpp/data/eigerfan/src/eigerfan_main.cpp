@@ -149,7 +149,7 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
       ("logconfig,l", po::value<std::string>(),
           "Set the log4cxx logging configuration file")
       ("threads,t", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_THREADS),
-          "Set the number of zmq threads for the zmq context")
+          "Set the number of threads to create to pull detector data")
       ("consumers,n", po::value<unsigned int>()->default_value(EigerFanDefaults::DEFAULT_NUM_CONSUMERS),
           "Set the number of expected consumers")
       ("eigerport,e", po::value<std::string>()->default_value(EigerFanDefaults::DEFAULT_EIGER_PORT_NUMBER),
