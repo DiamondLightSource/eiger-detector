@@ -16,8 +16,6 @@
 
 #include "EigerFan.h"
 
-#include "EigerFan.h"
-
 // Utility variables
 int more;
 size_t more_size = sizeof (more);
