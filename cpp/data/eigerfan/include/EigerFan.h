@@ -36,7 +36,7 @@ public:
   EigerFan(EigerFanConfig config_);
   virtual ~EigerFan();
   void run();
-  void HandleRxSocket(std::string& endpoint);
+  void HandleRxSocket(std::string& endpoint, int num_zmq_context_threads);
   void Stop();
   void SetNumberOfConsumers(int number);
 

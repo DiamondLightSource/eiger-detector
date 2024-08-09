@@ -308,7 +308,7 @@ void EigerFan::run() {
   // Spawn rx thread
   LOG4CXX_INFO(log, "Spawning rx thread");
   this->rx_thread_ = boost::shared_ptr<boost::thread>(
-    new boost::thread(boost::bind(&EigerFan::HandleRxSocket, this, streamConnectionAddress))
+    new boost::thread(boost::bind(&EigerFan::HandleRxSocket, this, streamConnectionAddress, config.num_zmq_context_threads))
   );
 
   while (state != WAITING_STREAM) {
@@ -360,8 +360,8 @@ void EigerFan::run() {
 /**
  * Connect broker to detector and handle the messages it produces
  */
-void EigerFan::HandleRxSocket(std::string& endpoint) {
-  zmq::context_t inproc_context(8);
+void EigerFan::HandleRxSocket(std::string& endpoint, int num_zmq_context_threads) {
+  zmq::context_t inproc_context(num_zmq_context_threads);
   zmq::socket_t rx_socket(inproc_context, ZMQ_PULL);
   rx_socket.setsockopt(ZMQ_RCVHWM, &RECEIVE_HWM, sizeof(RECEIVE_HWM));
   rx_socket.bind(BROKER_INPROC_ENDPOINT.c_str());
