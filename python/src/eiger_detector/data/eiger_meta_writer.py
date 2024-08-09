@@ -137,6 +137,7 @@ DEGREES = units("deg")
 SECONDS = units("s")
 METERS = units("m")
 ELECTRON_VOLTS = units("eV")
+ANGSTROM = units("A")
 
 
 def dectris(suffix):
@@ -207,14 +208,14 @@ class EigerMetaWriter(MetaWriter):
                 dectris(DETECTOR_NUMBER), encoding="ascii", length=100, cache=False
             ),
             Float64HDF5Dataset(dectris(DETECTOR_READOUT_TIME), cache=False, attributes=SECONDS),
-            Float64HDF5Dataset(dectris(DETECTOR_TRANSLATION), cache=False),
+            Float64HDF5Dataset(dectris(DETECTOR_TRANSLATION), cache=False, attributes=METERS),
             StringHDF5Dataset(
                 dectris(EIGER_FW_VERSION), encoding="ascii", length=100, cache=False
             ),
             Int64HDF5Dataset(dectris(FLATFIELD_CORRECTION_APPLIED), cache=False),
-            Int64HDF5Dataset(dectris(FRAME_COUNT_TIME), cache=False),
-            Int64HDF5Dataset(dectris(FRAME_PERIOD), cache=False),
-            Float64HDF5Dataset(dectris(FRAME_TIME), cache=False),
+            Int64HDF5Dataset(dectris(FRAME_COUNT_TIME), cache=False, attributes=SECONDS),
+            Int64HDF5Dataset(dectris(FRAME_PERIOD), cache=False, attributes=SECONDS),
+            Float64HDF5Dataset(dectris(FRAME_TIME), cache=False, attributes=SECONDS),
             Float64HDF5Dataset(dectris(KAPPA_INCREMENT), cache=False, attributes=DEGREES),
             Float64HDF5Dataset(dectris(KAPPA_START), cache=False, attributes=DEGREES),
             Int64HDF5Dataset(dectris(NIMAGES), cache=False),
@@ -238,10 +239,10 @@ class EigerMetaWriter(MetaWriter):
             Float64HDF5Dataset(dectris(TWO_THETA_INCREMENT), cache=False, attributes=DEGREES),
             Float64HDF5Dataset(dectris(TWO_THETA_START), cache=False, attributes=DEGREES),
             Int64HDF5Dataset(dectris(VIRTUAL_PIXEL_CORRECTION_APPLIED), cache=False),
-            Float64HDF5Dataset(dectris(WAVELENGTH), cache=False),
-            Float64HDF5Dataset(dectris(X_PIXEL_SIZE), cache=False),
+            Float64HDF5Dataset(dectris(WAVELENGTH), cache=False, attributes=ANGSTROM),
+            Float64HDF5Dataset(dectris(X_PIXEL_SIZE), cache=False, attributes=METERS),
             Int64HDF5Dataset(dectris(X_PIXELS_IN_DETECTOR), cache=False, attributes=PIXELS),
-            Float64HDF5Dataset(dectris(Y_PIXEL_SIZE), cache=False),
+            Float64HDF5Dataset(dectris(Y_PIXEL_SIZE), cache=False, attributes=METERS),
             Int64HDF5Dataset(dectris(Y_PIXELS_IN_DETECTOR), cache=False, attributes=PIXELS),
         ]
 
