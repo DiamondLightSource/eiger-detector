@@ -76,7 +76,7 @@ EigerFan::EigerFan()
 : ctx_(EigerFanDefaults::DEFAULT_NUM_CONTEXT_THREADS),
   controlSocket(ctx_, ZMQ_ROUTER),
   forwardSocket(ctx_, ZMQ_PUSH),
-  broker(BROKER_INPROC_ENDPOINT, 1)
+  broker(BROKER_INPROC_ENDPOINT, EigerFanDefaults::DEFAULT_NUM_THREADS)
 {
   this->log = log4cxx::Logger::getLogger("ED.EigerFan");
   LOG4CXX_INFO(log, "Creating EigerFan object from default options");
@@ -102,7 +102,7 @@ EigerFan::EigerFan(EigerFanConfig config_)
 : ctx_(config_.num_zmq_context_threads),
   controlSocket(ctx_, ZMQ_ROUTER),
   forwardSocket(ctx_, ZMQ_PUSH),
-  broker(BROKER_INPROC_ENDPOINT, 8)
+  broker(BROKER_INPROC_ENDPOINT, config_.num_zmq_threads)
 {
   this->log = log4cxx::Logger::getLogger("ED.EigerFan");
   config = config_;
