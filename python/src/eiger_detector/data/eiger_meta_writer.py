@@ -12,6 +12,7 @@ from odin_data.meta_writer.hdf5dataset import (
     Int32HDF5Dataset,
     Int64HDF5Dataset,
     StringHDF5Dataset,
+    units
 )
 from odin_data.meta_writer.meta_writer import FRAME, MetaWriter
 from odin_data.util import construct_version_dict
@@ -130,6 +131,14 @@ COUNTRATE = "countrate"
 FLATFIELD = "flatfield"
 MASK = "mask"
 
+# Units
+PIXELS = units("pixels")
+DEGREES = units("deg")
+SECONDS = units("s")
+METERS = units("m")
+ELECTRON_VOLTS = units("eV")
+ANGSTROM = units("A")
+
 
 def dectris(suffix):
     return "_dectris/{}".format(suffix)
@@ -176,16 +185,16 @@ class EigerMetaWriter(MetaWriter):
             ),
             Int32HDF5Dataset(MASK, shape=self._sensor_shape, rank=2, cache=False),
             Int64HDF5Dataset(dectris(AUTO_SUMMATION), cache=False),
-            Float64HDF5Dataset(dectris(BEAM_CENTER_X), cache=False),
-            Float64HDF5Dataset(dectris(BEAM_CENTER_Y), cache=False),
+            Float64HDF5Dataset(dectris(BEAM_CENTER_X), cache=False, attributes=PIXELS),
+            Float64HDF5Dataset(dectris(BEAM_CENTER_Y), cache=False, attributes=PIXELS),
             Int64HDF5Dataset(dectris(BIT_DEPTH_IMAGE), cache=False),
             Int64HDF5Dataset(dectris(BIT_DEPTH_READOUT), cache=False),
-            Float64HDF5Dataset(dectris(CHI_INCREMENT), cache=False),
-            Float64HDF5Dataset(dectris(CHI_START), cache=False),
+            Float64HDF5Dataset(dectris(CHI_INCREMENT), cache=False, attributes=DEGREES),
+            Float64HDF5Dataset(dectris(CHI_START), cache=False, attributes=DEGREES),
             StringHDF5Dataset(
                 dectris(COMPRESSION), encoding="ascii", length=6, cache=False
             ),
-            Float64HDF5Dataset(dectris(COUNT_TIME), cache=False),
+            Float64HDF5Dataset(dectris(COUNT_TIME), cache=False, attributes=SECONDS),
             Int64HDF5Dataset(dectris(COUNTRATE_CORRECTION_APPLIED), cache=False),
             Int64HDF5Dataset(dectris(COUNTRATE_CORRECTION_COUNT_CUTOFF), cache=False),
             StringHDF5Dataset(
@@ -194,47 +203,47 @@ class EigerMetaWriter(MetaWriter):
             StringHDF5Dataset(
                 dectris(DESCRIPTION), encoding="ascii", length=100, cache=False
             ),
-            Float64HDF5Dataset(dectris(DETECTOR_DISTANCE), cache=False),
+            Float64HDF5Dataset(dectris(DETECTOR_DISTANCE), cache=False, attributes=METERS),
             StringHDF5Dataset(
                 dectris(DETECTOR_NUMBER), encoding="ascii", length=100, cache=False
             ),
-            Float64HDF5Dataset(dectris(DETECTOR_READOUT_TIME), cache=False),
-            Float64HDF5Dataset(dectris(DETECTOR_TRANSLATION), cache=False),
+            Float64HDF5Dataset(dectris(DETECTOR_READOUT_TIME), cache=False, attributes=SECONDS),
+            Float64HDF5Dataset(dectris(DETECTOR_TRANSLATION), cache=False, attributes=METERS),
             StringHDF5Dataset(
                 dectris(EIGER_FW_VERSION), encoding="ascii", length=100, cache=False
             ),
             Int64HDF5Dataset(dectris(FLATFIELD_CORRECTION_APPLIED), cache=False),
-            Int64HDF5Dataset(dectris(FRAME_COUNT_TIME), cache=False),
-            Int64HDF5Dataset(dectris(FRAME_PERIOD), cache=False),
-            Float64HDF5Dataset(dectris(FRAME_TIME), cache=False),
-            Float64HDF5Dataset(dectris(KAPPA_INCREMENT), cache=False),
-            Float64HDF5Dataset(dectris(KAPPA_START), cache=False),
+            Int64HDF5Dataset(dectris(FRAME_COUNT_TIME), cache=False, attributes=SECONDS),
+            Int64HDF5Dataset(dectris(FRAME_PERIOD), cache=False, attributes=SECONDS),
+            Float64HDF5Dataset(dectris(FRAME_TIME), cache=False, attributes=SECONDS),
+            Float64HDF5Dataset(dectris(KAPPA_INCREMENT), cache=False, attributes=DEGREES),
+            Float64HDF5Dataset(dectris(KAPPA_START), cache=False, attributes=DEGREES),
             Int64HDF5Dataset(dectris(NIMAGES), cache=False),
             Int64HDF5Dataset(dectris(NTRIGGER), cache=False),
             Int64HDF5Dataset(dectris(NUMBER_OF_EXCLUDED_PIXELS), cache=False),
-            Float64HDF5Dataset(dectris(OMEGA_INCREMENT), cache=False),
-            Float64HDF5Dataset(dectris(OMEGA_START), cache=False),
-            Float64HDF5Dataset(dectris(PHI_INCREMENT), cache=False),
-            Float64HDF5Dataset(dectris(PHI_START), cache=False),
-            Float64HDF5Dataset(dectris(PHOTON_ENERGY), cache=False),
+            Float64HDF5Dataset(dectris(OMEGA_INCREMENT), cache=False, attributes=DEGREES),
+            Float64HDF5Dataset(dectris(OMEGA_START), cache=False, attributes=DEGREES),
+            Float64HDF5Dataset(dectris(PHI_INCREMENT), cache=False, attributes=DEGREES),
+            Float64HDF5Dataset(dectris(PHI_START), cache=False, attributes=DEGREES),
+            Float64HDF5Dataset(dectris(PHOTON_ENERGY), cache=False, attributes=ELECTRON_VOLTS),
             Int64HDF5Dataset(dectris(PIXEL_MASK_APPLIED), cache=False),
             StringHDF5Dataset(
                 dectris(SENSOR_MATERIAL), encoding="ascii", length=100, cache=False
             ),
-            Float64HDF5Dataset(dectris(SENSOR_THICKNESS), cache=False),
+            Float64HDF5Dataset(dectris(SENSOR_THICKNESS), cache=False, attributes=METERS),
             StringHDF5Dataset(
                 dectris(SOFTWARE_VERSION), encoding="ascii", length=100, cache=False
             ),
-            Float64HDF5Dataset(dectris(THRESHOLD_ENERGY), cache=False),
+            Float64HDF5Dataset(dectris(THRESHOLD_ENERGY), cache=False, attributes=ELECTRON_VOLTS),
             StringHDF5Dataset(dectris(TRIGGER_MODE), length=4, cache=False),
-            Float64HDF5Dataset(dectris(TWO_THETA_INCREMENT), cache=False),
-            Float64HDF5Dataset(dectris(TWO_THETA_START), cache=False),
+            Float64HDF5Dataset(dectris(TWO_THETA_INCREMENT), cache=False, attributes=DEGREES),
+            Float64HDF5Dataset(dectris(TWO_THETA_START), cache=False, attributes=DEGREES),
             Int64HDF5Dataset(dectris(VIRTUAL_PIXEL_CORRECTION_APPLIED), cache=False),
-            Float64HDF5Dataset(dectris(WAVELENGTH), cache=False),
-            Float64HDF5Dataset(dectris(X_PIXEL_SIZE), cache=False),
-            Int64HDF5Dataset(dectris(X_PIXELS_IN_DETECTOR), cache=False),
-            Float64HDF5Dataset(dectris(Y_PIXEL_SIZE), cache=False),
-            Int64HDF5Dataset(dectris(Y_PIXELS_IN_DETECTOR), cache=False),
+            Float64HDF5Dataset(dectris(WAVELENGTH), cache=False, attributes=ANGSTROM),
+            Float64HDF5Dataset(dectris(X_PIXEL_SIZE), cache=False, attributes=METERS),
+            Int64HDF5Dataset(dectris(X_PIXELS_IN_DETECTOR), cache=False, attributes=PIXELS),
+            Float64HDF5Dataset(dectris(Y_PIXEL_SIZE), cache=False, attributes=METERS),
+            Int64HDF5Dataset(dectris(Y_PIXELS_IN_DETECTOR), cache=False, attributes=PIXELS),
         ]
 
     @property
