@@ -1007,6 +1007,11 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       rapidjson::Value valueFanPort(config.fan_channel_port_start);
       document.AddMember(keyFanPort, valueFanPort, document.GetAllocator());
 
+      // Add acquisition ID
+      rapidjson::Value keyAcqID(CONTROL_ACQ_ID, document.GetAllocator());
+      rapidjson::Value valueAcqID(configuredAcquisitionID, document.GetAllocator());
+      document.AddMember(keyAcqID, valueAcqID, document.GetAllocator());
+
       // Add block size
       rapidjson::Value keyBlockSize(CONTROL_BLOCK_SIZE, document.GetAllocator());
       rapidjson::Value valueBlockSize(config.block_size);
