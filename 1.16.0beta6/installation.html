@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation &mdash; Eiger Detector 1.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=44dfd65d"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="User Manual" href="userguide.html" />
+    <link rel="prev" title="Quickstart Guide" href="quickstart.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Eiger Detector
+          </a>
+              <div class="version">
+                1.5
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installing-from-source">Installing From Source</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#file-writing-libraries">File Writing Libraries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-odin-control">Installing Odin-Control</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-odin-data">Installing Odin-Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-eiger-detector">Installing Eiger-Detector</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#installation-using-docker">Installation Using Docker</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="userguide.html">User Manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Eiger Detector</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Installation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/installation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
+<section id="installing-from-source">
+<h2>Installing From Source<a class="headerlink" href="#installing-from-source" title="Link to this heading"></a></h2>
+<p>Installation from source requires several tools and external packages to be available as
+well as the building and installation of three Odin and Eiger specific software packages.
+This guide assumes the the installation is taking place on a CentOS 7 (or RHEL 7) operating
+system.  The source can also be built for other operating systems;
+any operating system specific package installation commands should simply be replaced with
+the equivalent command for the chosen operating system.</p>
+<section id="prerequisites">
+<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h3>
+<p>The Odin and Eiger software requires standard C, C++ and python development tools to be
+present.  The following libraries and tools are also required:</p>
+<ul class="simple">
+<li><p>boost (add link)</p></li>
+<li><p>cmake (add link)</p></li>
+<li><p>log4cxx (add link)</p></li>
+<li><p>ZeroMQ (add link)</p></li>
+<li><p>pcap (add link)</p></li>
+<li><p>Cython (add link)</p></li>
+<li><p>Python Pip (add link)</p></li>
+<li><p>Python Virtual Environment (add link)</p></li>
+</ul>
+<p>All of the above packages can be installed from the default package manager Yum (add link)
+with the following commands:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">epel</span><span class="o">-</span><span class="n">release</span>
+<span class="n">yum</span> <span class="n">groupinstall</span> <span class="o">-</span><span class="n">y</span> <span class="s1">&#39;Development Tools&#39;</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">boost</span> <span class="n">boost</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">cmake</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">log4cxx</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">zeromq3</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">libpcap</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">python2</span><span class="o">-</span><span class="n">pip</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">python</span><span class="o">-</span><span class="n">virtualenv</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">Cython</span>
+</pre></div>
+</div>
+<p>For all remaining sections of this installation guide it is assumed that source files are
+going to be located in the directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span>
+</pre></div>
+</div>
+<p>and the installed files will be located in the directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">prefix</span>
+</pre></div>
+</div>
+</section>
+<section id="file-writing-libraries">
+<h3>File Writing Libraries<a class="headerlink" href="#file-writing-libraries" title="Link to this heading"></a></h3>
+<p>As well as the tools and libraries mentioned above there are two libraries required for the writing of
+data to disk and for compression of that data should it be required.  The files are saved
+using the HDF5 file format and it is higly recommended to install from source a release of
+the HDF5 library which is at version 1.10.4 or greater:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span>
+<span class="n">curl</span> <span class="o">-</span><span class="n">L</span> <span class="o">-</span><span class="n">O</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="o">.</span><span class="n">hdfgroup</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">ftp</span><span class="o">/</span><span class="n">HDF5</span><span class="o">/</span><span class="n">releases</span><span class="o">/</span><span class="n">hdf5</span><span class="o">-</span><span class="mf">1.10</span><span class="o">/</span><span class="n">hdf5</span><span class="o">-</span><span class="mf">1.10.4</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">hdf5</span><span class="o">-</span><span class="mf">1.10.4</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">bz2</span>
+<span class="n">tar</span> <span class="o">-</span><span class="n">jxf</span> <span class="n">hdf5</span><span class="o">-</span><span class="mf">1.10.4</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">bz2</span>
+<span class="n">mkdir</span> <span class="o">-</span><span class="n">p</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">build</span><span class="o">-</span><span class="n">hdf5</span><span class="o">-</span><span class="mf">1.10</span>
+<span class="n">cd</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">build</span><span class="o">-</span><span class="n">hdf5</span><span class="o">-</span><span class="mf">1.10</span>
+<span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">hdf5</span><span class="o">-</span><span class="mf">1.10.4</span><span class="o">/</span><span class="n">configure</span> <span class="o">--</span><span class="n">prefix</span><span class="o">=/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">prefix</span>
+<span class="n">make</span> <span class="o">&gt;&gt;</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">hdf5build</span><span class="o">.</span><span class="n">log</span> <span class="mi">2</span><span class="o">&gt;&amp;</span><span class="mi">1</span>
+<span class="n">make</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>Odin-Data supports writing compressed data files using the Blosc high performance compressor optimised for
+binary data.  The Blosc compressor is supplied as an optional odin-data plugin and requires the Blosc
+compression library to be installed.  The following instructions will install the Blosc library:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span>
+<span class="n">curl</span> <span class="o">-</span><span class="n">L</span> <span class="o">-</span><span class="n">s</span> <span class="o">-</span><span class="n">o</span> <span class="n">c</span><span class="o">-</span><span class="n">blosc</span><span class="o">-</span><span class="mf">1.14.2</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span> <span class="o">-</span><span class="n">O</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">Blosc</span><span class="o">/</span><span class="n">c</span><span class="o">-</span><span class="n">blosc</span><span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">v1</span><span class="mf">.14.2</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span>
+<span class="n">tar</span> <span class="o">-</span><span class="n">zxf</span> <span class="n">c</span><span class="o">-</span><span class="n">blosc</span><span class="o">-</span><span class="mf">1.14.2</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span>
+<span class="n">mkdir</span> <span class="o">-</span><span class="n">p</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">build</span><span class="o">-</span><span class="n">blosc</span>
+<span class="n">cd</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">build</span><span class="o">-</span><span class="n">blosc</span>
+<span class="n">cmake</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">c</span><span class="o">-</span><span class="n">blosc</span><span class="o">-</span><span class="mf">1.14.2</span><span class="o">/</span> <span class="o">-</span><span class="n">DCMAKE_INSTALL_PREFIX</span><span class="o">=/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">prefix</span>
+<span class="n">make</span> <span class="o">&gt;&gt;</span> <span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">eiger</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">bloscbuild</span><span class="o">.</span><span class="n">log</span> <span class="mi">2</span><span class="o">&gt;&amp;</span><span class="mi">1</span>
+<span class="n">make</span> <span class="n">install</span>
+</pre></div>
+</div>
+</section>
+<section id="installing-odin-control">
+<h3>Installing Odin-Control<a class="headerlink" href="#installing-odin-control" title="Link to this heading"></a></h3>
+<p><em>Section TBD</em></p>
+</section>
+<section id="installing-odin-data">
+<h3>Installing Odin-Data<a class="headerlink" href="#installing-odin-data" title="Link to this heading"></a></h3>
+<p><em>Section TBD</em></p>
+</section>
+<section id="installing-eiger-detector">
+<h3>Installing Eiger-Detector<a class="headerlink" href="#installing-eiger-detector" title="Link to this heading"></a></h3>
+<p><em>Section TBD</em></p>
+</section>
+</section>
+<section id="installation-using-docker">
+<h2>Installation Using Docker<a class="headerlink" href="#installation-using-docker" title="Link to this heading"></a></h2>
+<p><em>Section TBD</em></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="Quickstart Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="userguide.html" class="btn btn-neutral float-right" title="User Manual" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Alan Greer.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
