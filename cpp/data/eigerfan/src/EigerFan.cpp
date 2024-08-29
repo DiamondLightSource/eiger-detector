@@ -16,8 +16,6 @@
 
 #include "EigerFan.h"
 
-#include "EigerFan.h"
-
 // Utility variables
 int more;
 size_t more_size = sizeof (more);
@@ -73,10 +71,10 @@ std::string PadInt(int value) {
  * Default constructor for the EigerFan class
  */
 EigerFan::EigerFan()
-: ctx_(EigerFanDefaults::DEFAULT_NUM_THREADS),
+: ctx_(EigerFanDefaults::DEFAULT_NUM_CONTEXT_THREADS),
   controlSocket(ctx_, ZMQ_ROUTER),
   forwardSocket(ctx_, ZMQ_PUSH),
-  broker(BROKER_INPROC_ENDPOINT, 1)
+  broker(BROKER_INPROC_ENDPOINT, EigerFanDefaults::DEFAULT_NUM_THREADS)
 {
   this->log = log4cxx::Logger::getLogger("ED.EigerFan");
   LOG4CXX_INFO(log, "Creating EigerFan object from default options");
@@ -99,10 +97,10 @@ EigerFan::EigerFan()
  * \param[in] config_ Config options
  */
 EigerFan::EigerFan(EigerFanConfig config_)
-: ctx_(config_.num_zmq_threads),
+: ctx_(config_.num_zmq_context_threads),
   controlSocket(ctx_, ZMQ_ROUTER),
   forwardSocket(ctx_, ZMQ_PUSH),
-  broker(BROKER_INPROC_ENDPOINT, 8)
+  broker(BROKER_INPROC_ENDPOINT, config_.num_threads)
 {
   this->log = log4cxx::Logger::getLogger("ED.EigerFan");
   config = config_;
@@ -308,7 +306,7 @@ void EigerFan::run() {
   // Spawn rx thread
   LOG4CXX_INFO(log, "Spawning rx thread");
   this->rx_thread_ = boost::shared_ptr<boost::thread>(
-    new boost::thread(boost::bind(&EigerFan::HandleRxSocket, this, streamConnectionAddress))
+    new boost::thread(boost::bind(&EigerFan::HandleRxSocket, this, streamConnectionAddress, config.num_zmq_context_threads))
   );
 
   while (state != WAITING_STREAM) {
@@ -360,8 +358,8 @@ void EigerFan::run() {
 /**
  * Connect broker to detector and handle the messages it produces
  */
-void EigerFan::HandleRxSocket(std::string& endpoint) {
-  zmq::context_t inproc_context(8);
+void EigerFan::HandleRxSocket(std::string& endpoint, int num_zmq_context_threads) {
+  zmq::context_t inproc_context(num_zmq_context_threads);
   zmq::socket_t rx_socket(inproc_context, ZMQ_PULL);
   rx_socket.setsockopt(ZMQ_RCVHWM, &RECEIVE_HWM, sizeof(RECEIVE_HWM));
   rx_socket.bind(BROKER_INPROC_ENDPOINT.c_str());
@@ -1000,17 +998,17 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       rapidjson::Document document;
       document.SetObject();
 
-      // Add Number of 0MQ threads
-      rapidjson::Value keyNumZMQThreads("num_zmq_threads", document.GetAllocator());
-      rapidjson::Value valueNumZMQThreads(config.num_zmq_threads);
-      document.AddMember(keyNumZMQThreads, valueNumZMQThreads, document.GetAllocator());
+      // Add Number of threads
+      rapidjson::Value keyNumThreads("num_threads", document.GetAllocator());
+      rapidjson::Value valueNumThreads(config.num_threads);
+      document.AddMember(keyNumThreads, valueNumThreads, document.GetAllocator());
 
-      // Add Number of 0MQ sockets
-      rapidjson::Value keyNumZMQSockets("num_zmq_sockets", document.GetAllocator());
-      rapidjson::Value valueNumZMQSockets(config.num_zmq_sockets);
-      document.AddMember(keyNumZMQSockets, valueNumZMQSockets, document.GetAllocator());
+      // Add Number of 0MQ context threads
+      rapidjson::Value keyNumZMQContextThreads("num_zmq_context_threads", document.GetAllocator());
+      rapidjson::Value valueNumZMQContextThreads(config.num_zmq_context_threads);
+      document.AddMember(keyNumZMQContextThreads, valueNumZMQContextThreads, document.GetAllocator());
 
-      // Add Number of 0MQ threads
+      // Add Number of 0MQ consumers
       rapidjson::Value keyNumConsumers("num_consumers", document.GetAllocator());
       rapidjson::Value valueNumConsumers(config.num_consumers);
       document.AddMember(keyNumConsumers, valueNumConsumers, document.GetAllocator());
