@@ -227,8 +227,8 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 
     if (vm.count("threads"))
     {
-      cfg.setNum0MQThreads(vm["threads"].as<unsigned int>());
-      LOG4CXX_DEBUG(logger, "Setting number of ZeroMQ threads to " << cfg.getNum0MQThreads());
+      cfg.setNumThreads(vm["threads"].as<unsigned int>());
+      LOG4CXX_DEBUG(logger, "Setting number of threads to " << cfg.getNumThreads());
     }
 
     if (vm.count("consumers"))

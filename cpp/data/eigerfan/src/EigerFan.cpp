@@ -100,7 +100,7 @@ EigerFan::EigerFan(EigerFanConfig config_)
 : ctx_(config_.num_zmq_context_threads),
   controlSocket(ctx_, ZMQ_ROUTER),
   forwardSocket(ctx_, ZMQ_PUSH),
-  broker(BROKER_INPROC_ENDPOINT, config_.num_zmq_threads)
+  broker(BROKER_INPROC_ENDPOINT, config_.num_threads)
 {
   this->log = log4cxx::Logger::getLogger("ED.EigerFan");
   config = config_;
@@ -998,10 +998,10 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       rapidjson::Document document;
       document.SetObject();
 
-      // Add Number of 0MQ threads
-      rapidjson::Value keyNumZMQThreads("num_zmq_threads", document.GetAllocator());
-      rapidjson::Value valueNumZMQThreads(config.num_zmq_threads);
-      document.AddMember(keyNumZMQThreads, valueNumZMQThreads, document.GetAllocator());
+      // Add Number of threads
+      rapidjson::Value keyNumThreads("num_threads", document.GetAllocator());
+      rapidjson::Value valueNumThreads(config.num_threads);
+      document.AddMember(keyNumThreads, valueNumThreads, document.GetAllocator());
 
       // Add Number of 0MQ context threads
       rapidjson::Value keyNumZMQContextThreads("num_zmq_context_threads", document.GetAllocator());

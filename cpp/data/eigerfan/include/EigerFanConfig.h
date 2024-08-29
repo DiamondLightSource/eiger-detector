@@ -27,7 +27,7 @@ class EigerFanConfig
 public:
 
   EigerFanConfig() :
-    num_zmq_threads(EigerFanDefaults::DEFAULT_NUM_THREADS),
+    num_threads(EigerFanDefaults::DEFAULT_NUM_THREADS),
     num_consumers(EigerFanDefaults::DEFAULT_NUM_CONSUMERS),
     ctrl_channel_port(EigerFanDefaults::DEFAULT_CONTROL_PORT_NUMBER),
     eiger_channel_address(EigerFanDefaults::DEFAULT_STREAM_ADDRESS),
@@ -51,8 +51,8 @@ public:
     num_consumers = numConsumers;
   }
 
-  void setNum0MQThreads(int numZmqThreads) {
-    num_zmq_threads = numZmqThreads;
+  void setNumThreads(int numThreads) {
+    num_threads = numThreads;
   }
 
   void setFanChannelPortStart(int fanChannelPortStart) {
@@ -83,8 +83,8 @@ public:
     return num_consumers;
   }
 
-  int getNum0MQThreads() const {
-    return num_zmq_threads;
+  int getNumThreads() const {
+    return num_threads;
   }
 
   int getFanChannelPortStart() const {
@@ -105,7 +105,7 @@ public:
 
 private:
 
-  int                   num_zmq_threads;    // Number of 0MQ threads
+  int                   num_threads;    // Number of 0MQ threads
   int                   num_consumers;    // Expected number of consumers
   std::string           ctrl_channel_port;  // Port to bind to for the control channel
   std::string           eiger_channel_address;  // Address to connect to for the Eiger Stream
