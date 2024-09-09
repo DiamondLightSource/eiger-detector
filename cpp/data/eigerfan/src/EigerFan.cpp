@@ -363,8 +363,6 @@ void EigerFan::HandleRxSocket(std::string& endpoint, int num_zmq_context_threads
   zmq::socket_t rx_socket(inproc_context, ZMQ_PULL);
   rx_socket.setsockopt(ZMQ_RCVHWM, &RECEIVE_HWM, sizeof(RECEIVE_HWM));
   rx_socket.bind(BROKER_INPROC_ENDPOINT.c_str());
-  int hwm = 100000;
-  rx_socket.setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
   int linger = 100;
   rx_socket.setsockopt(ZMQ_LINGER, &linger, sizeof(linger));
   this->broker.connect(endpoint, &inproc_context);
