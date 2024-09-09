@@ -45,6 +45,7 @@ namespace Eiger {
   const int MORE_MESSAGES = 1;
   const int RECEIVE_HWM = 100000;
   const int SEND_HWM = 100000;
+  const int LINGER_TIMEOUT = 100;  // Socket linger timeout in milliseconds
 
   const std::string CONTROL_CMD_KEY = "msg_val";
   const std::string CONTROL_ID_KEY = "id";
