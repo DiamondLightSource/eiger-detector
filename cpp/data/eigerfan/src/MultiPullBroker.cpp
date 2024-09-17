@@ -47,8 +47,6 @@ void MultiPullBroker::connect(std::string& endpoint, void* inproc_context) {
  * \param[in] endpoint Endpoint of socket to pull data from
  */
 void MultiPullBroker::worker_loop(std::string& endpoint) {
-  int hwm = 10000;
-  int linger = 100;
 
   // Create source in new isolated context
   // It is important to create a new context in each worker thread, as there are
@@ -56,16 +54,16 @@ void MultiPullBroker::worker_loop(std::string& endpoint) {
   // threads on the context is not sufficient.
   zmq::context_t source_context(1);
   zmq::socket_t source_socket(source_context, ZMQ_PULL);
-  source_socket.setsockopt(ZMQ_SNDHWM, &hwm, sizeof(hwm));
-  source_socket.setsockopt(ZMQ_LINGER, &linger, sizeof(linger));
+  source_socket.setsockopt(ZMQ_SNDHWM, &WORKER_HWM, sizeof(WORKER_HWM));
+  source_socket.setsockopt(ZMQ_LINGER, &LINGER_TIMEOUT, sizeof(LINGER_TIMEOUT));
   source_socket.connect(endpoint.c_str());
 
   // Create sink socket in context of main thread
   // The sink sockets must use the context from the main thread to use the inproc://
   // protocol. If it uses a different context the client will not see the messages.
   zmq::socket_t sink_socket(*this->inproc_context_, ZMQ_PUSH);
-  sink_socket.setsockopt(ZMQ_SNDHWM, &hwm, sizeof(hwm));
-  sink_socket.setsockopt(ZMQ_LINGER, &linger, sizeof(linger));
+  sink_socket.setsockopt(ZMQ_SNDHWM, &WORKER_HWM, sizeof(WORKER_HWM));
+  sink_socket.setsockopt(ZMQ_LINGER, &LINGER_TIMEOUT, sizeof(LINGER_TIMEOUT));
   sink_socket.connect(this->sink_endpoint_.c_str());
 
   // Initialise recv variables
