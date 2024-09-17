@@ -45,7 +45,7 @@ namespace Eiger {
   const int MORE_MESSAGES = 1;
   const int RECEIVE_HWM = 100000;  // High water marks for the main receiver thread
   const int SEND_HWM = 100000;
-  const int WORKER_SEND_HWM = 10000;  // A lower high water mark for the worker threads
+  const int WORKER_HWM = 10000;  // A lower high water mark for the worker threads
   const int LINGER_TIMEOUT = 100;  // Socket linger timeout in milliseconds
 
   const std::string CONTROL_CMD_KEY = "msg_val";
