@@ -52,6 +52,8 @@ std::string GetStateString(EigerFanState state) {
   return "UNKNOWN STATE";
 }
 
+static std::string BROKER_INPROC_ENDPOINT = "inproc://broker";
+
 /**
  * Create a string of value padded with zeroes.
  *
@@ -69,9 +71,11 @@ std::string PadInt(int value) {
  * Default constructor for the EigerFan class
  */
 EigerFan::EigerFan()
-: ctx_(EigerFanDefaults::DEFAULT_NUM_THREADS),
+: ctx_(EigerFanDefaults::DEFAULT_NUM_CONTEXT_THREADS),
   controlSocket(ctx_, ZMQ_ROUTER),
-  forwardSocket(ctx_, ZMQ_PUSH) {
+  forwardSocket(ctx_, ZMQ_PUSH),
+  broker(BROKER_INPROC_ENDPOINT, EigerFanDefaults::DEFAULT_NUM_THREADS)
+{
   this->log = log4cxx::Logger::getLogger("ED.EigerFan");
   LOG4CXX_INFO(log, "Creating EigerFan object from default options");
   killRequested = false;
@@ -93,9 +97,11 @@ EigerFan::EigerFan()
  * \param[in] config_ Config options
  */
 EigerFan::EigerFan(EigerFanConfig config_)
-: ctx_(config_.num_zmq_threads),
+: ctx_(config_.num_zmq_context_threads),
   controlSocket(ctx_, ZMQ_ROUTER),
-  forwardSocket(ctx_, ZMQ_PUSH) {
+  forwardSocket(ctx_, ZMQ_PUSH),
+  broker(BROKER_INPROC_ENDPOINT, config_.num_threads)
+{
   this->log = log4cxx::Logger::getLogger("ED.EigerFan");
   config = config_;
   LOG4CXX_INFO(log, "Creating EigerFan object from config options");
@@ -126,14 +132,13 @@ EigerFan::~EigerFan() {
 void EigerFan::run() {
   LOG4CXX_INFO(log, "EigerFan::run()");
   LOG4CXX_INFO(log, "Starting EigerFan");
-  int linger = 100; // Socket linger timeout in milliseconds
 
   // Setup Control socket
   std::string controlAddress("tcp://*:");
   controlAddress.append(config.ctrl_channel_port);
   LOG4CXX_INFO(log, std::string("Binding control address to ").append(controlAddress));
   controlSocket.bind (controlAddress.c_str());
-  controlSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
+  controlSocket.setsockopt (ZMQ_LINGER, &LINGER_TIMEOUT, sizeof (LINGER_TIMEOUT));
 
   // Setup Fan Send Sockets
   for (int i = 0; i < config.num_consumers; i++) {
@@ -146,7 +151,7 @@ void EigerFan::run() {
     boost::shared_ptr<zmq::socket_t> sendSocket(new zmq::socket_t(ctx_, ZMQ_PUSH));
     sendSocket->setsockopt(ZMQ_SNDHWM, &SEND_HWM, sizeof (SEND_HWM));
     sendSocket->bind(fanAddress.str().c_str());
-    sendSocket->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
+    sendSocket->setsockopt (ZMQ_LINGER, &LINGER_TIMEOUT, sizeof (LINGER_TIMEOUT));
     EigerConsumer consumer;
     consumer.connected = false;
     consumer.sendSocket = sendSocket;
@@ -171,7 +176,7 @@ void EigerFan::run() {
     }
     boost::shared_ptr<zmq::socket_t> monitorSocket(new zmq::socket_t(ctx_, ZMQ_PAIR));
     monitorSocket->connect(monitorAddress.str().c_str());
-    monitorSocket->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
+    monitorSocket->setsockopt (ZMQ_LINGER, &LINGER_TIMEOUT, sizeof (LINGER_TIMEOUT));
     monitorSockets.push_back(monitorSocket);
   }
 
@@ -181,7 +186,7 @@ void EigerFan::run() {
   LOG4CXX_INFO(log, std::string("Binding forwarding address to ").append(forwardAddress));
   forwardSocket.setsockopt(ZMQ_SNDHWM, &SEND_HWM, sizeof (SEND_HWM));
   forwardSocket.bind(forwardAddress.c_str());
-  forwardSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
+  forwardSocket.setsockopt (ZMQ_LINGER, &LINGER_TIMEOUT, sizeof (LINGER_TIMEOUT));
 
   // Setup Forwarding Socket monitor
   std::ostringstream forwardMonitorAddress;
@@ -194,7 +199,7 @@ void EigerFan::run() {
   }
   zmq::socket_t forwardMonitorSocket(ctx_, ZMQ_PAIR);
   forwardMonitorSocket.connect(forwardMonitorAddress.str().c_str());
-  forwardMonitorSocket.setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
+  forwardMonitorSocket.setsockopt (ZMQ_LINGER, &LINGER_TIMEOUT, sizeof (LINGER_TIMEOUT));
 
   // Wait for configured number of consumers to connect
   LOG4CXX_INFO(log, "Waiting for Consumers");
@@ -272,7 +277,7 @@ void EigerFan::run() {
   LOG4CXX_INFO(log, std::string("Connecting to stream address at ").append(streamConnectionAddress));
 
   //  Initialise run poll set
-  zmq::pollitem_t runPollItems [config.num_consumers + 1 + 1 + config.num_zmq_sockets];
+  zmq::pollitem_t runPollItems [config.num_consumers + 1 + 1]; // consumers + control + forward
   zmq_pollitem_t controlRunPollItem;
   controlRunPollItem.socket = controlSocket;
   controlRunPollItem.fd = 0;
@@ -297,32 +302,21 @@ void EigerFan::run() {
   forwardinMonitorPollItem.revents = 0;
   runPollItems[config.num_consumers + 1] = forwardinMonitorPollItem;
 
-  std::vector<boost::shared_ptr<zmq::socket_t> > streamSockets;
-  int streamSocketPollItemStartIndex = config.num_consumers + 1 + 1;
-  for (int i = 0; i < config.num_zmq_sockets; i++) {
+  // Spawn rx thread
+  LOG4CXX_INFO(log, "Spawning rx thread");
+  this->rx_thread_ = boost::shared_ptr<boost::thread>(
+    new boost::thread(boost::bind(&EigerFan::HandleRxSocket, this, streamConnectionAddress, config.num_zmq_context_threads))
+  );
 
-    boost::shared_ptr<zmq::socket_t> recvSocket(new zmq::socket_t(ctx_, ZMQ_PULL));
-    recvSocket->setsockopt (ZMQ_RCVHWM, &RECEIVE_HWM, sizeof (RECEIVE_HWM));
-    recvSocket->connect(streamConnectionAddress.c_str());
-    recvSocket->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
-
-    streamSockets.push_back(recvSocket);
-
-    zmq_pollitem_t recvRunPollItem;
-    zmq::socket_t* streamSocket = recvSocket.get();
-    recvRunPollItem.socket = *streamSocket;
-    recvRunPollItem.fd = 0;
-    recvRunPollItem.events = ZMQ_POLLIN;
-    recvRunPollItem.revents = 0;
-    runPollItems[streamSocketPollItemStartIndex + i] = recvRunPollItem;
+  while (state != WAITING_STREAM) {
+    sleep(1);
   }
 
-  state = WAITING_STREAM;
-
   //  Process tasks forever or until kill is requested
+  LOG4CXX_INFO(log, "Processing control tasks");
   while (killRequested != true) {
     zmq::message_t message;
-    zmq::poll (&runPollItems [0], config.num_consumers + 1 + 1 + config.num_zmq_sockets, -1);
+    zmq::poll(&runPollItems [0], config.num_consumers + 1 + 1, -1);  // Monitor per consumer + control + forward
 
     // Control socket events
     if (runPollItems [0].revents & ZMQ_POLLIN) {
@@ -348,14 +342,6 @@ void EigerFan::run() {
       forwardMonitorSocket.recv(&message);
       HandleForwardMonitorMessage(message, forwardMonitorSocket);
     }
-
-    // Stream socket events
-    for (int i = 0; i < config.num_zmq_sockets; i++) {
-      if (runPollItems [streamSocketPollItemStartIndex + i].revents & ZMQ_POLLIN) {
-        streamSockets[i]->recv(&message);
-        HandleStreamMessage(message, streamSockets[i]);
-      }
-    }
   }
 
   LOG4CXX_INFO(log, "Shutting down EigerFan sockets");
@@ -364,13 +350,40 @@ void EigerFan::run() {
     consumers[i].sendSocket->close();
   }
 
-  for (int i = 0; i < config.num_zmq_sockets; i++) {
-    streamSockets[i]->close();
+  forwardSocket.close();
+  controlSocket.close();
+}
+
+/**
+ * Connect broker to detector and handle the messages it produces
+ */
+void EigerFan::HandleRxSocket(std::string& endpoint, int num_zmq_context_threads) {
+  zmq::context_t inproc_context(num_zmq_context_threads);
+  zmq::socket_t rx_socket(inproc_context, ZMQ_PULL);
+  rx_socket.setsockopt(ZMQ_RCVHWM, &RECEIVE_HWM, sizeof(RECEIVE_HWM));
+  rx_socket.bind(BROKER_INPROC_ENDPOINT.c_str());
+  rx_socket.setsockopt(ZMQ_LINGER, &LINGER_TIMEOUT, sizeof(LINGER_TIMEOUT));
+  this->broker.connect(endpoint, &inproc_context);
+
+  state = WAITING_STREAM;
+  LOG4CXX_INFO(log, "Processing rx socket");
+
+  zmq::message_t message;
+  zmq::pollitem_t pollItems [] = {{rx_socket, 0, ZMQ_POLLIN, 0}};
+  boost::shared_ptr<zmq::socket_t> socket_ptr(&rx_socket);
+  while (!killRequested) {
+    // Stream socket events
+    zmq::poll(&pollItems[0], 1, -1);
+    if (pollItems[0].revents & ZMQ_POLLIN) {
+      rx_socket.recv(&message);
+      HandleStreamMessage(message, socket_ptr);
+    }
   }
 
-  forwardSocket.close();
+  rx_socket.close();
+  broker.shutdown();
 
-  controlSocket.close();
+  LOG4CXX_INFO(log, "RX thread done");
 }
 
 /**
@@ -405,6 +418,7 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
         currentOffset = configuredOffset;
         configuredOffset = 0;
         lastFrameSent = 0;
+        broker.start_message_counter();
         num_frames_sent = 0;
         for(int j=0; j<num_frames_consumed.size(); j++) {
           num_frames_consumed[j] = 0;
@@ -428,8 +442,11 @@ void EigerFan::HandleStreamMessage(zmq::message_t &message, boost::shared_ptr<zm
           LOG4CXX_WARN(log, "Error counting consumer frames for logging");
         }
       } else if (htype.compare(END_HEADER_TYPE) == 0) {
-        LOG4CXX_INFO(log, "End of series message received after " + boost::lexical_cast<std::string>(num_frames_sent) \
-                + " frames sent");
+        LOG4CXX_INFO(
+          log,
+          "End of series message received after " + boost::lexical_cast<std::string>(broker.messages_received()) + \
+          " messages received and " + boost::lexical_cast<std::string>(num_frames_sent) + " frames sent."
+        );
         std::string consumer_frames;
         for(int j=0; j<num_frames_consumed.size(); j++) {
           consumer_frames +=
@@ -948,6 +965,11 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       rapidjson::Value valueFrame(lastFrameSent);
       document.AddMember(keyFrame, valueFrame, document.GetAllocator());
 
+      // Add Number of messages received
+      rapidjson::Value keyMessagesReceived("messages_received", document.GetAllocator());
+      rapidjson::Value valueMessagesReceived(broker.messages_received());
+      document.AddMember(keyMessagesReceived, valueMessagesReceived, document.GetAllocator());
+
       // Add Number of Frames sent
       rapidjson::Value keyFramesSent("frames_sent", document.GetAllocator());
       rapidjson::Value valueFramesSent(num_frames_sent);
@@ -972,17 +994,17 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       rapidjson::Document document;
       document.SetObject();
 
-      // Add Number of 0MQ threads
-      rapidjson::Value keyNumZMQThreads("num_zmq_threads", document.GetAllocator());
-      rapidjson::Value valueNumZMQThreads(config.num_zmq_threads);
-      document.AddMember(keyNumZMQThreads, valueNumZMQThreads, document.GetAllocator());
+      // Add Number of threads
+      rapidjson::Value keyNumThreads("num_threads", document.GetAllocator());
+      rapidjson::Value valueNumThreads(config.num_threads);
+      document.AddMember(keyNumThreads, valueNumThreads, document.GetAllocator());
 
-      // Add Number of 0MQ sockets
-      rapidjson::Value keyNumZMQSockets("num_zmq_sockets", document.GetAllocator());
-      rapidjson::Value valueNumZMQSockets(config.num_zmq_sockets);
-      document.AddMember(keyNumZMQSockets, valueNumZMQSockets, document.GetAllocator());
+      // Add Number of 0MQ context threads
+      rapidjson::Value keyNumZMQContextThreads("num_zmq_context_threads", document.GetAllocator());
+      rapidjson::Value valueNumZMQContextThreads(config.num_zmq_context_threads);
+      document.AddMember(keyNumZMQContextThreads, valueNumZMQContextThreads, document.GetAllocator());
 
-      // Add Number of 0MQ threads
+      // Add Number of 0MQ consumers
       rapidjson::Value keyNumConsumers("num_consumers", document.GetAllocator());
       rapidjson::Value valueNumConsumers(config.num_consumers);
       document.AddMember(keyNumConsumers, valueNumConsumers, document.GetAllocator());
@@ -1309,7 +1331,7 @@ void EigerFan::SendMessagesToAllConsumers(std::vector<zmq::message_t*> &messageL
  * \param[in] flags Any flags to apply to the message (e.g. more messages to come)
  */
 void EigerFan::SendMessageToSingleConsumer(zmq::message_t& message, int flags) {
-  LOG4CXX_DEBUG(log, "Sending message to single consumers at index:" << currentConsumerIndexToSendTo);
+  LOG4CXX_DEBUG(log, "Sending message to single consumer at index:" << currentConsumerIndexToSendTo);
 
   //Send the message to the forwarding stream
   if (forwardStream && numConnectedForwardingSockets > 0)
