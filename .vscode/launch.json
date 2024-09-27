@@ -1,0 +1,93 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Odin Control",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "odin.main",
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "args": ["--config", "${workspaceFolder}/deploy/odin_server.cfg", "--logging", "info"]
+        },
+        {
+            "name": "Meta Writer",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "odin_data.meta_writer.meta_writer_app",
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "args": [
+                "--writer", "eiger_detector.EigerMetaWriter",
+                "--sensor-shape", "4362", "4148",
+                "--data-endpoints", "tcp://127.0.0.1:10008,tcp://127.0.0.1:10018,tcp://127.0.0.1:10028,tcp://127.0.0.1:10038"
+            ]
+        },
+        {
+            "name": "Debug Unit Test",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${file}",
+            "purpose": [
+                "debug-test"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                // Enable break on exception when debugging tests (see: tests/conftest.py)
+                "PYTEST_RAISE": "1",
+            },
+        },
+        {
+            "name": "Eiger Fan",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/vscode_build/bin/eigerfan",
+            "args": ["--addr", "127.0.0.1", "--consumers", "4", "--sockets", "4", "--blocksize", "1000", "--threads", "2"],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "FrameProcessor",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/odin/bin/frameProcessor",
+            "args": ["--ctrl", "tcp://0.0.0.0:10004", "--config", "${workspaceFolder}/deploy/fp1.json"],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [{"name": "HDF5_PLUGIN_PATH", "value": "/odin/h5plugin"}],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+    ],
+}
