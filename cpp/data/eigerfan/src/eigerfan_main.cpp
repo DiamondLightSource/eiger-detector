@@ -15,7 +15,7 @@
 #include <cstring>
 #include <string>
 #include <sstream>
-#include <pthread.h> 
+#include <pthread.h>
 
 #include <log4cxx/basicconfigurator.h>
 #include <log4cxx/propertyconfigurator.h>
@@ -263,7 +263,7 @@ int parse_arguments(int argc, char** argv, EigerFanConfig &cfg)
 
     if (vm.count("context-threads"))
     {
-      cfg.setNum0MQContexThreads(vm["context-threads"].as<unsigned int>());
+      cfg.setNum0MQContextThreads(vm["context-threads"].as<unsigned int>());
       LOG4CXX_DEBUG(logger, "Setting number of ZeroMQ context threads to " << cfg.getNum0MQContextThreads());
     }
 
