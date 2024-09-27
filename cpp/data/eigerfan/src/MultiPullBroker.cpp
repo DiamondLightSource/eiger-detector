@@ -4,7 +4,10 @@
 
 #include <log4cxx/logger.h>  // getLogger
 
+#include "EigerDefinitions.h"
 #include "MultiPullBroker.h"
+
+using namespace Eiger;
 
 MultiPullBroker::MultiPullBroker(
   std::string& sink_endpoint,
