@@ -1,0 +1,19 @@
+name: C++ CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: ghcr.io/odin-detector/odin-data-build:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Build eiger-detector
+        run: |
+          git config --global --add safe.directory `pwd` && \
+          mkdir -p build && cd build && \
+          cmake -DCMAKE_INSTALL_PREFIX=/odin -DODINDATA_ROOT_DIR=/odin ../cpp && \
+          make -j8 VERBOSE=1 && \
+          make install
