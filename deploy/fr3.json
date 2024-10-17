@@ -1,0 +1,18 @@
+[
+  {
+    "decoder_type": "Eiger",
+    "decoder_path": "/odin/lib",
+    "rx_type": "zmq",
+    "rx_address": "127.0.0.1",
+    "rx_ports": "31602,",
+    "shared_buffer_name": "odin_buf_3",
+    "max_buffer_mem": 160000000,
+    "frame_ready_endpoint": "tcp://127.0.0.1:10021",
+    "frame_release_endpoint": "tcp://127.0.0.1:10022",
+    "decoder_config": {
+      "enable_packet_logging": false,
+      "frame_timeout_ms": 1000,
+      "detector_model": "16M"
+    }
+  }
+]
