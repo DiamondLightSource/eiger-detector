@@ -20,7 +20,7 @@ vscode devcontainer). Within the devcontainer `cmake` will be available on the P
 make sure vscode user settings have `cmake.cmakePath` set to `cmake` (the default).
 
 1. Open the project in VSCode and re-open in devcontainer when prompted, or
-   open manually with `Dev Containers: Reopen in Container`
+   open manually with `> Dev Containers: Reopen in Container`
 2. Install the recommended extensions for the workspace
     (`> Extensions: Show Recommended Extensions`)
 3. Build eiger-detector
