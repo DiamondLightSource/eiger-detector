@@ -3,7 +3,7 @@
     "decoder_type": "Eiger",
     "decoder_path": "/odin/lib",
     "rx_type": "zmq",
-    "rx_address": "127.0.0.1",
+    "rx_address": "eiger-fan",
     "rx_ports": "31603,",
     "shared_buffer_name": "odin_buf_4",
     "max_buffer_mem": 160000000,

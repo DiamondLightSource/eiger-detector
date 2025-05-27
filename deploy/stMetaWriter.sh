@@ -1,3 +1,3 @@
 #!/bin/bash
 
-/venv/bin/eiger_meta_writer -w eiger_detector.EigerMetaWriter --sensor-shape 4362 4148 --data-endpoints tcp://127.0.0.1:10008,tcp://127.0.0.1:10018,tcp://127.0.0.1:10028,tcp://127.0.0.1:10038
+/venv/bin/eiger_meta_writer -w eiger_detector.EigerMetaWriter --sensor-shape 4362 4148 --data-endpoints tcp://odin-data-1:10008,tcp://odin-data-2:10018,tcp://odin-data-3:10028,tcp://odin-data-4:10038
