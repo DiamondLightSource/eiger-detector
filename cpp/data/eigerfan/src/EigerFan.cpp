@@ -1108,8 +1108,14 @@ void EigerFan::HandleControlMessage(zmq::message_t &message, zmq::message_t &idM
       std::ostringstream oss;
       oss << "{\"msg_type\":\"ack\",\"msg_val\":\"request_version\", \"params\": " << buffer.GetString() << "}";
       replyString.assign(oss.str());
-
-    } else if (command.compare(CONTROL_CONFIGURE) == 0) {
+    }
+    else if (command.compare(CONTROL_REQ_COMMANDS) == 0)
+    {
+      // No commands are supported so send back an empty OK message
+      replyString.assign(CONTROL_RESPONSE_OK);
+    }
+    else if (command.compare(CONTROL_CONFIGURE) == 0)
+    {
       LOG4CXX_DEBUG(log, std::string("Handling Control Configure Message: ").append(jsonCommand));
 
       if (ctrlDocument.HasMember(CONTROL_PARAM_KEY.c_str())) {
