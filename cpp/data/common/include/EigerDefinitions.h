@@ -55,6 +55,7 @@ namespace Eiger {
   const std::string CONTROL_STATUS = "status";
   const std::string CONTROL_REQ_CONFIG = "request_configuration";
   const std::string CONTROL_REQ_VERSION = "request_version";
+  const std::string CONTROL_REQ_COMMANDS = "request_commands";
   const std::string CONTROL_CONFIGURE = "configure";
   const std::string CONTROL_KILL = "kill";
   const std::string CONTROL_CLOSE = "close";
