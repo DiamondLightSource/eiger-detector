@@ -1,4 +1,4 @@
-FROM ghcr.io/odin-detector/odin-data-build:1.11.0 AS developer
+FROM ghcr.io/odin-detector/odin-data-build:1.11.0-dev1 AS developer
 
 FROM developer AS build
 
@@ -16,7 +16,7 @@ RUN mkdir -p build && cd build && \
 WORKDIR /odin/eiger-detector/python
 RUN python -m pip install .[sim]
 
-FROM ghcr.io/odin-detector/odin-data-runtime:1.11.0 AS runtime
+FROM ghcr.io/odin-detector/odin-data-runtime:1.11.0-dev1 AS runtime
 
 COPY --from=build /odin /odin
 COPY --from=build /venv /venv
