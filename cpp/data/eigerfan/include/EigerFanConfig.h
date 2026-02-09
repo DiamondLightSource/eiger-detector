@@ -18,7 +18,7 @@ namespace EigerFanDefaults
   const std::string DEFAULT_STREAM_ADDRESS = "localhost";
   const std::string DEFAULT_EIGER_PORT_NUMBER = Eiger::STREAM_PORT_NUMBER;
   const int DEFAULT_FAN_PORT_NUMBER_START = 31601;
-  const int DEFAULT_NUM_SOCKETS = 1;
+  const int DEFAULT_NUM_CONTEXT_THREADS = 1;
   const int DEFAULT_BLOCK_SIZE = 1;
   const std::string DEFAULT_FORWARD_PORT_NUMBER = "9009";
 }

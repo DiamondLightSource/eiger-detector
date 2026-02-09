@@ -27,6 +27,8 @@ namespace Eiger
   const int MORE_MESSAGES = 1;
   const int RECEIVE_HWM = 10000;
   const int SEND_HWM = 10000;
+  const int WORKER_HWM = 10000;   // High water mark for the worker threads
+  const int LINGER_TIMEOUT = 100; // Socket linger timeout in milliseconds
 
   const std::string CONTROL_CMD_KEY = "msg_val";
   const std::string CONTROL_ID_KEY = "id";
@@ -40,6 +42,7 @@ namespace Eiger
   const std::string CONTROL_KILL = "kill";
   const std::string CONTROL_CLOSE = "close";
   const std::string CONTROL_OFFSET = "offset";
+  const std::string CONTROL_ACQ_ID = "acqid";
   const std::string CONTROL_FWD_STREAM = "forward_stream";
   const std::string CONTROL_DEV_SHM_CACHE = "dev_shm_cache";
   const std::string CONTROL_BLOCK_SIZE = "block_size";
