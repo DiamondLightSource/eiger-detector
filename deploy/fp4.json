@@ -1,9 +1,5 @@
 [
   {
-    "fr_setup": {
-      "fr_ready_cnxn": "tcp://127.0.0.1:10031",
-      "fr_release_cnxn": "tcp://127.0.0.1:10032"
-    },
     "meta_endpoint": "tcp://*:10038"
   },
   {
@@ -39,14 +35,6 @@
         "index": "hdf",
         "name": "FileWriterPlugin",
         "library": "/odin/lib/libHdf5Plugin.so"
-      }
-    }
-  },
-  {
-    "plugin": {
-      "connect": {
-        "index": "eiger",
-        "connection": "frame_receiver"
       }
     }
   },
