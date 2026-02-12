@@ -67,7 +67,9 @@
       "dataset": {
         "compressed_size": {
           "datatype": "uint32",
-          "chunks": [1000]
+          "chunks": [
+            1000
+          ]
         }
       }
     }
@@ -77,7 +79,9 @@
       "dataset": {
         "uid": {
           "datatype": "uint64",
-          "chunks": [1000]
+          "chunks": [
+            1000
+          ]
         }
       }
     }
@@ -129,10 +133,22 @@
     "hdf": {
       "dataset": {
         "data": {
-          "dims": [4362, 4148],
-          "chunks": [1, 4362, 4148]
+          "dims": [
+            4362,
+            4148
+          ],
+          "chunks": [
+            1,
+            4362,
+            4148
+          ]
         }
       }
+    }
+  },
+  {
+    "eiger": {
+      "endpoint": "tcp://127.0.0.1:31603"
     }
   }
 ]
