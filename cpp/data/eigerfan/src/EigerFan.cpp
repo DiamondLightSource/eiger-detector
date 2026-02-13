@@ -532,7 +532,10 @@ void EigerFan::HandleStreamMessage(zmq::message_t &zmessage, boost::shared_ptr<z
     LOG4CXX_ERROR(log, "Unexpected exception handling stream message");
   }
 
-  stream2_free_msg(message);
+  if (message != NULL)
+  {
+    stream2_free_msg(message);
+  }
 
   // Ensure there aren't any leftover messages on the socket
   socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
