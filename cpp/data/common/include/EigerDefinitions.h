@@ -48,9 +48,9 @@ namespace Eiger
   const std::string CONTROL_BLOCK_SIZE = "block_size";
 
   const std::string CONTROL_RESPONSE_OK = "{\"msg_type\":\"ack\",\"msg_val\":\"configure\", \"params\": {}}";
-  const std::string CONTROL_RESPONSE_UNABLE = "{\"msg_type\":\"nack\",\"msg_val\":\"configure\", \"params\": {\"error:\":\"Unable to process control command\"}}";
-  const std::string CONTROL_RESPONSE_NOPARAM = "{\"msg_type\":\"nack\",\"msg_val\":\"configure\", \"params\": {\"error:\":\"No parameter\"}}";
-  const std::string CONTROL_RESPONSE_NOCFGPARAM = "{\"msg_type\":\"nack\",\"msg_val\":\"configure\", \"params\": {\"error:\":\"No recognised configure parameter\"}}";
+  const std::string CONTROL_RESPONSE_UNABLE = "{\"msg_type\":\"nack\",\"msg_val\":\"configure\", \"params\": {\"error\":\"Unable to process control command\"}}";
+  const std::string CONTROL_RESPONSE_NOPARAM = "{\"msg_type\":\"nack\",\"msg_val\":\"configure\", \"params\": {\"error\":\"No parameter\"}}";
+  const std::string CONTROL_RESPONSE_NOCFGPARAM = "{\"msg_type\":\"nack\",\"msg_val\":\"configure\", \"params\": {\"error\":\"No recognised configure parameter\"}}";
 
   enum EigerFanState
   {
