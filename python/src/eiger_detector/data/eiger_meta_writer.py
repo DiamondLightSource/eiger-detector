@@ -8,10 +8,10 @@ import cbor2
 from odin_data.meta_writer.hdf5dataset import (
     Float32HDF5Dataset,
     Float64HDF5Dataset,
+    StringHDF5Dataset,
     UInt32HDF5Dataset,
     UInt64HDF5Dataset,
-    StringHDF5Dataset,
-    units
+    units,
 )
 from odin_data.meta_writer.meta_writer import MetaWriter
 from odin_data.util import construct_version_dict
@@ -152,8 +152,6 @@ class EigerMetaWriter(MetaWriter):
         self._detector_finished = False  # Require base class to check we have finished
 
         self._series_number = None
-
-        print("EIGER TEST 13")
 
     def _define_detector_datasets(self):
         return [
