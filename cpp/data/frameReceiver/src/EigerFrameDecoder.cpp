@@ -542,7 +542,12 @@ void EigerFrameDecoder::send_buffer(void) {
 void EigerFrameDecoder::get_status(const std::string param_prefix,
     OdinData::IpcMessage& status_msg)
 {
-  status_msg.set_param(param_prefix + "name", std::string("EigerFrameDecoder"));
+  status_msg.set_param(param_prefix + "class", std::string("EigerFrameDecoder"));
+  status_msg.set_param(param_prefix + "detector_model", detector_model_);
+  status_msg.set_param(param_prefix + "buffer_size", buffer_size);
+  status_msg.set_param(param_prefix + "frames_allocated", frames_allocated_);
+  status_msg.set_param(param_prefix + "current_frame_number", current_frame_number_);
+  status_msg.set_param(param_prefix + "dropping_frame_data", dropping_frame_data_);
 }
 
 void EigerFrameDecoder::request_configuration(const std::string param_prefix,
