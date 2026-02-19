@@ -65,7 +65,7 @@
   {
     "hdf": {
       "dataset": {
-        "compressed_size": {
+        "size": {
           "datatype": "uint32",
           "chunks": [
             1000
