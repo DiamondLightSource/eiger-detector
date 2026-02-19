@@ -1,9 +1,5 @@
 [
   {
-    "fr_setup": {
-      "fr_ready_cnxn": "tcp://127.0.0.1:10031",
-      "fr_release_cnxn": "tcp://127.0.0.1:10032"
-    },
     "meta_endpoint": "tcp://*:10038"
   },
   {
@@ -45,14 +41,6 @@
   {
     "plugin": {
       "connect": {
-        "index": "eiger",
-        "connection": "frame_receiver"
-      }
-    }
-  },
-  {
-    "plugin": {
-      "connect": {
         "index": "offset",
         "connection": "eiger"
       }
@@ -77,9 +65,11 @@
   {
     "hdf": {
       "dataset": {
-        "compressed_size": {
+        "size": {
           "datatype": "uint32",
-          "chunks": [1000]
+          "chunks": [
+            1000
+          ]
         }
       }
     }
@@ -89,7 +79,9 @@
       "dataset": {
         "uid": {
           "datatype": "uint64",
-          "chunks": [1000]
+          "chunks": [
+            1000
+          ]
         }
       }
     }
@@ -141,10 +133,22 @@
     "hdf": {
       "dataset": {
         "data": {
-          "dims": [4362, 4148],
-          "chunks": [1, 4362, 4148]
+          "dims": [
+            4362,
+            4148
+          ],
+          "chunks": [
+            1,
+            4362,
+            4148
+          ]
         }
       }
+    }
+  },
+  {
+    "eiger": {
+      "endpoint": "tcp://127.0.0.1:31604"
     }
   }
 ]
