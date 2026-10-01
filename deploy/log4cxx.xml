@@ -33,14 +33,4 @@
     <logger name="FP.ExcaliburProcessPlugin"></logger>
     <logger name="FP.LATRDProcessPlugin"></logger>
 
-    <!-- The FrameReceiver applications logger hierarchy -->
-    <logger name="FR">
-        <priority value="all" />
-    </logger>
-    <logger name="FR.App"></logger>
-    <!-- Detector-specific plugins -->
-    <logger name="FR.EigerFrameDecoder"></logger>
-    <logger name="FR.ExcaliburFrameDecoder"></logger>
-    <logger name="FR.LATRDDecoderPlugin"></logger>
-
 </log4j:configuration>

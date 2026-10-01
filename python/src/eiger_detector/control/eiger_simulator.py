@@ -7,7 +7,7 @@ Alan Greer, Diamond Light Source
 import logging
 import json
 import time
-from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+from http.server import BaseHTTPRequestHandler,HTTPServer
 
 PORT_NUMBER = 8080
 
@@ -75,6 +75,7 @@ class EigerSimulator(BaseHTTPRequestHandler, object):
         '/stream/api/1.6.0/config/header_detail':  {"access_mode": "rw", "value_type": "string", "value": "basic", "allowed_values": ["all", "basic", "none"]},
         '/stream/api/1.6.0/config/header_appendix':  {"access_mode": "rw", "value_type": "string", "value": ""},
         '/stream/api/1.6.0/config/image_appendix':  {"access_mode": "rw", "value_type": "string", "value": ""},
+        '/stream/api/1.6.0/config/format': {"access_mode":"rw","allowed_values":["legacy","cbor"],"value":"legacy","value_type":"string"},
         '/stream/api/1.6.0/status/dropped': {"access_mode": "r", "value_type": "int", "value": 17},
         '/filewriter/api/1.6.0/config/mode':  {"access_mode": "rw", "value_type": "string", "value": "enabled", "allowed_values": ["enabled", "disabled"]},
         '/filewriter/api/1.6.0/config/compression_enabled':  {"access_mode": "rw", "value_type": "bool", "value": True}
@@ -98,12 +99,9 @@ class EigerSimulator(BaseHTTPRequestHandler, object):
         else:
             self.send_header('Content-type','application/json')
             self.end_headers()
-            try:
-                # Send the html message
-                self.wfile.write(json.dumps(EigerSimulator.PARAMS[self.path]))
-            except:
-                # Send the html message
-                self.wfile.write('Error forwarding http request to detector api')
+            # Send the html message
+            print(json.dumps(EigerSimulator.PARAMS[self.path]))
+            self.wfile.write(json.dumps(EigerSimulator.PARAMS[self.path]).encode())
         return
 
     def do_PUT(self):
@@ -126,7 +124,7 @@ class EigerSimulator(BaseHTTPRequestHandler, object):
             self.send_header('Content-type','application/json')
             self.end_headers()
             # Send the html message
-            self.wfile.write(json.dumps(changed_items))
+            self.wfile.write(json.dumps(changed_items).encode())
         return
 
     def execute_command(self, command):
@@ -148,13 +146,13 @@ def main():
         #Create a web server and define the handler to manage the
         #incoming request
         server = HTTPServer(('', PORT_NUMBER), EigerSimulator)
-        print 'Started httpserver on port ' , PORT_NUMBER
-        
+        print(f'Started httpserver on port {PORT_NUMBER}')
+
         #Wait forever for incoming http requests
         server.serve_forever()
 
     except KeyboardInterrupt:
-        print '^C received, shutting down the web server'
+        print('^C received, shutting down the web server')
         server.socket.close()
 
 

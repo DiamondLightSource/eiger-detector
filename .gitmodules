@@ -1,0 +1,3 @@
+[submodule "cpp/data/third_party/dectris"]
+	path = cpp/data/third_party/dectris
+	url = git@github.com:dectris/documentation.git

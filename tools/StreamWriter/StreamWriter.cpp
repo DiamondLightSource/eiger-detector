@@ -15,13 +15,18 @@
  */
 int main (int argc, char *argv[]) {
 
-  std::string address("localhost");
+  std::string address("127.0.0.1");
+  std::string port("9999");
 
   if (argc == 2) {
     address = argv[1];
   }
 
-  std::string connectAddress("tcp://" + address + ":9999");
+  if (argc == 3) {
+    port = argv[2];
+  }
+
+  std::string connectAddress("tcp://" + address + ":" + port);
 
   std::cout << "Connecting to " << connectAddress << "..." << std::endl;
 

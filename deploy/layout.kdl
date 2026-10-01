@@ -4,13 +4,9 @@ layout {
     }
     pane split_direction="vertical" {
         pane split_direction="horizontal" {
-            pane command="./stFrameReceiver1.sh"
             pane command="./stFrameProcessor1.sh"
-            pane command="./stFrameReceiver2.sh"
             pane command="./stFrameProcessor2.sh"
-            pane command="./stFrameReceiver3.sh"
             pane command="./stFrameProcessor3.sh"
-            pane command="./stFrameReceiver4.sh"
             pane command="./stFrameProcessor4.sh"
         }
         pane split_direction="horizontal" {

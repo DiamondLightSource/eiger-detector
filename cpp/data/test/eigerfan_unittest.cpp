@@ -19,6 +19,9 @@
 
 #include <EigerFan.h>
 
+#include "stream2.h"
+#include "cbor.h"
+
 struct GlobalConfig	{
   GlobalConfig() {
     log4cxx::BasicConfigurator::configure();
@@ -253,759 +256,137 @@ BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSends )
   sleep(1);
 
   // Start up an Emulated Eiger stream and send the Global Header Message
-  zmq::socket_t  eigerStream(context, ZMQ_PUSH);
-  eigerStream.bind("tcp://*:9999");
+  zmq::socket_t eigerStream(context, ZMQ_PUSH);
+  eigerStream.bind("tcp://*:31001");
 
-  std::string globalHeader("{\"htype\":\"dheader-1.0\", \"series\": 1, \"header_detail\": \"none\"}");
+  // Send the start message
+  uint8_t cbor_start_buffer[45];
+  cbor_start_buffer[0] = 0xd9;
+  cbor_start_buffer[1] = 0xd9;
+  cbor_start_buffer[2] = 0xf7;
+  CborEncoder startEncoder, startMapEncoder;
+  cbor_encoder_init(&startEncoder, cbor_start_buffer + 3, sizeof(cbor_start_buffer) - 3, 0);
+  cbor_encoder_create_map(&startEncoder, &startMapEncoder, 3);
+  cbor_encode_text_stringz(&startMapEncoder, "type");
+  cbor_encode_text_stringz(&startMapEncoder, "start");
+  cbor_encode_text_stringz(&startMapEncoder, "series_id");
+  cbor_encode_int(&startMapEncoder, 1);
+  cbor_encode_text_stringz(&startMapEncoder, "series_unique_id");
+  cbor_encode_text_stringz(&startMapEncoder, "1");
+  cbor_encoder_close_container(&startEncoder, &startMapEncoder);
 
-  zmq::message_t streamMessage(globalHeader.size());
-  memcpy (streamMessage.data (), globalHeader.c_str(), globalHeader.size());
-  eigerStream.send(streamMessage);
+  zmq::message_t startMessage(sizeof(cbor_start_buffer));
+  memcpy(startMessage.data(), (void*) cbor_start_buffer, sizeof(cbor_start_buffer));
+  std::string startMessageValue(static_cast<char*>(startMessage.data()), startMessage.size());
+  eigerStream.send(startMessage);
 
   // Sleep to give time for 0MQ message to get through and be processed
   sleep(1);
 
   // Check EigerFan has gone into different state, having received the header message and sent out to consumer
   request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
+  memcpy(request.data (), command.c_str(), command.size());
   socket.send (request);
 
   reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
+  socket.recv(&reply);
+  std::string replyMessage1(static_cast<char*>(reply.data()), reply.size());
   // Expect the status returned to be a json string, with the state set to DSTR_HEADER and 1 consumer
-  std::size_t found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"frames_sent\":0,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
+  std::size_t found = replyMessage1.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"frames_sent\":0,\"fan_offset\":0},\"timestamp\":");
+  BOOST_CHECK_MESSAGE(found != std::string::npos, replyMessage1);
 
-  // Check the consumer has been sent the header
-  zmq::message_t consumerMessage;
-  receiver.recv (&consumerMessage);
-  std::string consumerMessageValue(static_cast<char*>(consumerMessage.data()), consumerMessage.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dheader-1.0\",\"series\":1,\"header_detail\":\"none\",\"acqID\":\"\"}", consumerMessageValue);
+  // Check the consumer has been forwarded the start message
+  zmq::message_t consumerStartMessage;
+  receiver.recv(&consumerStartMessage);
+  std::string consumerStartMessageValue(static_cast<char*>(consumerStartMessage.data()), consumerStartMessage.size());
+  BOOST_CHECK_EQUAL(startMessageValue, consumerStartMessageValue);
 
-  // Check there aren't more messages that have been sent to the consumer
-  int more;
-  size_t more_size = sizeof (more);
-  receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
+  // Send image message
+  uint8_t cbor_image_buffer[57];
+  cbor_image_buffer[0] = 0xd9;
+  cbor_image_buffer[1] = 0xd9;
+  cbor_image_buffer[2] = 0xf7;
+  CborEncoder imageEncoder, imageMapEncoder;
+  cbor_encoder_init(&imageEncoder, cbor_image_buffer + 3, sizeof(cbor_image_buffer) - 3, 0);
+  cbor_encoder_create_map(&imageEncoder, &imageMapEncoder, 3);
+  cbor_encode_text_stringz(&imageMapEncoder, "type");
+  cbor_encode_text_stringz(&imageMapEncoder, "image");
+  cbor_encode_text_stringz(&imageMapEncoder, "image_id");
+  cbor_encode_int(&imageMapEncoder, 324);
+  cbor_encode_text_stringz(&imageMapEncoder, "series_id");
+  cbor_encode_int(&imageMapEncoder, 1);
+  cbor_encode_text_stringz(&imageMapEncoder, "series_unique_id");
+  cbor_encode_text_stringz(&imageMapEncoder, "1");
+  cbor_encoder_close_container(&imageEncoder, &imageMapEncoder);
 
-  // Send image data
-  std::string imgData1("{\"htype\":\"dimage-1.0\", \"series\": 1, \"frame\": 324, \"hash\": \"fc67f000d08fe6b380ea9434b8362d22\"}");
-  std::string imgData2("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398247}");
-  std::string imgData3("IMGDATA");
-  std::string imgData4("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834260, \"stop_time\": 834760834280, \"real_time\": 1000000}");
-  streamMessage.rebuild(imgData1.size());
-  memcpy (streamMessage.data (), imgData1.c_str(), imgData1.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData2.size());
-  memcpy (streamMessage.data (), imgData2.c_str(), imgData2.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData3.size());
-  memcpy (streamMessage.data (), imgData3.c_str(), imgData3.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData4.size());
-  memcpy (streamMessage.data (), imgData4.c_str(), imgData4.size());
-  eigerStream.send(streamMessage);
+  zmq::message_t imageMessage(sizeof(cbor_image_buffer));
+  memcpy(imageMessage.data(), (void*) cbor_image_buffer, sizeof(cbor_image_buffer));
+  std::string imageMessageValue(static_cast<char*>(imageMessage.data()), imageMessage.size());
+  eigerStream.send(imageMessage);
 
   // Sleep to give time for 0MQ message to get through and be processed
   sleep(1);
 
-  // Check EigerFan has gone into different state, having received an image data message and sent out to consumer
+  // Check EigerFan has gone into different state, having received an image message and sent out to consumer
   request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
+  memcpy(request.data(), command.c_str(), command.size());
   socket.send (request);
 
   reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage4(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to DSTR_IMAGE and 1 consumer
-  found = replyMessage4.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage4);
-
-  // Check the consumer has been sent the image data
-  zmq::message_t consumerMessageI1;
-  receiver.recv (&consumerMessageI1);
-  std::string consumerMessageI1Value(static_cast<char*>(consumerMessageI1.data()), consumerMessageI1.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage-1.0\",\"series\":1,\"frame\":324,\"hash\":\"fc67f000d08fe6b380ea9434b8362d22\",\"acqID\":\"\"}", consumerMessageI1Value);
-  zmq::message_t consumerMessageI2;
-  receiver.recv (&consumerMessageI2);
-  std::string consumerMessageI2Value(static_cast<char*>(consumerMessageI2.data()), consumerMessageI2.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398247}", consumerMessageI2Value);
-  zmq::message_t consumerMessageI3;
-  receiver.recv (&consumerMessageI3);
-  std::string consumerMessageI3Value(static_cast<char*>(consumerMessageI3.data()), consumerMessageI3.size());
-  BOOST_CHECK_EQUAL("IMGDATA", consumerMessageI3Value);
-  zmq::message_t consumerMessageI4;
-  receiver.recv (&consumerMessageI4);
-  std::string consumerMessageI4Value(static_cast<char*>(consumerMessageI4.data()), consumerMessageI4.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834260, \"stop_time\": 834760834280, \"real_time\": 1000000}", consumerMessageI4Value);
-  receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  // Send end of series message
-  std::string endOfStream("{\"htype\": \"dseries_end-1.0\", \"series\": 1}");
-  streamMessage.rebuild(endOfStream.size());
-  memcpy (streamMessage.data (), endOfStream.c_str(), endOfStream.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan has gone into different state, having received an image data message and sent out to consumer
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage5(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to DSTR_END or WAITING_STREAM and 1 consumer
-  found = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
-  std::size_t found2 = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos || found2!=std::string::npos, "Not in correct state after EndOfSeries message: " << replyMessage5);
-
-  // Check the consumer has been sent the end of series message
-  zmq::message_t consumerMessageEnd;
-  receiver.recv (&consumerMessageEnd);
-  std::string consumerMessageEndValue(static_cast<char*>(consumerMessageEnd.data()), consumerMessageEnd.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dseries_end-1.0\",\"series\":1,\"acqID\":\"\"}", consumerMessageEndValue);
-
-  shutdownEigerFan();
-  eigerfanThread.join();
-}
-
-BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImages )
-{
-  EigerFan eigerFan;
-  eigerFan.SetNumberOfConsumers(1);
-  boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
-
-  zmq::context_t context (1);
-  zmq::socket_t socket (context, ZMQ_DEALER);
-  socket.connect ("tcp://localhost:5559");
-
-  // Build the command to get the status
-  std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
-  zmq::message_t request (command.size());
-  zmq::message_t reply;
-
-  // Now connect a consumer
-  zmq::socket_t receiver(context, ZMQ_PULL);
-  receiver.connect("tcp://localhost:31600");
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Start up an Emulated Eiger stream and send the Global Header Message
-  zmq::socket_t  eigerStream(context, ZMQ_PUSH);
-  eigerStream.bind("tcp://*:9999");
-
-  std::string globalHeader("{\"htype\":\"dheader-1.0\", \"series\": 1, \"header_detail\": \"none\"}");
-
-  zmq::message_t streamMessage(globalHeader.size());
-  memcpy (streamMessage.data (), globalHeader.c_str(), globalHeader.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan has gone into different state, having received the header message and sent out to consumer
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to DSTR_HEADER and 1 consumer
-  std::size_t found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"frames_sent\":0,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
-
-  // Check the consumer has been sent the header
-  zmq::message_t consumerMessage;
-  receiver.recv (&consumerMessage);
-  std::string consumerMessageValue(static_cast<char*>(consumerMessage.data()), consumerMessage.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dheader-1.0\",\"series\":1,\"header_detail\":\"none\",\"acqID\":\"\"}", consumerMessageValue);
-
-  // Check there aren't more messages that have been sent to the consumer
-  int more;
-  size_t more_size = sizeof (more);
-  receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  // Send image data
-  std::string imgData1("{\"htype\":\"dimage-1.0\", \"series\": 1, \"frame\": 324, \"hash\": \"fc67f000d08fe6b380ea9434b8362d22\"}");
-  std::string imgData2("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398247}");
-  std::string imgData3("IMGDATA");
-  std::string imgData4("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834260, \"stop_time\": 834760834280, \"real_time\": 1000000}");
-  streamMessage.rebuild(imgData1.size());
-  memcpy (streamMessage.data (), imgData1.c_str(), imgData1.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData2.size());
-  memcpy (streamMessage.data (), imgData2.c_str(), imgData2.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData3.size());
-  memcpy (streamMessage.data (), imgData3.c_str(), imgData3.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData4.size());
-  memcpy (streamMessage.data (), imgData4.c_str(), imgData4.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan has gone into different state, having received an image data message and sent out to consumer
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage4(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to DSTR_IMAGE and 1 consumer
-  found = replyMessage4.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage4);
-
-  // Check the consumer has been sent the image data
-  zmq::message_t consumerMessageI1;
-  receiver.recv (&consumerMessageI1);
-  std::string consumerMessageI1Value(static_cast<char*>(consumerMessageI1.data()), consumerMessageI1.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage-1.0\",\"series\":1,\"frame\":324,\"hash\":\"fc67f000d08fe6b380ea9434b8362d22\",\"acqID\":\"\"}", consumerMessageI1Value);
-  zmq::message_t consumerMessageI2;
-  receiver.recv (&consumerMessageI2);
-  std::string consumerMessageI2Value(static_cast<char*>(consumerMessageI2.data()), consumerMessageI2.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398247}", consumerMessageI2Value);
-  zmq::message_t consumerMessageI3;
-  receiver.recv (&consumerMessageI3);
-  std::string consumerMessageI3Value(static_cast<char*>(consumerMessageI3.data()), consumerMessageI3.size());
-  BOOST_CHECK_EQUAL("IMGDATA", consumerMessageI3Value);
-  zmq::message_t consumerMessageI4;
-  receiver.recv (&consumerMessageI4);
-  std::string consumerMessageI4Value(static_cast<char*>(consumerMessageI4.data()), consumerMessageI4.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834260, \"stop_time\": 834760834280, \"real_time\": 1000000}", consumerMessageI4Value);
-  receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  // Send second lot of image data
-  std::string imgData21("{\"htype\":\"dimage-1.0\", \"series\": 1, \"frame\": 325, \"hash\": \"fc67f000d08fe6b380ea9434b8362d22\"}");
-  std::string imgData22("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398248}");
-  std::string imgData23("IMGDATA2");
-  std::string imgData24("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834261, \"stop_time\": 834760834282, \"real_time\": 1000000}");
-  streamMessage.rebuild(imgData21.size());
-  memcpy (streamMessage.data (), imgData21.c_str(), imgData21.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData22.size());
-  memcpy (streamMessage.data (), imgData22.c_str(), imgData22.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData23.size());
-  memcpy (streamMessage.data (), imgData23.c_str(), imgData23.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData24.size());
-  memcpy (streamMessage.data (), imgData24.c_str(), imgData24.size());
-  eigerStream.send(streamMessage);
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan is still in same state
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage5(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to DSTR_IMAGE and 1 consumer
-  found = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":325,\"frames_sent\":2,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage5);
-
-  // Check the consumer has been sent the image data
-  zmq::message_t consumerMessageI21;
-  receiver.recv (&consumerMessageI21);
-  std::string consumerMessageI21Value(static_cast<char*>(consumerMessageI21.data()), consumerMessageI21.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage-1.0\",\"series\":1,\"frame\":325,\"hash\":\"fc67f000d08fe6b380ea9434b8362d22\",\"acqID\":\"\"}", consumerMessageI21Value);
-  zmq::message_t consumerMessageI22;
-  receiver.recv (&consumerMessageI22);
-  std::string consumerMessageI22Value(static_cast<char*>(consumerMessageI22.data()), consumerMessageI22.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398248}", consumerMessageI22Value);
-  zmq::message_t consumerMessageI23;
-  receiver.recv (&consumerMessageI23);
-  std::string consumerMessageI23Value(static_cast<char*>(consumerMessageI23.data()), consumerMessageI23.size());
-  BOOST_CHECK_EQUAL("IMGDATA2", consumerMessageI23Value);
-  zmq::message_t consumerMessageI24;
-  receiver.recv (&consumerMessageI24);
-  std::string consumerMessageI24Value(static_cast<char*>(consumerMessageI24.data()), consumerMessageI24.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834261, \"stop_time\": 834760834282, \"real_time\": 1000000}", consumerMessageI24Value);
-  receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Send end of series message
-  std::string endOfStream("{\"htype\": \"dseries_end-1.0\", \"series\": 1}");
-  streamMessage.rebuild(endOfStream.size());
-  memcpy (streamMessage.data (), endOfStream.c_str(), endOfStream.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan has gone into different state, having received an image data message and sent out to consumer
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage6(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to DSTR_END or WAITING_STREAM and 1 consumer
-  found = replyMessage6.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":325,\"frames_sent\":2,\"fan_offset\":0},\"timestamp\":");
-  std::size_t found2 = replyMessage6.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":325,\"frames_sent\":2,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos || found2!=std::string::npos, "Not in correct state after EndOfSeries message: " << replyMessage6);
-
-  // Check the consumer has been sent the end of series message
-  zmq::message_t consumerMessageEnd;
-  receiver.recv (&consumerMessageEnd);
-  std::string consumerMessageEndValue(static_cast<char*>(consumerMessageEnd.data()), consumerMessageEnd.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dseries_end-1.0\",\"series\":1,\"acqID\":\"\"}", consumerMessageEndValue);
-
-  shutdownEigerFan();
-  eigerfanThread.join();
-}
-
-BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsMultiImagesMultiConsumers )
-{
-  EigerFan eigerFan;
-  eigerFan.SetNumberOfConsumers(2);
-  boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
-
-  zmq::context_t context (1);
-  zmq::socket_t socket (context, ZMQ_DEALER);
-  socket.connect ("tcp://localhost:5559");
-
-  // Build the command to get the status
-  std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
-  zmq::message_t request (command.size());
-  zmq::message_t reply;
-
-  // Now connect the consumers
-  zmq::socket_t receiver1(context, ZMQ_PULL);
-  receiver1.connect("tcp://localhost:31600");
-  zmq::socket_t receiver2(context, ZMQ_PULL);
-  receiver2.connect("tcp://localhost:31601");
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Start up an Emulated Eiger stream and send the Global Header Message
-  zmq::socket_t  eigerStream(context, ZMQ_PUSH);
-  eigerStream.bind("tcp://*:9999");
-
-  std::string globalHeader("{\"htype\":\"dheader-1.0\", \"series\": 1, \"header_detail\": \"none\"}");
-
-  zmq::message_t streamMessage(globalHeader.size());
-  memcpy (streamMessage.data (), globalHeader.c_str(), globalHeader.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan has gone into different state, having received the header message and sent out to consumer
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to DSTR_HEADER and 2 consumers
-  std::size_t found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":2,\"series\":1,\"frame\":0,\"frames_sent\":0,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
-
-  // Check that both consumers have been sent the header
-  zmq::message_t consumerMessage11;
-  receiver1.recv (&consumerMessage11);
-  std::string consumerMessageValue11(static_cast<char*>(consumerMessage11.data()), consumerMessage11.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dheader-1.0\",\"series\":1,\"header_detail\":\"none\",\"acqID\":\"\"}", consumerMessageValue11);
-
-  // Check there aren't more messages that have been sent to the consumer
-  int more;
-  size_t more_size = sizeof (more);
-  receiver1.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  zmq::message_t consumerMessage21;
-  receiver2.recv (&consumerMessage21);
-  std::string consumerMessageValue21(static_cast<char*>(consumerMessage21.data()), consumerMessage21.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dheader-1.0\",\"series\":1,\"header_detail\":\"none\",\"acqID\":\"\"}", consumerMessageValue21);
-
-  // Check there aren't more messages that have been sent to the consumer
-  receiver2.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  // Send image data 1
-  std::string imgData1("{\"htype\":\"dimage-1.0\", \"series\": 1, \"frame\": 324, \"hash\": \"fc67f000d08fe6b380ea9434b8362d22\"}");
-  std::string imgData2("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398247}");
-  std::string imgData3("IMGDATA");
-  std::string imgData4("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834260, \"stop_time\": 834760834280, \"real_time\": 1000000}");
-  streamMessage.rebuild(imgData1.size());
-  memcpy (streamMessage.data (), imgData1.c_str(), imgData1.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData2.size());
-  memcpy (streamMessage.data (), imgData2.c_str(), imgData2.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData3.size());
-  memcpy (streamMessage.data (), imgData3.c_str(), imgData3.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData4.size());
-  memcpy (streamMessage.data (), imgData4.c_str(), imgData4.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check the first consumer has been sent the image data
-  zmq::message_t consumerMessageI11;
-  receiver1.recv (&consumerMessageI11);
-  std::string consumerMessageI11Value(static_cast<char*>(consumerMessageI11.data()), consumerMessageI11.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage-1.0\",\"series\":1,\"frame\":324,\"hash\":\"fc67f000d08fe6b380ea9434b8362d22\",\"acqID\":\"\"}", consumerMessageI11Value);
-  zmq::message_t consumerMessageI12;
-  receiver1.recv (&consumerMessageI12);
-  std::string consumerMessageI12Value(static_cast<char*>(consumerMessageI12.data()), consumerMessageI12.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398247}", consumerMessageI12Value);
-  zmq::message_t consumerMessageI13;
-  receiver1.recv (&consumerMessageI13);
-  std::string consumerMessageI13Value(static_cast<char*>(consumerMessageI13.data()), consumerMessageI13.size());
-  BOOST_CHECK_EQUAL("IMGDATA", consumerMessageI13Value);
-  zmq::message_t consumerMessageI14;
-  receiver1.recv (&consumerMessageI14);
-  std::string consumerMessageI14Value(static_cast<char*>(consumerMessageI14.data()), consumerMessageI14.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834260, \"stop_time\": 834760834280, \"real_time\": 1000000}", consumerMessageI14Value);
-  receiver1.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  // Check the second consumer has not been sent any image data
-  zmq::message_t consumerMessageI221;
-  bool success = receiver2.recv (&consumerMessageI221, ZMQ_NOBLOCK);
-  BOOST_CHECK_EQUAL(false, success);
-
-  // Send second lot of image data
-  std::string imgData21("{\"htype\":\"dimage-1.0\", \"series\": 1, \"frame\": 325, \"hash\": \"fc67f000d08fe6b380ea9434b8362d22\"}");
-  std::string imgData22("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398248}");
-  std::string imgData23("IMGDATA2");
-  std::string imgData24("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834261, \"stop_time\": 834760834282, \"real_time\": 1000000}");
-  streamMessage.rebuild(imgData21.size());
-  memcpy (streamMessage.data (), imgData21.c_str(), imgData21.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData22.size());
-  memcpy (streamMessage.data (), imgData22.c_str(), imgData22.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData23.size());
-  memcpy (streamMessage.data (), imgData23.c_str(), imgData23.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData24.size());
-  memcpy (streamMessage.data (), imgData24.c_str(), imgData24.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check the second consumer has been sent the image data
-  zmq::message_t consumerMessageI21;
-  receiver2.recv (&consumerMessageI21);
-  std::string consumerMessageI21Value(static_cast<char*>(consumerMessageI21.data()), consumerMessageI21.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage-1.0\",\"series\":1,\"frame\":325,\"hash\":\"fc67f000d08fe6b380ea9434b8362d22\",\"acqID\":\"\"}", consumerMessageI21Value);
-  zmq::message_t consumerMessageI22;
-  receiver2.recv (&consumerMessageI22);
-  std::string consumerMessageI22Value(static_cast<char*>(consumerMessageI22.data()), consumerMessageI22.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398248}", consumerMessageI22Value);
-  zmq::message_t consumerMessageI23;
-  receiver2.recv (&consumerMessageI23);
-  std::string consumerMessageI23Value(static_cast<char*>(consumerMessageI23.data()), consumerMessageI23.size());
-  BOOST_CHECK_EQUAL("IMGDATA2", consumerMessageI23Value);
-  zmq::message_t consumerMessageI24;
-  receiver2.recv (&consumerMessageI24);
-  std::string consumerMessageI24Value(static_cast<char*>(consumerMessageI24.data()), consumerMessageI24.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834261, \"stop_time\": 834760834282, \"real_time\": 1000000}", consumerMessageI24Value);
-  receiver2.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check the first consumer has not been sent any image data
-  zmq::message_t consumerMessageI121;
-  success = receiver1.recv (&consumerMessageI121, ZMQ_NOBLOCK);
-  BOOST_CHECK_EQUAL(false, success);
-
-  // Send end of series message
-  std::string endOfStream("{\"htype\": \"dseries_end-1.0\", \"series\": 1}");
-  streamMessage.rebuild(endOfStream.size());
-  memcpy (streamMessage.data (), endOfStream.c_str(), endOfStream.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check that both consumers have been sent the end of series message
-  zmq::message_t consumerMessageEnd1;
-  receiver1.recv (&consumerMessageEnd1);
-  std::string consumerMessageEnd1Value(static_cast<char*>(consumerMessageEnd1.data()), consumerMessageEnd1.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dseries_end-1.0\",\"series\":1,\"acqID\":\"\"}", consumerMessageEnd1Value);
-
-  zmq::message_t consumerMessageEnd2;
-  receiver2.recv (&consumerMessageEnd2);
-  std::string consumerMessageEnd2Value(static_cast<char*>(consumerMessageEnd2.data()), consumerMessageEnd2.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dseries_end-1.0\",\"series\":1,\"acqID\":\"\"}", consumerMessageEnd2Value);
-
-  shutdownEigerFan();
-  eigerfanThread.join();
-}
-
-BOOST_AUTO_TEST_CASE( EigerFanTestCheckClose )
-{
-  EigerFan eigerFan;
-  eigerFan.SetNumberOfConsumers(1);
-  boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
-
-  zmq::context_t context (1);
-  zmq::socket_t socket (context, ZMQ_DEALER);
-  socket.connect ("tcp://localhost:5559");
-
-  // Send the command to get the status
-  std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
-  zmq::message_t request (command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  // Get the reply
-  zmq::message_t reply;
-  socket.recv (&reply);
-  std::string replyMessage(static_cast<char*>(reply.data()), reply.size());
-
-  // Expect the status returned to be a json string, with the state set to WAITING_CONSUMERS and no consumers
-  std::size_t found = replyMessage.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_CONSUMERS\",\"num_conn\":0,\"series\":0,\"frame\":0,\"frames_sent\":0,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage);
-
-  // Now connect a consumer
-  zmq::socket_t receiver(context, ZMQ_PULL);
-  receiver.connect("tcp://localhost:31600");
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan has gone into different state, waiting for stream
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  socket.recv (&reply);
+  socket.recv(&reply);
   std::string replyMessage2(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to WAITING_STREAM and 1 consumer
-  found = replyMessage2.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":0,\"frame\":0,\"frames_sent\":0,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage2);
-
-  // Connect an eiger and send the header
-  zmq::socket_t  eigerStream(context, ZMQ_PUSH);
-  eigerStream.bind("tcp://*:9999");
-
-  std::string globalHeader("{\"htype\":\"dheader-1.0\", \"series\": 27, \"header_detail\": \"none\"}");
-
-  zmq::message_t streamMessage(globalHeader.size());
-  memcpy (streamMessage.data (), globalHeader.c_str(), globalHeader.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check the consumer has been sent the header
-  zmq::message_t consumerMessage;
-  receiver.recv (&consumerMessage);
-  std::string consumerMessageValue(static_cast<char*>(consumerMessage.data()), consumerMessage.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dheader-1.0\",\"series\":27,\"header_detail\":\"none\",\"acqID\":\"\"}", consumerMessageValue);
-
-  // Check there aren't more messages that have been sent to the consumer
-  int more;
-  size_t more_size = sizeof (more);
-  receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  std::string command2("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"close\":true}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
-  zmq::message_t request2 (command2.size());
-  memcpy (request2.data (), command2.c_str(), command2.size());
-  socket.send (request2);
-
-  //  Get the reply.
-  zmq::message_t reply3;
-  socket.recv (&reply3);
-  std::string replyMessage3(static_cast<char*>(reply3.data()), reply3.size());
-
-  found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"configure\",\"params\":{},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
-
-  // Check the EndOfSeries message is sent
-  zmq::message_t consumerMessageEnd;
-  receiver.recv (&consumerMessageEnd);
-  std::string consumerMessageEndValue(static_cast<char*>(consumerMessageEnd.data()), consumerMessageEnd.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dseries_end-1.0\",\"series\":27,\"acqID\":\"\"}", consumerMessageEndValue);
-
-  eigerfanThread.join();
-}
-
-BOOST_AUTO_TEST_CASE( EigerFanTestCheckFanSendsAcquisitionID )
-{
-  EigerFan eigerFan;
-  eigerFan.SetNumberOfConsumers(1);
-  boost::thread eigerfanThread(startEigerFan, boost::ref(eigerFan));
-
-  zmq::context_t context (1);
-  zmq::socket_t socket (context, ZMQ_DEALER);
-  socket.connect ("tcp://localhost:5559");
-
-  // Build the command to get the status
-  std::string command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"status\", \"params\": {}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
-  zmq::message_t request (command.size());
-  zmq::message_t reply;
-
-  // Now connect a consumer
-  zmq::socket_t receiver(context, ZMQ_PULL);
-  receiver.connect("tcp://localhost:31600");
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Start up an Emulated Eiger stream and send the Global Header Message
-  zmq::socket_t  eigerStream(context, ZMQ_PUSH);
-  eigerStream.bind("tcp://*:9999");
-
-
-  // Set the acquisition ID on the eiger fan before the header comes in
-  std::string acq_command("{\"msg_type\": \"cmd\", \"id\": 1, \"msg_val\": \"configure\", \"params\": {\"acqid\":\"test_acq_id\"}, \"timestamp\": \"2017-07-03T14:17:58.440432\"}");
-  zmq::message_t acq_request (acq_command.size());
-  memcpy (acq_request.data (), acq_command.c_str(), acq_command.size());
-  socket.send (acq_request);
-
-  //  Get the reply.
-  zmq::message_t acq_reply;
-  socket.recv (&acq_reply);
-  std::string acq_replyMessage(static_cast<char*>(acq_reply.data()), acq_reply.size());
-
-  std::size_t  found = acq_replyMessage.find("{\"msg_type\":\"ack\",\"msg_val\":\"configure\",\"params\":{},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, acq_replyMessage);
-
-  std::string globalHeader("{\"htype\":\"dheader-1.0\", \"series\": 1, \"header_detail\": \"none\"}");
-
-  zmq::message_t streamMessage(globalHeader.size());
-  memcpy (streamMessage.data (), globalHeader.c_str(), globalHeader.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan has gone into different state, having received the header message and sent out to consumer
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
-  // Expect the status returned to be a json string, with the state set to DSTR_HEADER and 1 consumer
-  found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_HEADER\",\"num_conn\":1,\"series\":1,\"frame\":0,\"frames_sent\":0,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage3);
-
-  // Check the consumer has been sent the header WITH THE ACQUISITION ID APPENDED
-  zmq::message_t consumerMessage;
-  receiver.recv (&consumerMessage);
-  std::string consumerMessageValue(static_cast<char*>(consumerMessage.data()), consumerMessage.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dheader-1.0\",\"series\":1,\"header_detail\":\"none\",\"acqID\":\"test_acq_id\"}", consumerMessageValue);
-
-  // Check there aren't more messages that have been sent to the consumer
-  int more;
-  size_t more_size = sizeof (more);
-  receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
-
-  // Send image data
-  std::string imgData1("{\"htype\":\"dimage-1.0\", \"series\": 1, \"frame\": 324, \"hash\": \"fc67f000d08fe6b380ea9434b8362d22\"}");
-  std::string imgData2("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398247}");
-  std::string imgData3("IMGDATA");
-  std::string imgData4("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834260, \"stop_time\": 834760834280, \"real_time\": 1000000}");
-  streamMessage.rebuild(imgData1.size());
-  memcpy (streamMessage.data (), imgData1.c_str(), imgData1.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData2.size());
-  memcpy (streamMessage.data (), imgData2.c_str(), imgData2.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData3.size());
-  memcpy (streamMessage.data (), imgData3.c_str(), imgData3.size());
-  eigerStream.send(streamMessage, ZMQ_SNDMORE);
-  streamMessage.rebuild(imgData4.size());
-  memcpy (streamMessage.data (), imgData4.c_str(), imgData4.size());
-  eigerStream.send(streamMessage);
-
-  // Sleep to give time for 0MQ message to get through and be processed
-  sleep(1);
-
-  // Check EigerFan has gone into different state, having received an image data message and sent out to consumer
-  request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
-
-  reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage4(static_cast<char*>(reply.data()), reply.size());
   // Expect the status returned to be a json string, with the state set to DSTR_IMAGE and 1 consumer
-  found = replyMessage4.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos, replyMessage4);
+  found = replyMessage2.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_IMAGE\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
+  BOOST_CHECK_MESSAGE(found != std::string::npos, replyMessage2);
 
-  // Check the consumer has been sent the image data WITH THE ACQUISITION ID APPENDED
-  zmq::message_t consumerMessageI1;
-  receiver.recv (&consumerMessageI1);
-  std::string consumerMessageI1Value(static_cast<char*>(consumerMessageI1.data()), consumerMessageI1.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage-1.0\",\"series\":1,\"frame\":324,\"hash\":\"fc67f000d08fe6b380ea9434b8362d22\",\"acqID\":\"test_acq_id\"}", consumerMessageI1Value);
-  zmq::message_t consumerMessageI2;
-  receiver.recv (&consumerMessageI2);
-  std::string consumerMessageI2Value(static_cast<char*>(consumerMessageI2.data()), consumerMessageI2.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dimage_d-1.0\", \"shape\":[1030,1065], \"type\": \"uint32\", \"encoding\": \"lz4<\", \"size\": 47398247}", consumerMessageI2Value);
-  zmq::message_t consumerMessageI3;
-  receiver.recv (&consumerMessageI3);
-  std::string consumerMessageI3Value(static_cast<char*>(consumerMessageI3.data()), consumerMessageI3.size());
-  BOOST_CHECK_EQUAL("IMGDATA", consumerMessageI3Value);
-  zmq::message_t consumerMessageI4;
-  receiver.recv (&consumerMessageI4);
-  std::string consumerMessageI4Value(static_cast<char*>(consumerMessageI4.data()), consumerMessageI4.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dconfig-1.0\", \"start_time\": 834759834260, \"stop_time\": 834760834280, \"real_time\": 1000000}", consumerMessageI4Value);
-  receiver.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-  BOOST_CHECK_EQUAL(0, more);
+  // Check the consumer has been sent the image message
+  zmq::message_t consumerImageMessage;
+  receiver.recv(&consumerImageMessage);
+  std::string consumerImageMessageValue(static_cast<char*>(consumerImageMessage.data()), consumerImageMessage.size());
+  BOOST_CHECK_EQUAL(imageMessageValue, consumerImageMessageValue);
 
-  // Send end of series message
-  std::string endOfStream("{\"htype\": \"dseries_end-1.0\", \"series\": 1}");
-  streamMessage.rebuild(endOfStream.size());
-  memcpy (streamMessage.data (), endOfStream.c_str(), endOfStream.size());
-  eigerStream.send(streamMessage);
+  // Send end message
+  uint8_t cbor_end_buffer[45];
+  cbor_end_buffer[0] = 0xd9;
+  cbor_end_buffer[1] = 0xd9;
+  cbor_end_buffer[2] = 0xf7;
+  CborEncoder endEncoder, endMapEncoder;
+  cbor_encoder_init(&endEncoder, cbor_end_buffer + 3, sizeof(cbor_end_buffer) - 3, 0);
+  cbor_encoder_create_map(&endEncoder, &endMapEncoder, 3);
+  cbor_encode_text_stringz(&endMapEncoder, "type");
+  cbor_encode_text_stringz(&endMapEncoder, "end");
+  cbor_encode_text_stringz(&endMapEncoder, "series_id");
+  cbor_encode_int(&endMapEncoder, 1);
+  cbor_encode_text_stringz(&endMapEncoder, "series_unique_id");
+  cbor_encode_text_stringz(&endMapEncoder, "1");
+  cbor_encoder_close_container(&endEncoder, &endMapEncoder);
+
+  zmq::message_t endMessage(sizeof(cbor_end_buffer));
+  memcpy(endMessage.data(), (void*) cbor_end_buffer, sizeof(cbor_end_buffer));
+  std::string endMessageValue(static_cast<char*>(endMessage.data()), endMessage.size());
+  eigerStream.send(endMessage);
 
   // Sleep to give time for 0MQ message to get through and be processed
   sleep(1);
 
   // Check EigerFan has gone into different state, having received an image data message and sent out to consumer
   request.rebuild(command.size());
-  memcpy (request.data (), command.c_str(), command.size());
-  socket.send (request);
+  memcpy(request.data(), command.c_str(), command.size());
+  socket.send(request);
 
   reply.rebuild();
-  socket.recv (&reply);
-  std::string replyMessage5(static_cast<char*>(reply.data()), reply.size());
+  socket.recv(&reply);
+  std::string replyMessage3(static_cast<char*>(reply.data()), reply.size());
   // Expect the status returned to be a json string, with the state set to DSTR_END or WAITING_STREAM and 1 consumer
-  found = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
-  std::size_t found2 = replyMessage5.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
-  BOOST_CHECK_MESSAGE(found!=std::string::npos || found2!=std::string::npos, "Not in correct state after EndOfSeries message: " << replyMessage5);
+  found = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"DSTR_END\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
+  std::size_t found2 = replyMessage3.find("{\"msg_type\":\"ack\",\"msg_val\":\"status\",\"params\":{\"state\":\"WAITING_STREAM\",\"num_conn\":1,\"series\":1,\"frame\":324,\"frames_sent\":1,\"fan_offset\":0},\"timestamp\":");
+  BOOST_CHECK_MESSAGE(found != std::string::npos || found2 != std::string::npos, "Not in correct state after EndOfSeries message: " << replyMessage2);
 
-  // Check the consumer has been sent the end of series message WITH THE ACQUISITION ID APPENDED
-  zmq::message_t consumerMessageEnd;
-  receiver.recv (&consumerMessageEnd);
-  std::string consumerMessageEndValue(static_cast<char*>(consumerMessageEnd.data()), consumerMessageEnd.size());
-  BOOST_CHECK_EQUAL("{\"htype\":\"dseries_end-1.0\",\"series\":1,\"acqID\":\"test_acq_id\"}", consumerMessageEndValue);
+  // Check the consumer has been sent the end message
+  zmq::message_t consumerEndMessage;
+  receiver.recv(&consumerEndMessage);
+  std::string consumerEndMessageValue(static_cast<char*>(consumerEndMessage.data()), consumerEndMessage.size());
+  BOOST_CHECK_EQUAL(endMessageValue, consumerEndMessageValue);
 
   shutdownEigerFan();
   eigerfanThread.join();

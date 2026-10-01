@@ -20,7 +20,14 @@ trigger_options = EigerOption(['ints', 'inte', 'exts', 'exte'])
 compression_options = EigerOption(['lz4', 'bslz4'])
 header_options = EigerOption(['all', 'basic', 'none'])
 mode_options = EigerOption(['disabled', 'enabled'])
+format_options = EigerOption(['legacy', 'cbor'])
 
-option_config_items = ['compression', 'trigger_mode', 'header_detail', 'mode']
+option_config_items = ['compression', 'trigger_mode', 'header_detail', 'mode', 'format']
 
-option_config_options = {'compression': compression_options, 'trigger_mode': trigger_options, 'header_detail': header_options, 'mode': mode_options}
+option_config_options = {
+    'compression': compression_options,
+    'trigger_mode': trigger_options,
+    'header_detail': header_options,
+    'mode': mode_options,
+    'format': format_options
+}
