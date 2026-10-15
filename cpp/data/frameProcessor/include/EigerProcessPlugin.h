@@ -34,6 +34,8 @@ namespace FrameProcessor
    */
   class EigerProcessPlugin : public FrameProcessorPlugin
   {
+    constexpr static int BODY_CH_SIZE = 11;
+    constexpr static int HEADER_CH_SIZE = 2048;
   public:
     EigerProcessPlugin();
     virtual ~EigerProcessPlugin();
@@ -74,17 +76,16 @@ namespace FrameProcessor
     /** ZeroMQ socket for data stream */
     zmq::socket_t zmq_socket_;
     /** Thread for handling data stream socket */
-    boost::shared_ptr<boost::thread> rx_thread_;
-    /** Mutex used to make this class thread safe */
-    boost::recursive_mutex mutex_;
+    boost::thread rx_thread_;
    /** Flag to determine if files shold be kept persistently or removed when processing is completed */
-    bool persistent_files_;
+    std::atomic<bool> persistent_files_;
 
     /** Frames dropped when failing to allocating memory */
     uint64_t dropped_frames_;
-
-    /** Pointer to logger */
-    LoggerPtr logger_;
+    rapidjson::StringBuffer buffer_;
+    rapidjson::StringBuffer header_buffer_;
+    rapidjson::Writer<rapidjson::StringBuffer> writer_;
+    rapidjson::Writer<rapidjson::StringBuffer> header_writer_;
 
     static const std::string CONFIG_ENDPOINT;
     static const std::string CONFIG_PERSISTENT_FILES;
