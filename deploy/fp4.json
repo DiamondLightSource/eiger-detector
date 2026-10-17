@@ -32,6 +32,15 @@
   {
     "plugin": {
       "load": {
+        "index": "tempfs",
+        "name": "RawFileWriterPlugin",
+        "library": "/odin/lib/libRawFileWriterPlugin.so"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "load": {
         "index": "hdf",
         "name": "FileWriterPlugin",
         "library": "/odin/lib/libHdf5Plugin.so"
@@ -59,6 +68,14 @@
       "connect": {
         "index": "hdf",
         "connection": "param"
+      }
+    }
+  },
+  {
+    "plugin": {
+      "connect": {
+        "index": "tempfs",
+        "connection": "eiger"
       }
     }
   },
@@ -166,6 +183,12 @@
           ]
         }
       }
+    }
+  },
+  {
+    "tempfs":{
+      "file_path": "/dev/shm/eiger/",
+      "writing_enabled": true
     }
   },
   {
