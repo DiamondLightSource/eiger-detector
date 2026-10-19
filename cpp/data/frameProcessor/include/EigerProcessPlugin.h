@@ -34,8 +34,8 @@ namespace FrameProcessor
    */
   class EigerProcessPlugin : public FrameProcessorPlugin
   {
-    constexpr static int BODY_CH_SIZE = 11;
-    constexpr static int HEADER_CH_SIZE = 2048;
+    constexpr static int BODY_CH_SIZE = 2048;
+    constexpr static int HEADER_CH_SIZE = 11;
   public:
     EigerProcessPlugin();
     virtual ~EigerProcessPlugin();
@@ -59,7 +59,7 @@ namespace FrameProcessor
     void handle_end_msg(struct stream2_end_msg* message, const zmq::message_t& zmq_message);
 
     /** Parse the data type from a stream2 image */
-    DataType get_stream2_data_type(const struct stream2_image_data* image_data);
+    static inline DataType get_stream2_data_type(const struct stream2_image_data* image_data);
     /** Parse the data dimensions from a stream2 image */
     dimensions_t get_stream2_dimensions(const struct stream2_image_data* image_data);
     /** Parse the data compression mode from a stream2 image */
@@ -69,6 +69,8 @@ namespace FrameProcessor
 
     /** Current series id from header to verify image and end messages */
     uint64_t current_series_id_;
+    /** The string buffer for the file paths generated */
+    std::string file_path_;
     /** Data stream endpoint to connect to */
     std::string endpoint_;
     /** ZeroMQ context */
@@ -77,8 +79,6 @@ namespace FrameProcessor
     zmq::socket_t zmq_socket_;
     /** Thread for handling data stream socket */
     boost::thread rx_thread_;
-   /** Flag to determine if files shold be kept persistently or removed when processing is completed */
-    std::atomic<bool> persistent_files_;
 
     /** Frames dropped when failing to allocating memory */
     uint64_t dropped_frames_;
@@ -88,7 +88,7 @@ namespace FrameProcessor
     rapidjson::Writer<rapidjson::StringBuffer> header_writer_;
 
     static const std::string CONFIG_ENDPOINT;
-    static const std::string CONFIG_PERSISTENT_FILES;
+    static const std::string STATUS_DROPPED_FRAMES;
 
     /** Parent class methods */
 
