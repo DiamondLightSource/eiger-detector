@@ -1,8 +1,8 @@
 # Project name
 project(EigerDetector)
 set(SOURCE_DIR ${EigerDetector_SOURCE_DIR})
-
-set(CMAKE_CXX_STANDARD 11 CACHE STRING "The C++ standard to use")
+set(CMAKE_CXX_FLAGS "-std=c++17")
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Require CMake version >=2.8
