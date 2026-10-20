@@ -193,7 +193,9 @@
   },
   {
     "eiger": {
-      "endpoint": "tcp://127.0.0.1:31602"
+      "endpoint": "tcp://127.0.0.1:31602",
+      "offset_index": "offset",
+      "rawfw_index": "tmpfs"
     }
   }
 ]
