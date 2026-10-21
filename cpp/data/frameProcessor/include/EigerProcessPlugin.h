@@ -98,9 +98,6 @@ namespace FrameProcessor
 
     /** Current series id from header to verify image and end messages */
     uint64_t current_series_id_;
-    /** The string buffer for the file paths generated */
-    std::string file_path_;
-
     std::string offset_index_;
     std::string rawfilewriter_index_;
     /** Data stream endpoint to connect to */

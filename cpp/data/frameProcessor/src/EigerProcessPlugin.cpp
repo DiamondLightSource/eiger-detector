@@ -31,7 +31,6 @@ namespace FrameProcessor
     // logger_->setLevel(Level::getAll());
 
     int hwm = 10000;
-    file_path_.reserve(32);
     zmq_socket_.setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
     add_config_param_metadata(EigerProcessPlugin::CONFIG_ENDPOINT, PMDD::STRING_T, PMDA::READ_WRITE);
     add_status_param_metadata(EigerProcessPlugin::STATUS_DROPPED_FRAMES, PMDD::UINT_T, PMDA::READ_ONLY, 0);
@@ -233,14 +232,11 @@ namespace FrameProcessor
       image_data = &message->data.ptr[data_idx];
       frame->set_image_size(image_data->data.array.data.len);
       // Update name and size for this image channel
-      // reuse file_path_ variable;
-      file_path_ = "data";
       // Dataset names are `data1`, `data2`, `data3`, ...
       if (data_idx > 0) {
-        snprintf(to_str, sizeof(to_str), "%lu", data_idx + 1);
-        file_path_ += to_str;
+        snprintf(to_str, sizeof(to_str), "data %lu", data_idx + 1);
       }
-      frame_meta_data.set_dataset_name(file_path_);
+      frame_meta_data.set_dataset_name(to_str);
       writer_.Uint(image_data->data.array.data.len);
 
       this->push(this->offset_index_, boost::allocate_shared<WrapperFrame>(alloc, frame, frame_meta_data,
