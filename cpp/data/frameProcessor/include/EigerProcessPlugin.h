@@ -112,9 +112,7 @@ namespace FrameProcessor
     /** Frames dropped when failing to allocating memory */
     uint64_t dropped_frames_;
     rapidjson::StringBuffer buffer_;
-    rapidjson::StringBuffer header_buffer_;
     rapidjson::Writer<rapidjson::StringBuffer> writer_;
-    rapidjson::Writer<rapidjson::StringBuffer> header_writer_;
 
     static inline const std::string CONFIG_ENDPOINT = "endpoint";
     static inline const std::string CONFIG_OFFSET_PLUGIN = "dropped_frames";
