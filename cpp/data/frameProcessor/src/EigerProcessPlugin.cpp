@@ -23,9 +23,7 @@ namespace FrameProcessor
                                              zmq_socket_(zmq_context_, ZMQ_PULL),
                                              dropped_frames_(0),
                                              buffer_(nullptr, BODY_CH_SIZE),
-                                             header_buffer_(nullptr, HEADER_CH_SIZE),
-                                             writer_(buffer_),
-                                             header_writer_(header_buffer_)
+                                             writer_(buffer_)
   {
     // Setup logging for the class
     // logger_->setLevel(Level::getAll());
@@ -137,13 +135,9 @@ namespace FrameProcessor
   {
     LOG4CXX_INFO(Logger::getLogger("FP.EigerProcessPlugin"), "Handling start message");
     this->current_series_id_ = message->series_id;
-    buffer_.Clear();
-    writer_.Reset(buffer_);
-    writer_.StartObject();
-    writer_.Key("series_id");
-    writer_.Uint64(message->series_id);
-    writer_.EndObject();
-    publish_meta(get_name(), "eiger-start", zmq_message.data(), zmq_message.size(), buffer_.GetString());
+    char to_str[42] = {'\0'};
+    snprintf(to_str, sizeof(to_str), "{\"series_id\": %lu}",  message->series_id);
+    publish_meta(get_name(), "eiger-start", zmq_message.data(), zmq_message.size(), to_str);
   }
 
   /**
@@ -156,10 +150,10 @@ namespace FrameProcessor
   {
     LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "Processing series " 
                   << message->series_id << " image " << message->image_id);
-    char to_str[256] = {'\0'};
+    char to_str[128] = {'\0'};
     if (message->series_id != this->current_series_id_) {
-      snprintf(to_str, sizeof(to_str), "%s%lu%s%lu%s", "Series number mimatch ",
-               message->series_id, " - expecting ", this->current_series_id_, " - ignoring");
+      snprintf(to_str, sizeof(to_str), "Series number mimatch %lu - expecting %lu - ignoring",
+               message->series_id, this->current_series_id_);
       this->set_error(to_str);
       return;
     }
@@ -193,13 +187,6 @@ namespace FrameProcessor
       LOG4CXX_ERROR(Logger::getLogger("FP.EigerProcessPlugin"), "Failed to create DataBlockFrame: " << e.what());
       return;
     }
-    header_buffer_.Clear();
-    header_writer_.Reset(header_buffer_);
-    header_writer_.StartObject();
-    header_writer_.Key("series_id");
-    header_writer_.Uint64(message->series_id);
-    header_writer_.EndObject();
-
     buffer_.Clear();
     writer_.Reset(buffer_);
     writer_.StartObject();
@@ -243,7 +230,8 @@ namespace FrameProcessor
                           image_data->data.array.data.ptr - reinterpret_cast<uint8_t*>(const_cast<void*>(zmq_message.data()))));
     }
     writer_.EndObject();
-    publish_meta(get_name(), "eiger-image", buffer_.GetString(), header_buffer_.GetString());
+    snprintf(to_str, sizeof(to_str), "{\"series_id\": %lu}",  message->series_id); // header
+    publish_meta(get_name(), "eiger-image", buffer_.GetString(), to_str);
     LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "Finished handling image message");
   }
 
@@ -257,13 +245,9 @@ namespace FrameProcessor
   {
     // this->notify_end_of_acquisition();  // Need to delay this or we could miss the last few frames
     LOG4CXX_INFO(Logger::getLogger("FP.EigerProcessPlugin"), "Handling end message");
-    header_buffer_.Clear();
-    header_writer_.Reset(header_buffer_);
-    header_writer_.StartObject();
-    header_writer_.Key("series_id");
-    header_writer_.Uint64(message->series_id);
-    header_writer_.EndObject();
-    publish_meta(get_name(), "eiger-end", zmq_message.data(), zmq_message.size(), header_buffer_.GetString());
+    char to_str[42] = {'\0'};
+    snprintf(to_str, sizeof(to_str), "{\"series_id\": %lu}",  message->series_id);
+    publish_meta(get_name(), "eiger-end", zmq_message.data(), zmq_message.size(), to_str);
   }
 
   void EigerProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
