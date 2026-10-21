@@ -1,4 +1,4 @@
-FROM ghcr.io/odin-detector/odin-data-build:1.13.0-beta.2 AS developer
+FROM ghcr.io/odin-detector/odin-data-build:1.13.0-beta.3 AS developer
 
 FROM developer AS build
 
