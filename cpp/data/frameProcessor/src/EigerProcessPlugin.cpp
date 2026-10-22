@@ -67,7 +67,11 @@ namespace FrameProcessor
       }
       catch (zmq::error_t &e)
       {
+        char to_str[128] = {'\0'};
         LOG4CXX_ERROR(Logger::getLogger("FP.EigerProcessPlugin"), "Failed to connect to " << this->endpoint_ << ": " << e.what());
+        reply.set_msg_type(OdinData::IpcMessage::MsgTypeNack);
+        snprintf(to_str, sizeof(to_str), "ZMQ connection failed (%s)", e.what());
+        reply.set_param("error", to_str);
         return;
       }
 
@@ -230,7 +234,7 @@ namespace FrameProcessor
                           image_data->data.array.data.ptr - reinterpret_cast<uint8_t*>(const_cast<void*>(zmq_message.data()))));
     }
     writer_.EndObject();
-    snprintf(to_str, sizeof(to_str), "{\"series_id\": %lu}",  message->series_id); // header
+    snprintf(to_str, sizeof(to_str), "{\"series_id\":%lu}",  message->series_id); // header
     publish_meta(get_name(), "eiger-image", buffer_.GetString(), to_str);
     LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "Finished handling image message");
   }
