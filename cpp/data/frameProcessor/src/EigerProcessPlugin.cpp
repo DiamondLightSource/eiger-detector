@@ -213,11 +213,18 @@ namespace FrameProcessor
     writer_.EndArray();
     writer_.Key("compression");
     writer_.String(compression_str);
+    struct MessagePmrControlBlock {
+      std::vector<std::byte> raw_buffer;
+      std::pmr::monotonic_buffer_resource mem_pool;
+      MessagePmrControlBlock(size_t size) 
+        : raw_buffer(size), mem_pool(raw_buffer.data(), raw_buffer.size()) {}
+    };
 
     size_t approx_block_size = (sizeof(WrapperFrame) + 32) * message->data.len;
-    std::vector<std::byte> raw_buffer(approx_block_size);
-    std::pmr::monotonic_buffer_resource mem_pool(raw_buffer.data(), raw_buffer.size());
-    std::pmr::polymorphic_allocator<WrapperFrame> alloc(&mem_pool);
+    // needs boost's implementation as this will be used to alias the individual
+    // WrappedFrame shared_ptr's
+    auto pmr_ctrl_blk = boost::make_shared<MessagePmrControlBlock>(approx_block_size);
+    std::pmr::polymorphic_allocator<WrapperFrame> alloc(&pmr_ctrl_blk->mem_pool);
     // Handle each channel by wrapping the original Frame
     for (size_t data_idx = 0; data_idx < message->data.len; ++data_idx) {
       image_data = &message->data.ptr[data_idx];
@@ -229,9 +236,11 @@ namespace FrameProcessor
       }
       frame_meta_data.set_dataset_name(to_str);
       writer_.Uint(image_data->data.array.data.len);
-
-      this->push(this->offset_index_, boost::allocate_shared<WrapperFrame>(alloc, frame, frame_meta_data,
-                          image_data->data.array.data.ptr - reinterpret_cast<uint8_t*>(const_cast<void*>(zmq_message.data()))));
+      // allocate_shared() will reuse the buffer in the mem_pool so no new allocation is made from the global heap.
+      auto shared_fr = std::allocate_shared<WrapperFrame>(alloc, frame, frame_meta_data,
+                      image_data->data.array.data.ptr - reinterpret_cast<uint8_t*>(const_cast<void*>(zmq_message.data())));
+      // shared_ptr aliasing constructor - no new memory allocation from the global heap is made.
+      this->push(offset_index_, boost::shared_ptr<WrapperFrame>(pmr_ctrl_blk, shared_fr.get()));
     }
     writer_.EndObject();
     snprintf(to_str, sizeof(to_str), "{\"series_id\":%lu}",  message->series_id); // header
