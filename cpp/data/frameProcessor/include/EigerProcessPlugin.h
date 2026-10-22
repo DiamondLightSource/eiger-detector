@@ -115,9 +115,9 @@ namespace FrameProcessor
     rapidjson::Writer<rapidjson::StringBuffer> writer_;
 
     static inline const std::string CONFIG_ENDPOINT = "endpoint";
-    static inline const std::string CONFIG_OFFSET_PLUGIN = "dropped_frames";
-    static inline const std::string CONFIG_RAWFW_PLUGIN = "offset_index";
-    static inline const std::string STATUS_DROPPED_FRAMES = "rawfw_index";
+    static inline const std::string CONFIG_OFFSET_PLUGIN = "offset_index";
+    static inline const std::string CONFIG_RAWFW_PLUGIN = "rawfw_index";
+    static inline const std::string STATUS_DROPPED_FRAMES = "dropped_frames";
 
     /** Parent class methods */
 
