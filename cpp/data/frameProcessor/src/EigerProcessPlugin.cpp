@@ -226,14 +226,10 @@ namespace FrameProcessor
     auto pmr_ctrl_blk = boost::make_shared<MessagePmrControlBlock>(approx_block_size);
     std::pmr::polymorphic_allocator<WrapperFrame> alloc(&pmr_ctrl_blk->mem_pool);
     // Handle each channel by wrapping the original Frame
+    snprintf(to_str, sizeof(to_str), "data");
     for (size_t data_idx = 0; data_idx < message->data.len; ++data_idx) {
       image_data = &message->data.ptr[data_idx];
       frame->set_image_size(image_data->data.array.data.len);
-      // Update name and size for this image channel
-      // Dataset names are `data1`, `data2`, `data3`, ...
-      if (data_idx > 0) {
-        snprintf(to_str, sizeof(to_str), "data %lu", data_idx + 1);
-      }
       frame_meta_data.set_dataset_name(to_str);
       writer_.Uint(image_data->data.array.data.len);
       // allocate_shared() will reuse the buffer in the mem_pool so no new allocation is made from the global heap.
@@ -241,6 +237,9 @@ namespace FrameProcessor
                       image_data->data.array.data.ptr - reinterpret_cast<uint8_t*>(const_cast<void*>(zmq_message.data())));
       // shared_ptr aliasing constructor - no new memory allocation from the global heap is made.
       this->push(offset_index_, boost::shared_ptr<WrapperFrame>(pmr_ctrl_blk, shared_fr.get()));
+      // Update name and size for this image channel
+      // Dataset names are `data`, `data2`, `data3`, ...
+      snprintf(&to_str[4], sizeof(to_str), "%lu", data_idx + 1);
     }
     writer_.EndObject();
     snprintf(to_str, sizeof(to_str), "{\"series_id\":%lu}",  message->series_id); // header
