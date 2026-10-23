@@ -31,6 +31,8 @@ namespace FrameProcessor
     int hwm = 10000;
     zmq_socket_.setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
     add_config_param_metadata(EigerProcessPlugin::CONFIG_ENDPOINT, PMDD::STRING_T, PMDA::READ_WRITE);
+    add_config_param_metadata(EigerProcessPlugin::CONFIG_OFFSET_PLUGIN, PMDD::STRING_T, PMDA::READ_WRITE);
+    add_config_param_metadata(EigerProcessPlugin::CONFIG_RAWFW_PLUGIN, PMDD::STRING_T, PMDA::READ_WRITE);
     add_status_param_metadata(EigerProcessPlugin::STATUS_DROPPED_FRAMES, PMDD::UINT_T, PMDA::READ_ONLY, 0);
     LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "EigerProcessPlugin constructor.");
   }
