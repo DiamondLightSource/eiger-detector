@@ -229,6 +229,7 @@ namespace FrameProcessor
     std::pmr::polymorphic_allocator<WrapperFrame> alloc(&pmr_ctrl_blk->mem_pool);
     // Handle each channel by wrapping the original Frame
     snprintf(to_str, sizeof(to_str), "data");
+    size_t id = 1;
     for (size_t data_idx = 0; data_idx < message->data.len; ++data_idx) {
       image_data = &message->data.ptr[data_idx];
       frame->set_image_size(image_data->data.array.data.len);
@@ -241,7 +242,8 @@ namespace FrameProcessor
       this->push(offset_index_, boost::shared_ptr<WrapperFrame>(pmr_ctrl_blk, shared_fr.get()));
       // Update name and size for this image channel
       // Dataset names are `data`, `data2`, `data3`, ...
-      snprintf(&to_str[4], sizeof(to_str), "%lu", data_idx + 1);
+      snprintf(&to_str[4], sizeof(to_str), "%lu", id + 1);
+      ++id;
     }
     writer_.EndObject();
     snprintf(to_str, sizeof(to_str), "{\"series_id\":%lu}",  message->series_id); // header
