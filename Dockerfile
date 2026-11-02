@@ -1,4 +1,5 @@
-FROM ghcr.io/odin-detector/odin-data-build:1.13.0-beta.3 AS developer
+ARG ODIN_DATA_VERSION=1.13.0-beta.3
+FROM ghcr.io/odin-detector/odin-data-build:${ODIN_DATA_VERSION} AS developer
 
 FROM developer AS build
 
@@ -16,7 +17,7 @@ RUN mkdir -p build && cd build && \
 WORKDIR /odin/eiger-detector/python
 RUN python -m pip install .[sim]
 
-FROM ghcr.io/odin-detector/odin-data-runtime:1.13.0-beta.2 AS runtime
+FROM ghcr.io/odin-detector/odin-data-runtime:${ODIN_DATA_VERSION} AS runtime
 
 COPY --from=build /odin /odin
 COPY --from=build /venv /venv

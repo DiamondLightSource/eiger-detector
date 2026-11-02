@@ -59,11 +59,18 @@ namespace FrameProcessor
     /** Handle an end message */
     void handle_end_msg(struct stream2_end_msg* message, const zmq::message_t& zmq_message);
 
-    /** Parse the data type from a stream2 image */
+    /**
+     * Parse the data type from a stream2 image
+     *
+     * @param[in] image_data The stream2_image_data to extract compression from
+     * @param[out] DataType The type of data - only uint8_t, uint16_t and uint32_t allowed.
+     */
     static inline DataType get_stream2_data_type(const struct stream2_image_data* image_data) 
     {
       uint64_t elem_size = 0;
+      uint64_t size = 0;
       stream2_typed_array_elem_size(&image_data->data.array, &elem_size);
+      size = elem_size; // make a copy for logging
       elem_size = ((elem_size > 4) | (elem_size < 1)) ? 0 : elem_size;
       std::array<DataType, 5> type_arr;
       type_arr[0] = DataType::raw_unknown;
@@ -72,8 +79,8 @@ namespace FrameProcessor
       type_arr[3] = DataType::raw_unknown;
       type_arr[4] = DataType::raw_32bit;
 
-      if ((!elem_size) | (elem_size == 3)) {
-        LOG4CXX_ERROR(Logger::getLogger("FP.EigerProcessPlugin"), "Unknown frame data type size: " << elem_size);
+      if ((elem_size == 0) | (elem_size == 3)) {
+        LOG4CXX_ERROR(Logger::getLogger("FP.EigerProcessPlugin"), "Unknown frame data type size: " << size);
       }
       return type_arr[elem_size];
     }
@@ -81,14 +88,16 @@ namespace FrameProcessor
     /**
      * Get the compression algorithm from a stream2_image_data
      *
-     * \param[in] image_data The stream2_image_data to extract compression from
+     * @param[in] image_data The stream2_image_data to extract compression from.
+     * @param[out] [CompressionType, const char*] a pair of the compression enum type along with a 
+     *                                            pointer to the given string or "unknown" string.
      */
-    static inline std::pair<CompressionType, const char*> get_stream2_compression(const char* compression_str) {
-      if (strcmp(compression_str, "bslz4") == 0) {
-          return {CompressionType::bslz4, compression_str};
+    static inline std::pair<CompressionType, const char*> get_stream2_compression(const struct stream2_image_data* image_data) {
+      if (strcmp(image_data->data.array.data.compression.algorithm, "bslz4") == 0) {
+          return {CompressionType::bslz4, image_data->data.array.data.compression.algorithm};
       }
-      else if (strcmp(compression_str, "lz4") == 0) {
-          return {CompressionType::lz4, compression_str};
+      else if (strcmp(image_data->data.array.data.compression.algorithm, "lz4") == 0) {
+          return {CompressionType::lz4, image_data->data.array.data.compression.algorithm};
       } else {
           return {CompressionType::no_compression, "unknown"};
       }
@@ -115,8 +124,8 @@ namespace FrameProcessor
     rapidjson::Writer<rapidjson::StringBuffer> writer_;
 
     static inline const std::string CONFIG_ENDPOINT = "endpoint";
-    static inline const std::string CONFIG_OFFSET_PLUGIN = "offset_index";
-    static inline const std::string CONFIG_RAWFW_PLUGIN = "rawfw_index";
+    static inline const std::string CONFIG_OFFSET_INDEX = "offset_index";
+    static inline const std::string CONFIG_RAWFW_INDEX = "rawfw_index";
     static inline const std::string STATUS_DROPPED_FRAMES = "dropped_frames";
 
     /** Parent class methods */
