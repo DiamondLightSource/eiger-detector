@@ -31,8 +31,8 @@ namespace FrameProcessor
     int hwm = 10000;
     zmq_socket_.setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
     add_config_param_metadata(EigerProcessPlugin::CONFIG_ENDPOINT, PMDD::STRING_T, PMDA::READ_WRITE);
-    add_config_param_metadata(EigerProcessPlugin::CONFIG_OFFSET_PLUGIN, PMDD::STRING_T, PMDA::READ_WRITE);
-    add_config_param_metadata(EigerProcessPlugin::CONFIG_RAWFW_PLUGIN, PMDD::STRING_T, PMDA::READ_WRITE);
+    add_config_param_metadata(EigerProcessPlugin::CONFIG_OFFSET_INDEX, PMDD::STRING_T, PMDA::READ_WRITE);
+    add_config_param_metadata(EigerProcessPlugin::CONFIG_RAWFW_INDEX, PMDD::STRING_T, PMDA::READ_WRITE);
     add_status_param_metadata(EigerProcessPlugin::STATUS_DROPPED_FRAMES, PMDD::UINT_T, PMDA::READ_ONLY, 0);
     LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "EigerProcessPlugin constructor.");
   }
@@ -52,12 +52,12 @@ namespace FrameProcessor
    */
   void EigerProcessPlugin::configure(OdinData::IpcMessage &config, OdinData::IpcMessage &reply)
   {
-    if (config.has_param(EigerProcessPlugin::CONFIG_OFFSET_PLUGIN)) {
-      this->offset_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_OFFSET_PLUGIN);
+    if (config.has_param(EigerProcessPlugin::CONFIG_OFFSET_INDEX)) {
+      this->offset_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_OFFSET_INDEX);
     }
 
-    if (config.has_param(EigerProcessPlugin::CONFIG_RAWFW_PLUGIN)) {
-      this->rawfilewriter_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_RAWFW_PLUGIN);
+    if (config.has_param(EigerProcessPlugin::CONFIG_RAWFW_INDEX)) {
+      this->rawfilewriter_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_RAWFW_INDEX);
     }
 
     if (config.has_param(EigerProcessPlugin::CONFIG_ENDPOINT) && this->endpoint_.empty())
@@ -69,11 +69,14 @@ namespace FrameProcessor
       }
       catch (zmq::error_t &e)
       {
-        char to_str[128] = {'\0'};
         LOG4CXX_ERROR(Logger::getLogger("FP.EigerProcessPlugin"), "Failed to connect to " << this->endpoint_ << ": " << e.what());
         reply.set_msg_type(OdinData::IpcMessage::MsgTypeNack);
-        snprintf(to_str, sizeof(to_str), "ZMQ connection failed (%s)", e.what());
-        reply.set_param("error", to_str);
+        std::string err_str;
+        err_str.reserve(128);
+        err_str = "ZMQ connection failed (";
+        err_str += e.what();
+        err_str += ')';
+        reply.set_param("error", err_str);
         return;
       }
 
@@ -149,8 +152,8 @@ namespace FrameProcessor
   /**
    * Handle an image message
    *
-   * \param[in] message Parsed stream2 image message
-   * \param[in] frame Frame to process
+   * \param[in] message handle to stream2 image message metadata
+   * \param[in] zmq_message The actual data received over ZMQ
    */
   void EigerProcessPlugin::handle_image_msg(struct stream2_image_msg *message, const zmq::message_t &zmq_message)
   {
@@ -168,7 +171,7 @@ namespace FrameProcessor
     const stream2_image_data *image_data = &message->data.ptr[0];
     snprintf(to_str, sizeof(to_str), "%lu", message->image_id); // acquisition ID
     DataType data_type = get_stream2_data_type(image_data);
-    auto [compression_type, compression_str] = get_stream2_compression(image_data->data.array.data.compression.algorithm);
+    auto [compression_type, compression_str] = get_stream2_compression(image_data);
     // Create a Frame and send it to the RawFileWriterPlugin
     FrameMetaData frame_meta_data{static_cast<long long>(message->image_id), "", data_type, to_str, 
                                   {image_data->data.dim[0], image_data->data.dim[1]}, compression_type};
@@ -200,6 +203,7 @@ namespace FrameProcessor
     writer_.Uint64(message->series_id);
     writer_.Key("image_id");
     writer_.Uint64(message->image_id);
+    // First element of *_time is the actual time, second element is the time base frequency
     writer_.Key("start_time");
     writer_.Uint64(message->start_time[0]);
     writer_.Key("stop_time");
@@ -290,8 +294,8 @@ namespace FrameProcessor
   void EigerProcessPlugin::requestConfiguration(OdinData::IpcMessage &reply)
   {
     reply.set_param(this->get_name() + '/' + CONFIG_ENDPOINT, this->endpoint_);
-    reply.set_param(this->get_name() + '/' + CONFIG_OFFSET_PLUGIN, this->offset_index_);
-    reply.set_param(this->get_name() + '/' + CONFIG_RAWFW_PLUGIN, this->rawfilewriter_index_);
+    reply.set_param(this->get_name() + '/' + CONFIG_OFFSET_INDEX, this->offset_index_);
+    reply.set_param(this->get_name() + '/' + CONFIG_RAWFW_INDEX, this->rawfilewriter_index_);
   }
 
   /** Report status
