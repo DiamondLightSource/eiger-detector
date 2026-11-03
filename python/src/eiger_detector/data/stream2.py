@@ -49,6 +49,6 @@ tag_decoders = {
 }
 
 
-def stream2_tag_decoder(_decoder, tag):
+def stream2_tag_decoder(tag, immutable):
     tag_decoder = tag_decoders.get(tag.tag)
     return tag_decoder(tag) if tag_decoder else tag
