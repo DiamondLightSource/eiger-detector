@@ -8,7 +8,7 @@
 
 #include "DebugLevelLogger.h"
 #include "Json.h"
-#include "WrapperFrame.h"
+#include "WrappedFrame.h"
 #include "DataBlockFrame.h"
 
 #include "EigerDefinitions.h"
@@ -227,11 +227,11 @@ namespace FrameProcessor
     };
 
     constexpr uint32_t control_block_sz = 32; // shared_ptr control block size is between 24-32 bytes max across all architectures
-    size_t block_size = (sizeof(WrapperFrame) + control_block_sz) * message->data.len;
+    size_t block_size = (sizeof(WrappedFrame) + control_block_sz) * message->data.len;
     // needs boost's implementation as this will be used to alias the individual
     // WrappedFrame shared_ptr's
     auto pmr_ctrl_blk = boost::make_shared<MessagePmrControlBlock>(block_size);
-    std::pmr::polymorphic_allocator<WrapperFrame> alloc(&pmr_ctrl_blk->mem_pool);
+    std::pmr::polymorphic_allocator<WrappedFrame> alloc(&pmr_ctrl_blk->mem_pool);
     // Handle each channel by wrapping the original Frame
     snprintf(to_str, sizeof(to_str), "data");
     size_t id = 1;
@@ -241,10 +241,10 @@ namespace FrameProcessor
       frame_meta_data.set_dataset_name(to_str);
       writer_.Uint(image_data->data.array.data.len);
       // allocate_shared() will reuse the buffer in the mem_pool so no new allocation is made from the global heap.
-      auto shared_fr = std::allocate_shared<WrapperFrame>(alloc, frame, frame_meta_data,
+      auto shared_fr = std::allocate_shared<WrappedFrame>(alloc, frame, frame_meta_data,
                       image_data->data.array.data.ptr - reinterpret_cast<uint8_t*>(const_cast<void*>(zmq_message.data())));
       // shared_ptr aliasing constructor - no new memory allocation from the global heap is made.
-      this->push(offset_index_, boost::shared_ptr<WrapperFrame>(pmr_ctrl_blk, shared_fr.get()));
+      this->push(offset_index_, boost::shared_ptr<WrappedFrame>(pmr_ctrl_blk, shared_fr.get()));
       // Update name and size for this image channel
       // Dataset names are `data`, `data2`, `data3`, ...
       snprintf(&to_str[4], sizeof(to_str), "%lu", id + 1);
