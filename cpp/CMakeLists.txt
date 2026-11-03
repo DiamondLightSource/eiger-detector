@@ -1,12 +1,11 @@
+cmake_minimum_required(VERSION 3.23)
+
 # Project name
 project(EigerDetector)
 set(SOURCE_DIR ${EigerDetector_SOURCE_DIR})
 
 set(CMAKE_CXX_STANDARD 11 CACHE STRING "The C++ standard to use")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Require CMake version >=2.8
-cmake_minimum_required(VERSION 2.8)
 
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
