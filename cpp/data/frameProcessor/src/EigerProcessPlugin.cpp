@@ -226,10 +226,11 @@ namespace FrameProcessor
         : raw_buffer(size), mem_pool(raw_buffer.data(), raw_buffer.size()) {}
     };
 
-    size_t approx_block_size = (sizeof(WrapperFrame) + 32) * message->data.len;
+    constexpr uint32_t control_block_sz = 32; // shared_ptr control block size is between 24-32 bytes max across all architectures
+    size_t block_size = (sizeof(WrapperFrame) + control_block_sz) * message->data.len;
     // needs boost's implementation as this will be used to alias the individual
     // WrappedFrame shared_ptr's
-    auto pmr_ctrl_blk = boost::make_shared<MessagePmrControlBlock>(approx_block_size);
+    auto pmr_ctrl_blk = boost::make_shared<MessagePmrControlBlock>(block_size);
     std::pmr::polymorphic_allocator<WrapperFrame> alloc(&pmr_ctrl_blk->mem_pool);
     // Handle each channel by wrapping the original Frame
     snprintf(to_str, sizeof(to_str), "data");
