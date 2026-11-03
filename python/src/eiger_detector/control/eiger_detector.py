@@ -97,6 +97,7 @@ class EigerDetector(object):
     ]
     STREAM_CONFIG = [
         'mode',
+        'format',
         'header_detail',
         'header_appendix',
         'image_appendix'
@@ -505,6 +506,9 @@ class EigerDetector(object):
             setattr(self, item, param)
 
     def parse_response(self, response, item):
+        if not response.text:
+            return None
+
         reply = None
         try:
             reply = json.loads(response.text)
@@ -514,7 +518,11 @@ class EigerDetector(object):
                 if missing in item:
                     return None
             # Unable to parse the json response, so simply log this
-            logging.error("Failed to parse a JSON response: {}".format(response.text))
+            logging.error(
+                "Failed to parse a JSON response for {} from '{}'".format(
+                    item, response.text
+                )
+            )
         return reply
 
     def get_meta(self, item):
@@ -664,7 +672,8 @@ class EigerDetector(object):
                 }
                 logging.info("Frame object created: {}".format(frame_header))
 
-                frame_data = tiff[image_strip_offset:image_strip_offset+(image_width * image_height * image_bitdepth / 8)]
+                image_size = image_width * image_height * image_bitdepth // 8
+                frame_data = tiff[image_strip_offset : image_strip_offset + image_size]
 
                 self._lv_publisher.send_json(frame_header, flags=zmq.SNDMORE)
                 self._lv_publisher.send(frame_data, 0)
