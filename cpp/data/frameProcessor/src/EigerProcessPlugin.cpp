@@ -137,8 +137,8 @@ namespace FrameProcessor
   /**
    * Handle a start message
    *
-   * \param[in] message Parsed stream2 start message
-   * \param[in] zmq_message ZMQ message containg raw cbor data blob
+   * @param[in] message Parsed stream2 start message
+   * @param[in] zmq_message ZMQ message containg raw cbor data blob
    */
   void EigerProcessPlugin::handle_start_msg(struct stream2_start_msg *message, const zmq::message_t &zmq_message)
   {
@@ -152,8 +152,8 @@ namespace FrameProcessor
   /**
    * Handle an image message
    *
-   * \param[in] message handle to stream2 image message metadata
-   * \param[in] zmq_message The actual data received over ZMQ
+   * @param[in] message handle to stream2 image message metadata
+   * @param[in] zmq_message The actual data received over ZMQ
    */
   void EigerProcessPlugin::handle_image_msg(struct stream2_image_msg *message, const zmq::message_t &zmq_message)
   {
@@ -259,8 +259,8 @@ namespace FrameProcessor
   /**
    * Handle an end message
    *
-   * \param[in] message Parsed stream2 end message
-   * \param[in] zmq_message ZMQ message containg raw cbor data blob
+   * @param[in] message Parsed stream2 end message
+   * @param[in] zmq_message ZMQ message containg raw cbor data blob
    */
   void EigerProcessPlugin::handle_end_msg(struct stream2_end_msg *message, const zmq::message_t &zmq_message)
   {
@@ -279,9 +279,9 @@ namespace FrameProcessor
   /**
    * Get the compressed size from a stream2_image_data
    *
-   * \param[in] image_data The stream2_image_data to extract compression from
+   * @param[in] image_data The stream2_image_data to extract compression from
    *
-   * \return The compressed size in bytes
+   * @return The compressed size in bytes
    */
   uint32_t EigerProcessPlugin::get_stream2_compressed_size(const struct stream2_image_data *image_data)
   {
@@ -290,7 +290,7 @@ namespace FrameProcessor
 
   /** Provide configuration readback
    *
-   * \param reply[out] - Response IpcMessage to update with current configuration
+   * @param reply[out] - Response IpcMessage to update with current configuration
    */
   void EigerProcessPlugin::requestConfiguration(OdinData::IpcMessage &reply)
   {
@@ -301,7 +301,7 @@ namespace FrameProcessor
 
   /** Report status
    *
-   * \param[out] status - Reference to an IpcMessage value to store the status
+   * @param[out] status - Reference to an IpcMessage value to store the status
    */
   void EigerProcessPlugin::status(OdinData::IpcMessage &status)
   {
@@ -310,7 +310,7 @@ namespace FrameProcessor
 
   /** Reset dropped frames counter
    *
-   * \returns True if reset was successful
+   * @returns True if reset was successful
    */
   bool EigerProcessPlugin::reset_statistics()
   {
