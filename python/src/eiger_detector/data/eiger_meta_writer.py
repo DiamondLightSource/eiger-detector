@@ -280,7 +280,7 @@ class EigerMetaWriter(MetaWriter):
 
         # Hard code these missing things
         self._write_dataset(dectris(BIT_DEPTH_READOUT), 16)
-        self._write_dataset(dectris(IMAGES_PER_TRIGGER), 3600)
+        self._write_dataset(dectris(IMAGES_PER_TRIGGER), 1)
         self._write_dataset(dectris(NUMBER_OF_TRIGGERS), 1)
         self._write_dataset(dectris(ROI_MODE), "disabled")
         # bit_depth_image is written from the first image message, as the stream2
