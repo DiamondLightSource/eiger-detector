@@ -4,6 +4,7 @@ This module is a subclass of the odin_data MetaWriter and handles Eiger specific
 
 Matt Taylor, Diamond Light Source
 """
+
 import cbor2
 from odin_data.meta_writer.hdf5dataset import (
     Float32HDF5Dataset,
@@ -198,10 +199,16 @@ class EigerMetaWriter(MetaWriter):
             UInt64HDF5Dataset(dectris(COUNTRATE_CORRECTION_COUNT_CUTOFF), cache=False),
             StringHDF5Dataset(dectris(SENSOR_MATERIAL), cache=False),
             Float64HDF5Dataset(dectris(SENSOR_THICKNESS), cache=False),
-            UInt64HDF5Dataset(dectris(VIRTUAL_PIXEL_INTERPOLATION_ENABLED), cache=False),
+            UInt64HDF5Dataset(
+                dectris(VIRTUAL_PIXEL_INTERPOLATION_ENABLED), cache=False
+            ),
             UInt64HDF5Dataset(dectris(COUNTRATE_CORRECTION), cache=False),
-            Float32HDF5Dataset("flatfield", shape=self._sensor_shape, rank=2, cache=False),
-            Float32HDF5Dataset("flatfield2", shape=self._sensor_shape, rank=2, cache=False),
+            Float32HDF5Dataset(
+                "flatfield", shape=self._sensor_shape, rank=2, cache=False
+            ),
+            Float32HDF5Dataset(
+                "flatfield2", shape=self._sensor_shape, rank=2, cache=False
+            ),
             UInt32HDF5Dataset("mask", shape=self._sensor_shape, rank=2, cache=False),
             UInt32HDF5Dataset("mask2", shape=self._sensor_shape, rank=2, cache=False),
             Float64HDF5Dataset(dectris(THRESHOLD_ENERGY_1), cache=False),
@@ -267,11 +274,18 @@ class EigerMetaWriter(MetaWriter):
             )
 
         # Remap these renamed things
-        self._write_dataset(dectris(COUNTRATE_CORRECTION_COUNT_CUTOFF), data[SATURATION_VALUE])
+        self._write_dataset(
+            dectris(COUNTRATE_CORRECTION_COUNT_CUTOFF), data[SATURATION_VALUE]
+        )
+
+        # Hard code these missing things
+        self._write_dataset(dectris(BIT_DEPTH_READOUT), 16)
+        self._write_dataset(dectris(IMAGES_PER_TRIGGER), 3600)
+        self._write_dataset(dectris(NUMBER_OF_TRIGGERS), 1)
+        self._write_dataset(dectris(ROI_MODE), "disabled")
         # bit_depth_image is written from the first image message, as the stream2
         # start message does not include it. bit_depth_readout, images_per_trigger,
-        # number_of_triggers and roi_mode are not in stream2 at all, so are left
-        # empty rather than written with placeholder values.
+        # number_of_triggers and roi_mode are not in stream2 at all, so are written with placeholder values.
 
         # Goniometer axis parameters
         for axis_name in GONIOMETER_DATASETS:
@@ -283,9 +297,7 @@ class EigerMetaWriter(MetaWriter):
                 )
                 continue
 
-            self._add_dataset(
-                dectris(f"goniometer/{axis_name}_start"), axis["start"]
-            )
+            self._add_dataset(dectris(f"goniometer/{axis_name}_start"), axis["start"])
             self._add_dataset(
                 dectris(f"goniometer/{axis_name}_increment"), axis["increment"]
             )
