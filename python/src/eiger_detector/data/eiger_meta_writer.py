@@ -35,6 +35,9 @@ SIZE = "size"
 COMPRESSION = "compression"
 DATATYPE = "type"
 
+# Bit depth of each image data type sent in image messages
+DATATYPE_BIT_DEPTH = {"uint8": 8, "uint16": 16, "uint32": 32}
+
 # Stream2 start message parameters
 
 ## Simple datasets
@@ -152,6 +155,7 @@ class EigerMetaWriter(MetaWriter):
         self._detector_finished = False  # Require base class to check we have finished
 
         self._series_number = None
+        self._bit_depth_written = False
 
     def _define_detector_datasets(self):
         return [
@@ -235,6 +239,7 @@ class EigerMetaWriter(MetaWriter):
             self._create_file(self._generate_full_file_path(), 0)
 
         self._series_number = header[SERIES_ID]
+        self._bit_depth_written = False
         self._write_dataset(SERIES_ID, header[SERIES_ID])
 
         # Datasets that map straight through to the `data` layout
@@ -263,12 +268,10 @@ class EigerMetaWriter(MetaWriter):
 
         # Remap these renamed things
         self._write_dataset(dectris(COUNTRATE_CORRECTION_COUNT_CUTOFF), data[SATURATION_VALUE])
-        # Hard code these missing things
-        self._write_dataset(dectris(BIT_DEPTH_IMAGE), 16)
-        self._write_dataset(dectris(BIT_DEPTH_READOUT), 16)
-        self._write_dataset(dectris(IMAGES_PER_TRIGGER), 3600)
-        self._write_dataset(dectris(NUMBER_OF_TRIGGERS), 1)
-        self._write_dataset(dectris(ROI_MODE), "disabled")
+        # bit_depth_image is written from the first image message, as the stream2
+        # start message does not include it. bit_depth_readout, images_per_trigger,
+        # number_of_triggers and roi_mode are not in stream2 at all, so are left
+        # empty rather than written with placeholder values.
 
         # Goniometer axis parameters
         for axis_name in GONIOMETER_DATASETS:
@@ -294,6 +297,9 @@ class EigerMetaWriter(MetaWriter):
         if not self._series_valid(header[SERIES_ID]):
             return
 
+        if not self._bit_depth_written:
+            self._write_bit_depth(data[DATATYPE])
+
         if data[IMAGE_ID] in self._frame_offset_map:
             self._logger.warning(
                 "%s | Base class has already written data for frame %d",
@@ -307,6 +313,20 @@ class EigerMetaWriter(MetaWriter):
             # This will be called when handle_write_frame is called in the
             # base class with this frame number
             self._frame_data_map[data[IMAGE_ID]] = data
+
+    def _write_bit_depth(self, data_type: str):
+        """Write bit_depth_image from the data type of the received images"""
+        bit_depth = DATATYPE_BIT_DEPTH.get(data_type)
+        if bit_depth is None:
+            self._logger.warning(
+                "%s | Cannot determine bit depth from data type %s",
+                self._name,
+                data_type,
+            )
+        else:
+            self._write_dataset(dectris(BIT_DEPTH_IMAGE), bit_depth)
+        # Only try once per series, whether or not it succeeded
+        self._bit_depth_written = True
 
     def handle_end_message(self, header: dict, _data: dict):
         """Handle end message - register to stop when writers finished"""
