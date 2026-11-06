@@ -186,7 +186,7 @@
     }
   },
   {
-    "tempfs":{
+    "tempfs": {
       "file_path": "/dev/shm/eiger/",
       "writing_enabled": true
     }
@@ -194,7 +194,7 @@
   {
     "eiger": {
       "endpoint": "tcp://127.0.0.1:31603",
-      "pchain_index": "offset",
+      "plugin_chain_index": "offset",
       "rawfw_index": "tmpfs"
     }
   }
