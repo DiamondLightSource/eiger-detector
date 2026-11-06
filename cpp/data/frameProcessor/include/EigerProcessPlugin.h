@@ -114,7 +114,7 @@ namespace FrameProcessor
 
     /** Current series id from header to verify image and end messages */
     uint64_t current_series_id_;
-    std::string offset_index_;
+    std::string plugin_chain_index_;
     std::string rawfilewriter_index_;
     /** Data stream endpoint to connect to */
     std::string endpoint_;

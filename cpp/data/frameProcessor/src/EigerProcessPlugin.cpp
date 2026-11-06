@@ -54,7 +54,7 @@ namespace FrameProcessor
   {
     if (config.has_param(EigerProcessPlugin::CONFIG_PLUGIN_CHAIN_INDEX))
     {
-      this->offset_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_PLUGIN_CHAIN_INDEX);
+      this->plugin_chain_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_PLUGIN_CHAIN_INDEX);
     }
 
     if (config.has_param(EigerProcessPlugin::CONFIG_RAWFW_INDEX))
@@ -249,7 +249,7 @@ namespace FrameProcessor
       auto shared_fr = std::allocate_shared<WrappedFrame>(alloc, frame, frame_meta_data,
                                                           image_data->data.array.data.ptr - reinterpret_cast<uint8_t *>(const_cast<void *>(zmq_message.data())));
       // shared_ptr aliasing constructor - no new memory allocation from the global heap is made.
-      this->push(offset_index_, boost::shared_ptr<WrappedFrame>(pmr_ctrl_blk, shared_fr.get()));
+      this->push(plugin_chain_index_, boost::shared_ptr<WrappedFrame>(pmr_ctrl_blk, shared_fr.get()));
       // Update name and size for this image channel
       // Dataset names are `data`, `data2`, `data3`, ...
       snprintf(&to_str[4], sizeof(to_str), "%lu", id + 1);
@@ -300,7 +300,7 @@ namespace FrameProcessor
   void EigerProcessPlugin::requestConfiguration(OdinData::IpcMessage &reply)
   {
     reply.set_param(this->get_name() + '/' + CONFIG_ENDPOINT, this->endpoint_);
-    reply.set_param(this->get_name() + '/' + CONFIG_PLUGIN_CHAIN_INDEX, this->offset_index_);
+    reply.set_param(this->get_name() + '/' + CONFIG_PLUGIN_CHAIN_INDEX, this->plugin_chain_index_);
     reply.set_param(this->get_name() + '/' + CONFIG_RAWFW_INDEX, this->rawfilewriter_index_);
   }
 
