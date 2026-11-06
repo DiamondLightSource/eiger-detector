@@ -124,7 +124,7 @@ namespace FrameProcessor
     rapidjson::Writer<rapidjson::StringBuffer> writer_;
 
     static inline const std::string CONFIG_ENDPOINT = "endpoint";
-    static inline const std::string CONFIG_OFFSET_INDEX = "offset_index";
+    static inline const std::string CONFIG_PCHAIN_INDEX = "pchain_index";
     static inline const std::string CONFIG_RAWFW_INDEX = "rawfw_index";
     static inline const std::string STATUS_DROPPED_FRAMES = "dropped_frames";
 

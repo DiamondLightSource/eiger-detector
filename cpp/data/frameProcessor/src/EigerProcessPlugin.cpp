@@ -31,7 +31,7 @@ namespace FrameProcessor
     int hwm = 10000;
     zmq_socket_.setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
     add_config_param_metadata(EigerProcessPlugin::CONFIG_ENDPOINT, PMDD::STRING_T, PMDA::READ_WRITE);
-    add_config_param_metadata(EigerProcessPlugin::CONFIG_OFFSET_INDEX, PMDD::STRING_T, PMDA::READ_WRITE);
+    add_config_param_metadata(EigerProcessPlugin::CONFIG_PCHAIN_INDEX, PMDD::STRING_T, PMDA::READ_WRITE);
     add_config_param_metadata(EigerProcessPlugin::CONFIG_RAWFW_INDEX, PMDD::STRING_T, PMDA::READ_WRITE);
     add_status_param_metadata(EigerProcessPlugin::STATUS_DROPPED_FRAMES, PMDD::UINT_T, PMDA::READ_ONLY, 0);
     LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "EigerProcessPlugin constructor.");
@@ -52,8 +52,8 @@ namespace FrameProcessor
    */
   void EigerProcessPlugin::configure(OdinData::IpcMessage &config, OdinData::IpcMessage &reply)
   {
-    if (config.has_param(EigerProcessPlugin::CONFIG_OFFSET_INDEX)) {
-      this->offset_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_OFFSET_INDEX);
+    if (config.has_param(EigerProcessPlugin::CONFIG_PCHAIN_INDEX)) {
+      this->offset_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_PCHAIN_INDEX);
     }
 
     if (config.has_param(EigerProcessPlugin::CONFIG_RAWFW_INDEX)) {
@@ -115,6 +115,8 @@ namespace FrameProcessor
         LOG4CXX_ERROR(Logger::getLogger("FP.EigerProcessPlugin"), "stream2_parse_msg returned error code " << (int)error);
         continue;
       }
+
+
 
       switch (message->type)
       {
@@ -295,7 +297,7 @@ namespace FrameProcessor
   void EigerProcessPlugin::requestConfiguration(OdinData::IpcMessage &reply)
   {
     reply.set_param(this->get_name() + '/' + CONFIG_ENDPOINT, this->endpoint_);
-    reply.set_param(this->get_name() + '/' + CONFIG_OFFSET_INDEX, this->offset_index_);
+    reply.set_param(this->get_name() + '/' + CONFIG_PCHAIN_INDEX, this->offset_index_);
     reply.set_param(this->get_name() + '/' + CONFIG_RAWFW_INDEX, this->rawfilewriter_index_);
   }
 
