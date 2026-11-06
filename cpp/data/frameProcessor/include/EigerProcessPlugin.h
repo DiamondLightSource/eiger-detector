@@ -37,6 +37,7 @@ namespace FrameProcessor
   {
     constexpr static int BODY_CH_SIZE = 2048;
     constexpr static int HEADER_CH_SIZE = 11;
+
   public:
     EigerProcessPlugin();
     virtual ~EigerProcessPlugin();
@@ -53,11 +54,11 @@ namespace FrameProcessor
     /** Handle data stream socket */
     void handle_rx_socket();
     /** Handle a start message */
-    void handle_start_msg(struct stream2_start_msg* message, const zmq::message_t& zmq_message);
+    void handle_start_msg(struct stream2_start_msg *message, const zmq::message_t &zmq_message);
     /** Handle a image message */
-    void handle_image_msg(struct stream2_image_msg* message, const zmq::message_t& zmq_message);
+    void handle_image_msg(struct stream2_image_msg *message, const zmq::message_t &zmq_message);
     /** Handle an end message */
-    void handle_end_msg(struct stream2_end_msg* message, const zmq::message_t& zmq_message);
+    void handle_end_msg(struct stream2_end_msg *message, const zmq::message_t &zmq_message);
 
     /**
      * Parse the data type from a stream2 image
@@ -65,7 +66,7 @@ namespace FrameProcessor
      * @param[in] image_data The stream2_image_data to extract compression from
      * @param[out] DataType The type of data - only uint8_t, uint16_t and uint32_t allowed.
      */
-    static inline DataType get_stream2_data_type(const struct stream2_image_data* image_data) 
+    static inline DataType get_stream2_data_type(const struct stream2_image_data *image_data)
     {
       uint64_t elem_size = 0;
       uint64_t size = 0;
@@ -79,7 +80,8 @@ namespace FrameProcessor
       type_arr[3] = DataType::raw_unknown;
       type_arr[4] = DataType::raw_32bit;
 
-      if ((elem_size == 0) | (elem_size == 3)) {
+      if ((elem_size == 0) | (elem_size == 3))
+      {
         LOG4CXX_ERROR(Logger::getLogger("FP.EigerProcessPlugin"), "Unknown frame data type size: " << size);
       }
       return type_arr[elem_size];
@@ -89,25 +91,30 @@ namespace FrameProcessor
      * Get the compression algorithm from a stream2_image_data
      *
      * @param[in] image_data The stream2_image_data to extract compression from.
-     * @param[out] [CompressionType, const char*] a pair of the compression enum type along with a 
+     * @param[out] [CompressionType, const char*] a pair of the compression enum type along with a
      *                                            pointer to the given string or "unknown" string.
      */
-    static inline std::pair<CompressionType, const char*> get_stream2_compression(const struct stream2_image_data* image_data) {
-      if (strcmp(image_data->data.array.data.compression.algorithm, "bslz4") == 0) {
-          return {CompressionType::bslz4, image_data->data.array.data.compression.algorithm};
+    static inline std::pair<CompressionType, const char *> get_stream2_compression(const struct stream2_image_data *image_data)
+    {
+      if (strcmp(image_data->data.array.data.compression.algorithm, "bslz4") == 0)
+      {
+        return {CompressionType::bslz4, image_data->data.array.data.compression.algorithm};
       }
-      else if (strcmp(image_data->data.array.data.compression.algorithm, "lz4") == 0) {
-          return {CompressionType::lz4, image_data->data.array.data.compression.algorithm};
-      } else {
-          return {CompressionType::no_compression, "unknown"};
+      else if (strcmp(image_data->data.array.data.compression.algorithm, "lz4") == 0)
+      {
+        return {CompressionType::lz4, image_data->data.array.data.compression.algorithm};
+      }
+      else
+      {
+        return {CompressionType::no_compression, "unknown"};
       }
     }
     /** Parse the total size of the data in a stream2 image */
-    uint32_t get_stream2_compressed_size(const struct stream2_image_data* image_data);
+    uint32_t get_stream2_compressed_size(const struct stream2_image_data *image_data);
 
     /** Current series id from header to verify image and end messages */
     uint64_t current_series_id_;
-    std::string offset_index_;
+    std::string plugin_chain_index_;
     std::string rawfilewriter_index_;
     /** Data stream endpoint to connect to */
     std::string endpoint_;
@@ -124,15 +131,15 @@ namespace FrameProcessor
     rapidjson::Writer<rapidjson::StringBuffer> writer_;
 
     static inline const std::string CONFIG_ENDPOINT = "endpoint";
-    static inline const std::string CONFIG_OFFSET_INDEX = "offset_index";
+    static inline const std::string CONFIG_PLUGIN_CHAIN_INDEX = "plugin_chain_index";
     static inline const std::string CONFIG_RAWFW_INDEX = "rawfw_index";
     static inline const std::string STATUS_DROPPED_FRAMES = "dropped_frames";
 
     /** Parent class methods */
 
-    void configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
-    void requestConfiguration(OdinData::IpcMessage& reply);
-    void status(OdinData::IpcMessage& status);
+    void configure(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
+    void requestConfiguration(OdinData::IpcMessage &reply);
+    void status(OdinData::IpcMessage &status);
     bool reset_statistics();
     /** `process_frame` should not be called as the data is received directly from a socket */
     void process_frame(boost::shared_ptr<Frame> frame);

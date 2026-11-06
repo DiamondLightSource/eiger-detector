@@ -31,7 +31,7 @@ namespace FrameProcessor
     int hwm = 10000;
     zmq_socket_.setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
     add_config_param_metadata(EigerProcessPlugin::CONFIG_ENDPOINT, PMDD::STRING_T, PMDA::READ_WRITE);
-    add_config_param_metadata(EigerProcessPlugin::CONFIG_OFFSET_INDEX, PMDD::STRING_T, PMDA::READ_WRITE);
+    add_config_param_metadata(EigerProcessPlugin::CONFIG_PLUGIN_CHAIN_INDEX, PMDD::STRING_T, PMDA::READ_WRITE);
     add_config_param_metadata(EigerProcessPlugin::CONFIG_RAWFW_INDEX, PMDD::STRING_T, PMDA::READ_WRITE);
     add_status_param_metadata(EigerProcessPlugin::STATUS_DROPPED_FRAMES, PMDD::UINT_T, PMDA::READ_ONLY, 0);
     LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "EigerProcessPlugin constructor.");
@@ -52,11 +52,13 @@ namespace FrameProcessor
    */
   void EigerProcessPlugin::configure(OdinData::IpcMessage &config, OdinData::IpcMessage &reply)
   {
-    if (config.has_param(EigerProcessPlugin::CONFIG_OFFSET_INDEX)) {
-      this->offset_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_OFFSET_INDEX);
+    if (config.has_param(EigerProcessPlugin::CONFIG_PLUGIN_CHAIN_INDEX))
+    {
+      this->plugin_chain_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_PLUGIN_CHAIN_INDEX);
     }
 
-    if (config.has_param(EigerProcessPlugin::CONFIG_RAWFW_INDEX)) {
+    if (config.has_param(EigerProcessPlugin::CONFIG_RAWFW_INDEX))
+    {
       this->rawfilewriter_index_ = config.get_param<std::string>(EigerProcessPlugin::CONFIG_RAWFW_INDEX);
     }
 
@@ -80,7 +82,8 @@ namespace FrameProcessor
         return;
       }
 
-      rx_thread_ = std::thread([this]() { this->handle_rx_socket(); });
+      rx_thread_ = std::thread([this]()
+                               { this->handle_rx_socket(); });
     }
   }
 
@@ -145,7 +148,7 @@ namespace FrameProcessor
     LOG4CXX_INFO(Logger::getLogger("FP.EigerProcessPlugin"), "Handling start message");
     this->current_series_id_ = message->series_id;
     char to_str[42] = {'\0'};
-    snprintf(to_str, sizeof(to_str), "{\"series_id\": %lu}",  message->series_id);
+    snprintf(to_str, sizeof(to_str), "{\"series_id\": %lu}", message->series_id);
     publish_meta(get_name(), "eiger-start", zmq_message.data(), zmq_message.size(), to_str);
   }
 
@@ -157,10 +160,11 @@ namespace FrameProcessor
    */
   void EigerProcessPlugin::handle_image_msg(struct stream2_image_msg *message, const zmq::message_t &zmq_message)
   {
-    LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "Processing series " 
-                  << message->series_id << " image " << message->image_id);
+    LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "Processing series "
+                                                                  << message->series_id << " image " << message->image_id);
     char to_str[128] = {'\0'};
-    if (message->series_id != this->current_series_id_) {
+    if (message->series_id != this->current_series_id_)
+    {
       snprintf(to_str, sizeof(to_str), "Series number mimatch %lu - expecting %lu - ignoring",
                message->series_id, this->current_series_id_);
       this->set_error(to_str);
@@ -173,19 +177,18 @@ namespace FrameProcessor
     DataType data_type = get_stream2_data_type(image_data);
     auto [compression_type, compression_str] = get_stream2_compression(image_data);
     // Create a Frame and send it to the RawFileWriterPlugin
-    FrameMetaData frame_meta_data{static_cast<long long>(message->image_id), "", data_type, to_str, 
-                                  {image_data->data.dim[0], image_data->data.dim[1]}, compression_type};
+    FrameMetaData frame_meta_data{static_cast<long long>(message->image_id), "", data_type, to_str, {image_data->data.dim[0], image_data->data.dim[1]}, compression_type};
     // Just use the first channel size for parameter dataset
     frame_meta_data.set_parameter("compressed_size", image_data->data.array.data.len);
     boost::shared_ptr<DataBlockFrame> frame;
     try
     {
       frame = boost::make_shared<DataBlockFrame>(
-              DataBlockFrame(
-                frame_meta_data,
-                zmq_message.data(),
-                zmq_message.size(),
-                0));
+          DataBlockFrame(
+              frame_meta_data,
+              zmq_message.data(),
+              zmq_message.size(),
+              0));
 
       // call RawFileWriterPlugin index here
       this->push(this->rawfilewriter_index_, frame);
@@ -219,11 +222,12 @@ namespace FrameProcessor
     writer_.EndArray();
     writer_.Key("compression");
     writer_.String(compression_str);
-    struct MessagePmrControlBlock {
+    struct MessagePmrControlBlock
+    {
       std::vector<std::byte> raw_buffer;
       std::pmr::monotonic_buffer_resource mem_pool;
-      MessagePmrControlBlock(size_t size) 
-        : raw_buffer(size), mem_pool(raw_buffer.data(), raw_buffer.size()) {}
+      MessagePmrControlBlock(size_t size)
+          : raw_buffer(size), mem_pool(raw_buffer.data(), raw_buffer.size()) {}
     };
 
     constexpr uint32_t control_block_sz = 32; // shared_ptr control block size is between 24-32 bytes max across all architectures
@@ -235,23 +239,24 @@ namespace FrameProcessor
     // Handle each channel by wrapping the original Frame
     snprintf(to_str, sizeof(to_str), "data");
     size_t id = 1;
-    for (size_t data_idx = 0; data_idx < message->data.len; ++data_idx) {
+    for (size_t data_idx = 0; data_idx < message->data.len; ++data_idx)
+    {
       image_data = &message->data.ptr[data_idx];
       frame->set_image_size(image_data->data.array.data.len);
       frame_meta_data.set_dataset_name(to_str);
       writer_.Uint(image_data->data.array.data.len);
       // allocate_shared() will reuse the buffer in the mem_pool so no new allocation is made from the global heap.
       auto shared_fr = std::allocate_shared<WrappedFrame>(alloc, frame, frame_meta_data,
-                      image_data->data.array.data.ptr - reinterpret_cast<uint8_t*>(const_cast<void*>(zmq_message.data())));
+                                                          image_data->data.array.data.ptr - reinterpret_cast<uint8_t *>(const_cast<void *>(zmq_message.data())));
       // shared_ptr aliasing constructor - no new memory allocation from the global heap is made.
-      this->push(offset_index_, boost::shared_ptr<WrappedFrame>(pmr_ctrl_blk, shared_fr.get()));
+      this->push(plugin_chain_index_, boost::shared_ptr<WrappedFrame>(pmr_ctrl_blk, shared_fr.get()));
       // Update name and size for this image channel
       // Dataset names are `data`, `data2`, `data3`, ...
       snprintf(&to_str[4], sizeof(to_str), "%lu", id + 1);
       ++id;
     }
     writer_.EndObject();
-    snprintf(to_str, sizeof(to_str), "{\"series_id\":%lu}",  message->series_id); // header
+    snprintf(to_str, sizeof(to_str), "{\"series_id\":%lu}", message->series_id); // header
     publish_meta(get_name(), "eiger-image", buffer_.GetString(), to_str);
     LOG4CXX_TRACE(Logger::getLogger("FP.EigerProcessPlugin"), "Finished handling image message");
   }
@@ -267,7 +272,7 @@ namespace FrameProcessor
     // this->notify_end_of_acquisition();  // Need to delay this or we could miss the last few frames
     LOG4CXX_INFO(Logger::getLogger("FP.EigerProcessPlugin"), "Handling end message");
     char to_str[42] = {'\0'};
-    snprintf(to_str, sizeof(to_str), "{\"series_id\": %lu}",  message->series_id);
+    snprintf(to_str, sizeof(to_str), "{\"series_id\": %lu}", message->series_id);
     publish_meta(get_name(), "eiger-end", zmq_message.data(), zmq_message.size(), to_str);
   }
 
@@ -295,7 +300,7 @@ namespace FrameProcessor
   void EigerProcessPlugin::requestConfiguration(OdinData::IpcMessage &reply)
   {
     reply.set_param(this->get_name() + '/' + CONFIG_ENDPOINT, this->endpoint_);
-    reply.set_param(this->get_name() + '/' + CONFIG_OFFSET_INDEX, this->offset_index_);
+    reply.set_param(this->get_name() + '/' + CONFIG_PLUGIN_CHAIN_INDEX, this->plugin_chain_index_);
     reply.set_param(this->get_name() + '/' + CONFIG_RAWFW_INDEX, this->rawfilewriter_index_);
   }
 
