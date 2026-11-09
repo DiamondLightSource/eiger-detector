@@ -41,7 +41,7 @@
   {
     "plugin": {
       "load": {
-        "index": "tempfs",
+        "index": "rawfw",
         "name": "RawFileWriterPlugin",
         "library": "/odin/lib/libRawFileWriterPlugin.so"
       }
@@ -74,7 +74,7 @@
   {
     "plugin": {
       "connect": {
-        "index": "tempfs",
+        "index": "rawfw",
         "connection": "eiger"
       }
     }
@@ -186,7 +186,7 @@
     }
   },
   {
-    "tempfs": {
+    "rawfw": {
       "file_path": "/dev/shm/eiger/",
       "writing_enabled": true
     }
@@ -195,7 +195,7 @@
     "eiger": {
       "endpoint": "tcp://127.0.0.1:31602",
       "plugin_chain_index": "offset",
-      "rawfw_index": "tmpfs"
+      "rawfw_index": "rawfw"
     }
   }
 ]
