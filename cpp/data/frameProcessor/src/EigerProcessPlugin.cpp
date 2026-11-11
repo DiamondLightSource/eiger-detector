@@ -222,6 +222,8 @@ namespace FrameProcessor
     writer_.EndArray();
     writer_.Key("compression");
     writer_.String(compression_str);
+    writer_.Key("size");
+    writer_.StartArray();
     struct MessagePmrControlBlock
     {
       std::vector<std::byte> raw_buffer;
@@ -244,6 +246,7 @@ namespace FrameProcessor
       image_data = &message->data.ptr[data_idx];
       frame->set_image_size(image_data->data.array.data.len);
       frame_meta_data.set_dataset_name(to_str);
+      writer_.Uint(image_data->data.array.data.len);
       // allocate_shared() will reuse the buffer in the mem_pool so no new allocation is made from the global heap.
       auto shared_fr = std::allocate_shared<WrappedFrame>(alloc, frame, frame_meta_data,
                                                           image_data->data.array.data.ptr - reinterpret_cast<uint8_t *>(const_cast<void *>(zmq_message.data())));
@@ -254,6 +257,7 @@ namespace FrameProcessor
       snprintf(&to_str[4], sizeof(to_str), "%lu", id + 1);
       ++id;
     }
+    writer_.EndArray();
     writer_.EndObject();
     snprintf(to_str, sizeof(to_str), "{\"series_id\":%lu}", message->series_id); // header
     publish_meta(get_name(), "eiger-image", buffer_.GetString(), to_str);
