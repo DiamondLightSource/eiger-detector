@@ -244,7 +244,6 @@ namespace FrameProcessor
       image_data = &message->data.ptr[data_idx];
       frame->set_image_size(image_data->data.array.data.len);
       frame_meta_data.set_dataset_name(to_str);
-      writer_.Uint(image_data->data.array.data.len);
       // allocate_shared() will reuse the buffer in the mem_pool so no new allocation is made from the global heap.
       auto shared_fr = std::allocate_shared<WrappedFrame>(alloc, frame, frame_meta_data,
                                                           image_data->data.array.data.ptr - reinterpret_cast<uint8_t *>(const_cast<void *>(zmq_message.data())));
