@@ -189,7 +189,7 @@ namespace FrameProcessor
               zmq_message.data(),
               zmq_message.size(),
               0));
-      frame.set_frame_number(message->image_id);
+      frame->set_frame_number(message->image_id);
 
       // call RawFileWriterPlugin index here
       this->push(this->rawfilewriter_index_, frame);
