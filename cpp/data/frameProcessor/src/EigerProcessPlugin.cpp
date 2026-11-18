@@ -173,7 +173,7 @@ namespace FrameProcessor
 
     // Parse out fields constant for all image channels from first channel
     const stream2_image_data *image_data = &message->data.ptr[0];
-    snprintf(to_str, sizeof(to_str), "%lu", message->image_id/1000); // acquisition ID
+    snprintf(to_str, sizeof(to_str), "%lu", message->image_id*0.001); // acquisition ID
     DataType data_type = get_stream2_data_type(image_data);
     auto [compression_type, compression_str] = get_stream2_compression(image_data);
     // Create a Frame and send it to the RawFileWriterPlugin
